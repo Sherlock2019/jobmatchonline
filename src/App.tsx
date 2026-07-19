@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { PhoneCarousel } from './components/PhoneCarousel';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
 import { Activity, ArrowRight, BarChart3, Bell, BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, Filter, Heart, Inbox, Layers3, Linkedin, MapPin, Menu, MessageCircle, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
@@ -70,17 +71,12 @@ function Landing({ onEnter }: { onEnter: () => void }) {
         <div className="hero-actions"><button className="primary-button" onClick={onEnter}>Find matches near me <ArrowRight size={18} /></button><button className="linkedin-button" onClick={connectLinkedIn}><Linkedin size={18} fill="currentColor" />Continue with LinkedIn</button></div>
         <div className="proof-row"><span><Check size={14} /> Explainable fit</span><span><Check size={14} /> Private distance range</span><span><Check size={14} /> Salary up front</span></div>
       </div>
-      <div className="hero-visual" aria-label="JobsMatchNow product preview">
+      <div className="hero-visual carousel-side" aria-label="JobsMatchNow product preview">
         <div className="floating-love love-one"><Heart size={16} fill="currentColor" /></div><div className="floating-love love-two"><Sparkles size={14} /></div>
-        <div className="signal signal-one"><span>94%</span><small>Role fit</small></div>
-        <div className="signal signal-two"><ShieldCheck size={20} /><small>Verified</small></div>
-        <div className="preview-card back-card" />
-        <div className="preview-card">
-          <div className="preview-top"><div className="company-mark" style={{ background: '#3d5afe' }}>N</div><span className="fit-pill">94% match</span></div>
-          <div><span className="label">Northstar · Singapore</span><h3>Senior Product Designer</h3><p>$110k–$145k · Hybrid</p></div>
-          <div className="chip-row"><span>Product strategy</span><span>Figma</span><span>+2</span></div>
-          <div className="why-box"><Sparkles size={17} /><div><strong>Why this fits</strong><p>Your design systems experience and product strategy background match their top priorities.</p></div></div>
-          <div className="swipe-actions"><button><X /></button><button className="like"><Heart fill="currentColor" /></button></div>
+        <PhoneCarousel />
+        <div className="pc-auth">
+          <button className="primary-button" onClick={onEnter}>Register free <ArrowRight size={17} /></button>
+          <button className="linkedin-button" onClick={connectLinkedIn}><Linkedin size={17} fill="currentColor" /> Log in</button>
         </div>
       </div>
     </section>
