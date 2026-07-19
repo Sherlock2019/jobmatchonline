@@ -3,14 +3,19 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JsonStore } from './store.js';
+import { PgStore } from './store-pg.js';
 import { createSeed } from './seed.js';
 import { detectMutualMatch, likesRemainingToday, scoreCandidateForJob, ValidationError, reqString, oneOf } from './matching.js';
 import { exchangeLinkedinCode, linkedinAuthorizationUrl, readSignedValue, signedValue, toLinkedinJobPayload } from './integrations/linkedin.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(dirname, '..');
-const store = new JsonStore(process.env.DB_PATH || path.join(root, 'data', 'db.json'), createSeed);
+// DATABASE_URL (RDS PostgreSQL) selects the durable production store; the JSON file remains the zero-dependency dev default.
+const store = process.env.DATABASE_URL
+  ? new PgStore(process.env.DATABASE_URL, createSeed)
+  : new JsonStore(process.env.DB_PATH || path.join(root, 'data', 'db.json'), createSeed);
 await store.init();
+console.log(`JobMatch store: ${process.env.DATABASE_URL ? 'postgresql (RDS)' : 'json file'}`);
 const demoDistances = { 'j-1': 7, 'j-2': 18, 'j-3': 42, 'j-4': 75, 'c-1': 5, 'c-2': 26, 'c-3': 12, 'c-4': 65 };
 const sessionSecret = process.env.SESSION_SECRET || 'jobmatch-local-development-only-secret';
 if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) throw new Error('SESSION_SECRET is required in production');
