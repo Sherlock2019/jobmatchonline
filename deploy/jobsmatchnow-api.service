@@ -1,0 +1,26 @@
+[Unit]
+Description=JobsMatchNow MVP API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/jobsmatchnow-api/current/server
+Environment=NODE_ENV=production
+Environment=PORT=4174
+Environment=DB_PATH=/var/lib/jobsmatchnow/db.json
+Environment=ALLOWED_ORIGINS=https://jobsmatchnow.com,https://www.jobsmatchnow.com
+EnvironmentFile=/etc/jobsmatchnow-api.env
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/jobsmatchnow
+
+[Install]
+WantedBy=multi-user.target
