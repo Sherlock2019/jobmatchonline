@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CAROUSEL_SLIDES, type CarouselSlide } from './carouselData';
 
+/* Slide 1 uses the exact production mockup artwork (real faces); the remaining
+   29 screens are rendered live so every story stays browsable. */
+const EXACT_IMG = import.meta.env.BASE_URL + 'hero-phone.png';
+
 /* Phone-mockup carousel: 30 screens cycling "It's a Match" → candidate profile →
    company job description. Swipe on touch, arrows + counter under the phone. */
 
@@ -90,7 +94,7 @@ export function PhoneCarousel() {
   return (
     <div className="phone-carousel">
       <div
-        className="pc-phone"
+        className={'pc-phone' + (index === 0 ? ' pc-photo' : '')}
         role="group"
         aria-roledescription="carousel"
         aria-label={`Product preview ${index + 1} of ${total}: ${label}`}
@@ -102,15 +106,21 @@ export function PhoneCarousel() {
           touchX.current = null;
         }}
       >
-        <div className="pc-notch" />
-        <div className="pc-brand"><span className="pc-brand-mark">♥</span><b>Jobs</b><b className="pc-mid">Match</b><b className="pc-now">Now</b></div>
-        <div className="pc-track" style={{ transform: `translateX(-${index * 100}%)` }}>
-          {CAROUSEL_SLIDES.map((s, i) => (
-            <div className="pc-slide" key={i} aria-hidden={i !== index}>
-              {s.kind === 'match' ? <MatchScreen slide={s} /> : s.kind === 'candidate' ? <CandidateScreen slide={s} /> : <JobScreen slide={s} />}
+        {index === 0 ? (
+          <img className="pc-exact-img" src={EXACT_IMG} alt="It's a Match — Alex Martinez and Sarah Thompson have mutually matched on JobsMatchNow" />
+        ) : (
+          <>
+            <div className="pc-notch" />
+            <div className="pc-brand"><span className="pc-brand-mark">♥</span><b>Jobs</b><b className="pc-mid">Match</b><b className="pc-now">Now</b></div>
+            <div className="pc-track" style={{ transform: `translateX(-${index * 100}%)` }}>
+              {CAROUSEL_SLIDES.map((s, i) => (
+                <div className="pc-slide" key={i} aria-hidden={i !== index}>
+                  {s.kind === 'match' ? <MatchScreen slide={s} /> : s.kind === 'candidate' ? <CandidateScreen slide={s} /> : <JobScreen slide={s} />}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </div>
       <div className="pc-nav" aria-label="Browse product screens">
         <button type="button" onClick={() => go(-1)} aria-label="Previous screen">‹</button>

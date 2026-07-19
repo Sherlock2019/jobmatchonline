@@ -26,7 +26,7 @@ const { pathToFileURL } = require('node:url');
     { waitUntil() {}, passThroughOnException() {} });
   if (res.status !== 200) throw new Error('prerender failed: HTTP ' + res.status);
   const html = await res.text();
-  if (!/Let the right match choose you/.test(html)) throw new Error('prerender missing expected hero copy');
+  if (!/Let the perfect role—or candidate—chase you/.test(html) || !/hero-phone\.png/.test(html)) throw new Error('prerender missing expected hero copy or exact mockup image');
   require('node:fs').writeFileSync('marketing/dist/client/index.html', html);
   console.log('   prerendered index.html:', html.length, 'bytes');
 })().catch((e) => { console.error(e); process.exit(1); });
@@ -60,7 +60,7 @@ sleep 2
 for u in "https://jobsmatchnow.com" "https://jobsmatchnow.com/app/" "https://jobsmatchnow.com/api/health"; do
   printf '   %-42s HTTP %s\n' "$u" "$(curl -s -o /dev/null -m 15 -w '%{http_code}' "$u")"
 done
-curl -s -m 15 https://jobsmatchnow.com | grep -o "Let the right match choose you" | head -1 \
-  && echo "   NEW PITCH LIVE" || { echo "   ⚠ new pitch not found on live page"; exit 1; }
+curl -s -m 15 https://jobsmatchnow.com | grep -o "chase you\|hero-phone.png" | head -2 \
+  && echo "   HERO LIVE" || { echo "   ⚠ hero copy/mockup not found on live page"; exit 1; }
 rm -rf "$STAGE"
 echo "DEPLOY COMPLETE: release $STAMP"

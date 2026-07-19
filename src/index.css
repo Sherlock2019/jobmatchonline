@@ -498,3 +498,8 @@ button { cursor:pointer; }
 .pc-auth{display:flex;gap:10px;margin-top:14px;justify-content:center;flex-wrap:wrap;}
 .carousel-side{display:flex;flex-direction:column;align-items:center;}
 @media(max-width:760px){.pc-phone{width:272px;height:560px;}.pc-count{min-width:130px;font-size:11px;}}
+
+/* exact photo mockup slide (slide 1) + hero play chip */
+.pc-phone.pc-photo{width:424px;max-width:92vw;background:transparent;border:none;box-shadow:none;border-radius:0;overflow:visible;display:flex;align-items:center;justify-content:center;}
+.pc-exact-img{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 34px 60px rgba(190,24,93,.28));}
+.play-dot{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#0f172a;color:#fff;font-size:9px;flex:none;}
