@@ -1,0 +1,123 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // --- User Profiles ---
+    function isValidProfile(data) {
+      return data.uid == request.auth.uid 
+        && data.role in ['candidate', 'employer']
+        && data.displayName is string && data.displayName.size() <= 100
+        && (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 2000))
+        && (data.email == null || (data.email is string && data.email.size() <= 200))
+        && (data.bio == null || (data.bio is string && data.bio.size() <= 2000))
+        && (data.skills == null || (data.skills is list && data.skills.size() <= 50))
+        && (data.languages == null || (data.languages is list && data.languages.size() <= 20))
+        && (data.experienceLevel == null || data.experienceLevel in ['junior', 'mid', 'senior', 'lead'])
+        && (data.location == null || (data.location.lat is number && data.location.lng is number && data.location.address is string))
+        && (data.linkedinUrl == null || (data.linkedinUrl is string && data.linkedinUrl.size() <= 2000))
+        && (data.resumeUrl == null || (data.resumeUrl is string && data.resumeUrl.size() <= 2000))
+        && (data.githubUrl == null || (data.githubUrl is string && data.githubUrl.size() <= 2000))
+        && (data.desiredSkills == null || (data.desiredSkills is list && data.desiredSkills.size() <= 50))
+        && (data.mindset == null || (data.mindset is string && data.mindset.size() <= 2000))
+        && (data.culture == null || (data.culture is string && data.culture.size() <= 2000))
+        && (data.style == null || (data.style is string && data.style.size() <= 2000))
+        && (data.desiredSalary == null || (data.desiredSalary is string && data.desiredSalary.size() <= 100))
+        && (data.companySize == null || (data.companySize is string && data.companySize.size() <= 100))
+        && (data.industry == null || (data.industry is string && data.industry.size() <= 200))
+        && (data.mission == null || (data.mission is string && data.mission.size() <= 5000))
+        && (data.createdAt == null || data.createdAt is number);
+    }
+
+    match /profiles/{userId} {
+      // Allow any signed-in user to see any profile for discovery/matching
+      allow get: if isSignedIn();
+      // Allow listing profiles for matching (Candidates for Employers)
+      allow list: if isSignedIn() && (
+        isOwner(userId) || 
+        (resource.data.role == 'candidate') // Employers search candidates
+      );
+      allow create: if isOwner(userId) && isValidProfile(incoming());
+      allow update: if isOwner(userId) && isValidProfile(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'bio', 'skills', 'languages', 'experienceLevel', 'email', 'uid', 'role', 'createdAt', 'timestamp', 'location', 'resumeUrl', 'githubUrl', 'desiredSkills', 'mindset', 'culture', 'style', 'desiredSalary', 'linkedinUrl', 'companySize', 'industry', 'mission'])
+        && incoming().uid == existing().uid
+        && incoming().role == existing().role;
+    }
+
+    // --- Job Postings ---
+    function isValidJob(data) {
+      return data.employerUid == request.auth.uid
+        && data.title is string && data.title.size() <= 200
+        && data.companyName is string && data.companyName.size() <= 200
+        && (data.companyLogo == null || (data.companyLogo is string && data.companyLogo.size() <= 2000))
+        && (data.companySize == null || (data.companySize is string && data.companySize.size() <= 100))
+        && (data.industry == null || (data.industry is string && data.industry.size() <= 200))
+        && (data.companyMission == null || (data.companyMission is string && data.companyMission.size() <= 5000))
+        && data.description is string && data.description.size() <= 5000
+        && data.requiredSkills is list && data.requiredSkills.size() <= 50
+        && data.requiredLanguages is list && data.requiredLanguages.size() <= 20
+        && data.experienceLevel in ['junior', 'mid', 'senior', 'lead']
+        && (data.salaryRange == null || (data.salaryRange is string && data.salaryRange.size() <= 100))
+        && (data.location == null || (data.location.lat is number && data.location.lng is number && data.location.address is string))
+        && (data.mindset == null || (data.mindset is string && data.mindset.size() <= 2000))
+        && (data.culture == null || (data.culture is string && data.culture.size() <= 2000))
+        && (data.style == null || (data.style is string && data.style.size() <= 2000))
+        && (data.contractDetails == null || (data.contractDetails is string && data.contractDetails.size() <= 5000))
+        && (data.createdAt == null || data.createdAt is number);
+    }
+
+    match /jobs/{jobId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidJob(incoming());
+      allow update: if isSignedIn() && existing().employerUid == request.auth.uid && isValidJob(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'requiredSkills', 'requiredLanguages', 'experienceLevel', 'salaryRange', 'companyName', 'companyLogo', 'employerUid', 'location', 'mindset', 'culture', 'style', 'contractDetails', 'companySize', 'industry', 'companyMission']);
+      allow delete: if isSignedIn() && existing().employerUid == request.auth.uid;
+    }
+
+    // --- Swipes ---
+    function isValidSwipe(data) {
+      return data.fromUid == request.auth.uid
+        && data.type in ['candidate-to-job', 'employer-to-candidate']
+        && data.direction in ['like', 'pass']
+        && isValidId(data.toId)
+        && data.timestamp is number;
+    }
+
+    match /swipes/{swipeId} {
+      allow get: if isSignedIn() && existing().fromUid == request.auth.uid;
+      allow list: if isSignedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toId == request.auth.uid);
+      allow create: if isSignedIn() && isValidSwipe(incoming());
+    }
+
+    // --- Matches ---
+    function isValidMatch(data) {
+      return isValidId(data.jobPostId)
+        && data.candidateUid is string && data.candidateUid.size() <= 128
+        && data.employerUid is string && data.employerUid.size() <= 128
+        && data.timestamp is number;
+    }
+
+    match /matches/{matchId} {
+      allow read: if isSignedIn() && (
+        resource.data.candidateUid == request.auth.uid || 
+        resource.data.employerUid == request.auth.uid
+      );
+      // Matches should ideally be created by a cloud function, but for this demo 
+      // we'll allow client-side creation if the user is part of the match.
+      allow create: if isSignedIn() && isValidMatch(incoming()) && (
+        incoming().candidateUid == request.auth.uid || 
+        incoming().employerUid == request.auth.uid
+      );
+    }
+  }
+}
