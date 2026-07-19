@@ -1,0 +1,18 @@
+{
+  "name": "JobsMatchNow — Let the perfect match chase you",
+  "short_name": "JobsMatchNow",
+  "description": "Explainable, mutual matching between people and work.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff8fb",
+  "theme_color": "#fd267a",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Discover matches", "url": "/?open=discover", "icons": [{ "src": "/logo.png", "sizes": "512x512" }] },
+    { "name": "Messages", "url": "/?open=messages", "icons": [{ "src": "/logo.png", "sizes": "512x512" }] }
+  ]
+}

@@ -1,6 +1,0 @@
-{
-  "name": "JOBMATCH",
-  "description": "A gorgeous, professional Tinder-style job matching platform connecting candidates and employers through skills, culture, and mindset.",
-  "requestFramePermissions": ["geolocation"],
-  "majorCapabilities": []
-}

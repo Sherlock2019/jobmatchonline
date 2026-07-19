@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="surface" x1="80" y1="68" x2="432" y2="446" gradientUnits="userSpaceOnUse"><stop stop-color="#159CFF"/><stop offset=".52" stop-color="#1265E8"/><stop offset="1" stop-color="#142C91"/></linearGradient>
+    <linearGradient id="blue" x1="112" y1="196" x2="270" y2="352" gradientUnits="userSpaceOnUse"><stop stop-color="#16B8F4"/><stop offset="1" stop-color="#2458D8"/></linearGradient>
+    <linearGradient id="red" x1="225" y1="190" x2="397" y2="355" gradientUnits="userSpaceOnUse"><stop stop-color="#FF435A"/><stop offset="1" stop-color="#E80B3A"/></linearGradient>
+  </defs>
+  <rect x="74" y="74" width="364" height="364" rx="90" fill="url(#surface)"/>
+  <path d="M120 205C108 194 15 133 15 62C15 25 45 0 82 0C102 0 121 9 135 27C149 9 168 0 188 0C225 0 255 25 255 62C255 133 162 194 150 205C142 212 128 212 120 205Z" transform="translate(97 181) scale(.70)" fill="url(#blue)" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
+  <path d="M120 205C108 194 15 133 15 62C15 25 45 0 82 0C102 0 121 9 135 27C149 9 168 0 188 0C225 0 255 25 255 62C255 133 162 194 150 205C142 212 128 212 120 205Z" transform="translate(198 181) scale(.70)" fill="url(#red)" fill-opacity=".94" stroke="#fff" stroke-width="18" stroke-linejoin="round"/>
+</svg>

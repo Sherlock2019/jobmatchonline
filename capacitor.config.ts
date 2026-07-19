@@ -1,13 +1,13 @@
-import { CapacitorConfig } from '@capacitor/cli';
+import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.jobmatchai.app',
-  appName: 'JobMatch AI',
+  appId: 'com.jobsmatchnow.app',
+  appName: 'JobsMatchNow',
   webDir: 'dist',
-  server: {
-    url: 'https://ais-dev-wgqrbi75j2kcer5dfjpsgt-788856885719.asia-east1.run.app',
-    cleartext: true
-  }
+  server: { androidScheme: 'https' },
+  plugins: {
+    SplashScreen: { launchShowDuration: 1200, backgroundColor: '#fff8fb', showSpinner: false },
+  },
 };
 
 export default config;
