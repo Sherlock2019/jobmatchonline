@@ -1,0 +1,5 @@
+# API container needs only server/ + dist/ — keep the build context tiny
+*
+!server/
+server/node_modules
+!dist/
