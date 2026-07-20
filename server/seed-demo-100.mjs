@@ -105,7 +105,9 @@ for (let i = mutualCount + 1; i <= mutualCount + oneSidedCount; i++) {
 
 const url = process.env.DATABASE_URL;
 if (!url) { console.error('DATABASE_URL required'); process.exit(1); }
-const pool = new pg.Pool({ connectionString: url });
+/* RDS forces TLS; local/dev postgres does not use it */
+const ssl = /amazonaws\.com/.test(url) ? { rejectUnauthorized: false } : undefined;
+const pool = new pg.Pool({ connectionString: url, ssl });
 const client = await pool.connect();
 try {
   await client.query('BEGIN');
