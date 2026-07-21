@@ -63,6 +63,7 @@ export function applyJob(job, body, { strict = false } = {}) {
   set('interviewProcess', strArray(body.interviewProcess, 10, 120));
   set('startDate', str(body.startDate, 40));
   set('externalUrl', str(body.externalUrl, 400));
+  set('screeningQuestions', strArray(body.screeningQuestions, 5, 300));
   if (body.status !== undefined) {
     if (!JOB_STATUSES.includes(body.status)) throw new ValidationError('status', `status must be one of ${JOB_STATUSES.join(', ')}`);
     job.status = body.status;

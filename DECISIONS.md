@@ -129,3 +129,26 @@ Ambiguities resolved in favor of the simplest option consistent with the
 - **Salary reveal**: deck cards carry `salaryHidden` + a server-computed
   `salaryStatus` badge; exact ranges appear only in match-expanded payloads
   (both directions at once, shown in the match modal).
+
+## Part B — Coaching features (items 9–12)
+
+- **Committed as one unit**: the four features share one generation module
+  (`server/coaching.js`) and one UI module, so per-item commits would have been
+  artificial slices of the same files.
+- **Generation strategy** (shared by prep and kits): Claude API when
+  `ANTHROPIC_API_KEY` is set, otherwise a skill-keyed question bank with
+  template fallbacks; results cached on the job (`prepCache`) / match
+  (`kitCache`) records as the brief requires.
+- **The "Prepare" tab lives in a job-detail modal** opened from the card's
+  "Full role" button — the app had no job detail view before; a modal keeps the
+  deck flow intact.
+- **Screening answers ride the like-swipe** (stored on the swipe record) and are
+  joined onto matches at read time, so pre-existing matches and both swipe
+  orders work. Candidates can skip the form; the like still counts.
+- **Recruiter surface for answers + kits** is the pipeline tile (click a
+  candidate) — that is where recruiters already work their matches.
+- **Gap coach adds skills at level 3/5** ("have it" ≠ "expert") and re-runs the
+  bootstrap so every score updates live; unadded skills stay visibly listed as
+  honest gaps.
+- **Screening questions auto-suggest at job creation** when none are provided,
+  and the editor has a "Suggest from required skills" button (max 3 questions).

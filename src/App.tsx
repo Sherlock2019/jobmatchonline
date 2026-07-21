@@ -15,6 +15,8 @@ import { RecruiterWizard } from './components/profile/RecruiterWizard';
 import { RecruiterProfilePage } from './components/profile/RecruiterProfilePage';
 import { ResumeViewerModal } from './components/ResumeViewerModal';
 import { JobEditor } from './components/jobs/JobEditor';
+import { GapCoach, JobDetailModal, MatchDetailModal, ScreeningModal } from './components/coach/CoachModals';
+import type { ScreeningAnswer } from './types';
 import { comparisonRows } from './content/landingContent';
 import { loadSession, saveSession } from './lib/auth';
 import type { Bootstrap, Job, JobMatch, Message, Person, Role, SessionUser, View } from './types';
@@ -180,6 +182,8 @@ function Discover({ role, data, setData, navigate }: { role: Role; data: Bootstr
   const [busy, setBusy] = useState(false);
   const [match, setMatch] = useState<JobMatch | null>(null);
   const [resumeFor, setResumeFor] = useState<Person | null>(null);
+  const [jobDetail, setJobDetail] = useState<Job | null>(null);
+  const [screeningFor, setScreeningFor] = useState<Job | null>(null);
   const matchedCandidateIds = useMemo(() => new Set(data.matches.map((item) => item.candidateId)), [data.matches]);
   const [radius, setRadius] = useState(25);
   const rawDeck = role === 'candidate' ? data.jobs : data.candidates;
@@ -187,38 +191,48 @@ function Discover({ role, data, setData, navigate }: { role: Role; data: Bootstr
   useEffect(() => setIndex(0), [radius, role]);
   const current = deck[index];
   const next = deck[index + 1];
-  const act = async (direction: 'like' | 'pass') => {
-    if (!current || busy) return;
+  const commitSwipe = async (direction: 'like' | 'pass', target: Job | Person, answers?: ScreeningAnswer[]) => {
+    if (busy) return;
     setBusy(true);
     try {
-      const result = await api.swipe({ actorId: data.viewer.id, targetId: current.id, targetType: role === 'candidate' ? 'job' : 'candidate', direction });
+      const result = await api.swipe({ actorId: data.viewer.id, targetId: target.id, targetType: role === 'candidate' ? 'job' : 'candidate', direction, answers: answers?.length ? answers : undefined });
       if (result.match) setMatch(result.match);
       setData({ ...data, likesRemaining: result.likesRemaining ?? data.likesRemaining - (direction === 'like' ? 1 : 0) });
       setIndex((value) => value + 1);
     } catch (e) { alert(e instanceof Error ? e.message : 'Swipe failed'); }
     finally { setBusy(false); }
   };
+  const act = (direction: 'like' | 'pass') => {
+    if (!current || busy) return;
+    // Item 11: a right-swipe on a job with screening questions pauses for the 30-second form.
+    if (direction === 'like' && role === 'candidate' && (current as Job).screeningQuestions?.length) { setScreeningFor(current as Job); return; }
+    void commitSwipe(direction, current);
+  };
+  // Item 10: after a gap skill is added, re-bootstrap so every fit score recalculates live.
+  const refreshScores = () => api.bootstrap(data.viewer.id).then(setData).catch(() => undefined);
 
   return <div className="page discover-page"><div className="page-title"><div><span className="overline">{role === 'candidate' ? 'Your next move' : 'Recommended talent'}</span><h1>{role === 'candidate' ? 'Discover roles' : 'Discover people'}</h1><p>{role === 'candidate' ? 'Curated from your skills, goals, and work preferences.' : 'Ranked against Senior Product Designer · Northstar.'}</p></div><div className="title-actions"><button className="ghost-button"><SlidersHorizontal size={17} />Preferences</button><button className="ghost-button"><Filter size={17} />Filters <span>3</span></button></div></div>
     <section className="geo-control" aria-label="Geolocation of Opportunities"><div><MapPin size={18} /><span><small>Geolocation of Opportunities</small><strong>{role === 'candidate' ? 'Roles' : 'Candidates'} within {radius} km</strong></span></div><input aria-label="Maximum match distance in kilometres" type="range" min="5" max="100" step="5" value={radius} onChange={(event) => setRadius(Number(event.target.value))} /><p>City-level matching only. Exact locations stay private.</p></section>
     <div className="discover-layout"><section className="deck-area">
       <div className="deck-meta"><span><Sparkles size={15} />Personalized for you</span><small>{Math.max(deck.length - index, 0)} nearby recommendations</small></div>
-      <div className="card-stack">{next && <div className="stack-card"><CardSummary item={next} role={role} /></div>}{current ? <SwipeCard key={current.id} item={current} role={role} onSwipe={act} onOpenResume={role === 'employer' ? setResumeFor : undefined} resumeUnlocked={role === 'employer' && matchedCandidateIds.has(current.id)} /> : <EmptyDeck onReset={() => setIndex(0)} />}</div>
+      <div className="card-stack">{next && <div className="stack-card"><CardSummary item={next} role={role} /></div>}{current ? <SwipeCard key={current.id} item={current} role={role} onSwipe={act} onOpenResume={role === 'employer' ? setResumeFor : undefined} resumeUnlocked={role === 'employer' && matchedCandidateIds.has(current.id)} onOpenJob={role === 'candidate' ? setJobDetail : undefined} gapViewer={role === 'candidate' ? data.viewer : undefined} onSkillAdded={refreshScores} /> : <EmptyDeck onReset={() => setIndex(0)} />}</div>
       {current && <div className="action-row"><button onClick={() => act('pass')} disabled={busy} className="pass-action" aria-label="Pass"><X /></button><button className="undo-action" aria-label="Undo" disabled><RotateCcw /></button><button onClick={() => act('like')} disabled={busy} className="like-action" aria-label="Like"><Heart fill="currentColor" /></button></div>}
       <div className="keyboard-hint"><span><kbd>←</kbd> Pass</span><span><kbd>→</kbd> Like</span><span><kbd>Space</kbd> View details</span></div>
     </section><aside className="insight-panel"><div className="daily-card"><div><span>Today’s activity</span><strong>{data.likesRemaining}</strong><small>likes remaining</small></div><div className="ring" style={{ '--progress': `${data.likesRemaining * 2}%` } as React.CSSProperties}><Heart size={18} /></div></div><div className="tip-card"><div className="tip-icon"><Zap size={17} /></div><strong>{role === 'candidate' ? 'Complete your preferences' : 'Calibrate your search'}</strong><p>{role === 'candidate' ? 'Add your preferred team size to improve recommendations by up to 18%.' : 'Review five profiles to help JobsMatchNow learn what great looks like for this role.'}</p><button>{role === 'candidate' ? 'Update preferences' : 'View calibration'} <ArrowRight size={14} /></button></div><div className="quality-card"><div className="quality-head"><span>Match quality</span><strong>Excellent</strong></div><div className="quality-bar"><i /></div><p>Your recommendations use 12 verified profile signals.</p></div></aside></div>
     <AnimatePresence>{match && <MatchModal match={match} viewer={data.viewer} onClose={() => setMatch(null)} onMessage={() => { setMatch(null); navigate('messages'); }} />}</AnimatePresence>
-    <AnimatePresence>{resumeFor && <ResumeViewerModal person={resumeFor} viewerId={data.viewer.id} onClose={() => setResumeFor(null)} />}</AnimatePresence></div>;
+    <AnimatePresence>{resumeFor && <ResumeViewerModal person={resumeFor} viewerId={data.viewer.id} onClose={() => setResumeFor(null)} />}</AnimatePresence>
+    <AnimatePresence>{jobDetail && <JobDetailModal job={jobDetail} onClose={() => setJobDetail(null)} />}</AnimatePresence>
+    <AnimatePresence>{screeningFor && <ScreeningModal job={screeningFor} onCancel={() => setScreeningFor(null)} onSubmit={(answers) => { const target = screeningFor; setScreeningFor(null); void commitSwipe('like', target, answers); }} />}</AnimatePresence></div>;
 }
 
-function SwipeCard({ item, role, onSwipe, onOpenResume, resumeUnlocked }: { item: Job | Person; role: Role; onSwipe: (direction: 'like' | 'pass') => void; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean }) {
+function SwipeCard({ item, role, onSwipe, onOpenResume, resumeUnlocked, onOpenJob, gapViewer, onSkillAdded }: { item: Job | Person; role: Role; onSwipe: (direction: 'like' | 'pass') => void; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean; onOpenJob?: (job: Job) => void; gapViewer?: Person; onSkillAdded?: () => void }) {
   const [flipped, setFlipped] = useState(false);
   const x = useMotionValue(0); const rotate = useTransform(x, [-220, 220], [-8, 8]); const likeOpacity = useTransform(x, [20, 120], [0, 1]); const passOpacity = useTransform(x, [-120, -20], [1, 0]);
   return <motion.article className="swipe-card" style={{ x, rotate }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.85} onDragEnd={(_, info) => { if (info.offset.x > 110) onSwipe('like'); else if (info.offset.x < -110) onSwipe('pass'); }}>
     <motion.div className="swipe-stamp like-stamp" style={{ opacity: likeOpacity }}>INTERESTED</motion.div><motion.div className="swipe-stamp pass-stamp" style={{ opacity: passOpacity }}>PASS</motion.div>
     <div className={flipped ? 'card-flip flipped' : 'card-flip'}>
       <div className="card-face card-front">
-        <CardSummary item={item} role={role} detailed onOpenResume={onOpenResume} resumeUnlocked={resumeUnlocked} />
+        <CardSummary item={item} role={role} detailed onOpenResume={onOpenResume} resumeUnlocked={resumeUnlocked} onOpenJob={onOpenJob} gapViewer={gapViewer} onSkillAdded={onSkillAdded} />
         <button className="flip-button" onPointerDownCapture={(event) => event.stopPropagation()} onClick={() => setFlipped(true)}><Sparkles size={13} /> Why this match</button>
       </div>
       <div className="card-face card-back"><FitBreakdown item={item} role={role} onBack={() => setFlipped(false)} /></div>
@@ -274,8 +288,8 @@ function ResumeChip({ person, unlocked, onOpen }: { person: Person; unlocked: bo
   </button>;
 }
 
-function CardSummary({ item, role, detailed = false, onOpenResume, resumeUnlocked = false }: { item: Job | Person; role: Role; detailed?: boolean; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean }) {
-  if (role === 'candidate') { const job = item as Job; return <><div className="card-header"><div className="company-logo" style={{ background: job.accent }}>{job.logo}</div><div className="fit-badge"><span>{job.match.score}%</span> match</div><button aria-label="More"><MoreHorizontal /></button></div><div className="card-body"><div className="company-line">{job.company}<i />{job.responseTime} response</div><h2>{job.title}</h2><div className="job-meta"><span><MapPin size={15} />{job.location}</span>{job.distanceKm !== undefined && <span className="distance-badge">{job.distanceKm} km away</span>}<span><BriefcaseBusiness size={15} />{job.type}</span>{job.salaryHidden ? <SalaryBadge status={job.match?.salaryStatus} /> : <span>{job.salary}</span>}</div><p className="description">{job.description}</p>{detailed && <><div className="match-reason"><div><Sparkles size={17} /></div><section><strong>Why you’re a strong match</strong><p>{job.match.matchedSkills.length} priority skills match, your experience level fits, and the role supports your preferred work style.</p></section></div><div className="card-section"><span className="card-label">Your matching skills</span><div className="skill-list">{job.match.matchedSkills.map((skill) => <span key={skill}><Check size={12} />{skill}</span>)}</div></div><div className="card-foot"><div><strong>{job.mission}</strong><small>{job.culture.join(' · ')}</small></div><button>Full role <ArrowRight size={14} /></button></div></>}</div></>; }
+function CardSummary({ item, role, detailed = false, onOpenResume, resumeUnlocked = false, onOpenJob, gapViewer, onSkillAdded }: { item: Job | Person; role: Role; detailed?: boolean; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean; onOpenJob?: (job: Job) => void; gapViewer?: Person; onSkillAdded?: () => void }) {
+  if (role === 'candidate') { const job = item as Job; return <><div className="card-header"><div className="company-logo" style={{ background: job.accent }}>{job.logo}</div><div className="fit-badge"><span>{job.match.score}%</span> match</div><button aria-label="More"><MoreHorizontal /></button></div><div className="card-body"><div className="company-line">{job.company}<i />{job.responseTime} response</div><h2>{job.title}</h2><div className="job-meta"><span><MapPin size={15} />{job.location}</span>{job.distanceKm !== undefined && <span className="distance-badge">{job.distanceKm} km away</span>}<span><BriefcaseBusiness size={15} />{job.type}</span>{job.salaryHidden ? <SalaryBadge status={job.match?.salaryStatus} /> : <span>{job.salary}</span>}</div><p className="description">{job.description}</p>{detailed && <><div className="match-reason"><div><Sparkles size={17} /></div><section><strong>Why you’re a strong match</strong><p>{job.match.matchedSkills.length} priority skills match, your experience level fits, and the role supports your preferred work style.</p></section></div><div className="card-section"><span className="card-label">Your matching skills</span><div className="skill-list">{job.match.matchedSkills.map((skill) => <span key={skill}><Check size={12} />{skill}</span>)}</div></div>{gapViewer && onSkillAdded && <GapCoach job={job} viewer={gapViewer} onSkillAdded={onSkillAdded} />}<div className="card-foot"><div><strong>{job.mission}</strong><small>{job.culture.join(' · ')}</small></div><button onPointerDownCapture={(event) => event.stopPropagation()} onClick={() => onOpenJob?.(job)}>Full role <ArrowRight size={14} /></button></div></>}</div></>; }
   const person = item as Person; return <><div className="talent-photo"><img src={person.photo} alt="" /><div className="availability"><i />Available {person.availability}</div></div><div className="card-body talent-body"><div className="fit-badge talent-fit"><span>{person.match?.score}%</span> match</div><h2>{person.name}</h2><p className="talent-title">{person.title}</p><div className="job-meta"><span><MapPin size={15} />{person.location}</span>{person.distanceKm !== undefined && <span className="distance-badge">{person.distanceKm} km away</span>}<span><BriefcaseBusiness size={15} />{person.experienceLevel}</span></div>{detailed && <><div className="match-reason"><div><Sparkles size={17} /></div><section><strong>Why they stand out</strong><p>{person.match?.matchedSkills.join(', ')} align with the role. Their background and availability fit your hiring plan.</p></section></div><div className="card-section"><span className="card-label">Top skills</span><div className="skill-list">{person.skills.map((skill) => <span key={skill}>{skill}</span>)}</div></div>{onOpenResume && <ResumeChip person={person} unlocked={resumeUnlocked} onOpen={onOpenResume} />}</>}</div></>;
 }
 
@@ -300,8 +314,10 @@ function MatchModal({ match, viewer, onClose, onMessage }: { match: JobMatch; vi
 
 function Pipeline({ data, setData }: { data: Bootstrap; setData: (d: Bootstrap) => void }) {
   const stages = ['Matched', 'Screen', 'Interview', 'Offer'];
+  const [detail, setDetail] = useState<JobMatch | null>(null);
   const move = async (match: JobMatch, stage: string) => { await api.updateStage(match.id, stage); setData({ ...data, matches: data.matches.map((item) => item.id === match.id ? { ...item, stage } : item) }); };
-  return <div className="page"><div className="page-title"><div><span className="overline">Senior Product Designer</span><h1>Hiring pipeline</h1><p>Move mutual matches from first hello to signed offer.</p></div><div className="title-actions"><button className="ghost-button"><Users size={17} />Share</button><button className="primary-button small">Add candidate</button></div></div><div className="pipeline-summary"><Metric label="Active candidates" value="18" change="+4 this week" /><Metric label="Median response" value="19h" change="Top 12%" /><Metric label="Interview rate" value="38%" change="+8.4%" /><Metric label="Time to hire" value="21d" change="6d faster" /></div><div className="pipeline-board">{stages.map((stage, stageIndex) => <section key={stage} className="pipeline-column"><header><span>{stage}</span><em>{data.matches.filter((m) => m.stage === stage).length}</em><button><MoreHorizontal /></button></header><div>{data.matches.filter((m) => m.stage === stage).map((match) => <article className="candidate-tile" key={match.id}><div className="candidate-head"><img src={match.candidate?.photo} /><div><strong>{match.candidate?.name}</strong><small>{match.candidate?.title}</small></div><span>{match.candidate?.match?.score || 91}%</span></div><div className="tile-skills">{match.candidate?.skills?.slice(0, 2).map((skill) => <span key={skill}>{skill}</span>)}</div><div className="tile-foot"><span><Clock3 size={13} />{stage === 'Interview' ? 'Thu, 2:30 PM' : 'Updated today'}</span>{stageIndex < stages.length - 1 && <button onClick={() => move(match, stages[stageIndex + 1])} aria-label={`Move to ${stages[stageIndex + 1]}`}><ArrowRight size={15} /></button>}</div></article>)}<button className="add-tile">+ Add candidate</button></div></section>)}</div></div>;
+  return <div className="page"><div className="page-title"><div><span className="overline">Senior Product Designer</span><h1>Hiring pipeline</h1><p>Move mutual matches from first hello to signed offer.</p></div><div className="title-actions"><button className="ghost-button"><Users size={17} />Share</button><button className="primary-button small">Add candidate</button></div></div><div className="pipeline-summary"><Metric label="Active candidates" value="18" change="+4 this week" /><Metric label="Median response" value="19h" change="Top 12%" /><Metric label="Interview rate" value="38%" change="+8.4%" /><Metric label="Time to hire" value="21d" change="6d faster" /></div><div className="pipeline-board">{stages.map((stage, stageIndex) => <section key={stage} className="pipeline-column"><header><span>{stage}</span><em>{data.matches.filter((m) => m.stage === stage).length}</em><button><MoreHorizontal /></button></header><div>{data.matches.filter((m) => m.stage === stage).map((match) => <article className="candidate-tile" key={match.id}><button className="candidate-head tile-open" onClick={() => setDetail(match)} title="Screening answers & interview kit"><img src={match.candidate?.photo} /><div><strong>{match.candidate?.name}</strong><small>{match.candidate?.title}</small></div><span>{match.candidate?.match?.score || 91}%</span></button><div className="tile-skills">{match.candidate?.skills?.slice(0, 2).map((skill) => <span key={skill}>{skill}</span>)}{match.screeningAnswers?.length ? <span className="tile-screening">✓ screening</span> : null}</div><div className="tile-foot"><span><Clock3 size={13} />{stage === 'Interview' ? 'Thu, 2:30 PM' : 'Updated today'}</span>{stageIndex < stages.length - 1 && <button onClick={() => move(match, stages[stageIndex + 1])} aria-label={`Move to ${stages[stageIndex + 1]}`}><ArrowRight size={15} /></button>}</div></article>)}<button className="add-tile">+ Add candidate</button></div></section>)}</div>
+    <AnimatePresence>{detail && <MatchDetailModal match={detail} onClose={() => setDetail(null)} />}</AnimatePresence></div>;
 }
 
 function Messages({ data, setData }: { data: Bootstrap; setData: (d: Bootstrap) => void }) {

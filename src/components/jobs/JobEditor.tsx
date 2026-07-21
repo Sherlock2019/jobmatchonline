@@ -18,13 +18,13 @@ type Form = {
   niceToHaves: string[]; type?: string; workMode?: string; location: string; hiringRadiusKm: number;
   salaryMin: string; salaryMax: string; currency: string; description: string;
   responsibilities: string[]; interviewProcess: string[]; startDate: string; externalUrl: string;
-  status: typeof STATUSES[number];
+  status: typeof STATUSES[number]; screeningQuestions: string[];
 };
 
 const emptyForm = (): Form => ({
   title: '', department: '', seniority: undefined, requiredSkills: [], niceToHaves: [], type: undefined,
   workMode: undefined, location: '', hiringRadiusKm: 40, salaryMin: '', salaryMax: '', currency: 'USD',
-  description: '', responsibilities: [], interviewProcess: [], startDate: '', externalUrl: '', status: 'draft',
+  description: '', responsibilities: [], interviewProcess: [], startDate: '', externalUrl: '', status: 'draft', screeningQuestions: [],
 });
 
 function fromJob(job: Job): Form {
@@ -38,6 +38,7 @@ function fromJob(job: Job): Form {
     currency: job.salaryRange?.currency || 'USD', description: job.description,
     responsibilities: job.responsibilities || [], interviewProcess: job.interviewProcess || [],
     startDate: job.startDate || '', externalUrl: job.externalUrl || '', status: (job.status as Form['status']) || 'draft',
+    screeningQuestions: job.screeningQuestions || [],
   };
 }
 
@@ -84,6 +85,7 @@ export function JobEditor({ viewer, job, onSaved, onCancel }: { viewer: Person; 
   const [importing, setImporting] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const [error, setError] = useState('');
   const patch = (changes: Partial<Form>) => setForm((current) => ({ ...current, ...changes }));
   const errors = useMemo(() => formErrors(form), [form]);
@@ -111,6 +113,7 @@ export function JobEditor({ viewer, job, onSaved, onCancel }: { viewer: Person; 
       salaryRange: { min: Number(form.salaryMin), max: Number(form.salaryMax), currency: form.currency },
       description: form.description, responsibilities: form.responsibilities, interviewProcess: form.interviewProcess,
       startDate: form.startDate || undefined, externalUrl: form.externalUrl || undefined, status: form.status,
+      screeningQuestions: form.screeningQuestions,
     };
     try {
       if (job) await api.updateJob(job.id, payload);
@@ -176,6 +179,13 @@ export function JobEditor({ viewer, job, onSaved, onCancel }: { viewer: Person; 
         </Field>
         <Field label="Interview process" hint="Ordered steps, e.g. screen → tech → offer.">
           <TagInput value={form.interviewProcess} onChange={(interviewProcess) => patch({ interviewProcess })} placeholder="Add a stage, press Enter" />
+        </Field>
+        <Field label="Screening questions" hint="Up to 3 — candidates answer these in a 30-second form when they swipe right.">
+          <TagInput value={form.screeningQuestions} onChange={(screeningQuestions) => patch({ screeningQuestions: screeningQuestions.slice(0, 3) })} placeholder="Add a question, press Enter" />
+          <button type="button" className="wz-repeat-add" disabled={form.requiredSkills.length < 1 || suggesting}
+            onClick={async () => { setSuggesting(true); try { const { questions } = await api.suggestScreening(form.requiredSkills.map((skill) => ({ name: skill.name, weight: skill.level }))); patch({ screeningQuestions: questions }); } finally { setSuggesting(false); } }}>
+            {suggesting ? <Loader2 size={13} className="spin" /> : <Sparkles size={13} />} Suggest from required skills
+          </button>
         </Field>
         <div className="wz-row">
           <Field label="Start date"><TextInput value={form.startDate} onChange={(e) => patch({ startDate: e.target.value })} placeholder="e.g. ASAP, Q4 2026" /></Field>

@@ -9,6 +9,7 @@ import { detectMutualMatch, likesRemainingToday, scoreCandidateForJob, Validatio
 import { applyCandidateProfile, applyRecruiterProfile, candidateCompleteness, recruiterCompleteness } from './profile.js';
 import { anonymizeText, convertDocxToPdf, detectTools, docxToHtml, extractDocxText, extractPdfText, makeSimplePdf, pdfThumbnail } from './resume.js';
 import { applyJob, parseJobText } from './jobs.js';
+import { generateInterviewKit, generatePrep, suggestScreeningQuestions } from './coaching.js';
 import fs from 'node:fs';
 import { exchangeLinkedinCode, linkedinAuthorizationUrl, readSignedValue, signedValue, toLinkedinJobPayload } from './integrations/linkedin.js';
 
@@ -421,6 +422,8 @@ app.post('/api/jobs', async (req, res, next) => {
         requiredLanguages: [], culture: [], mission: employer.about ? employer.about.slice(0, 80) : 'Posted on JobsMatchNow.',
         responseTime: '< 1 week', applicants: 0, status: 'draft', createdAt: Date.now(),
       }, req.body, { strict: true });
+      // Item 11: suggest screening questions from the required skills.
+      if (!created.screeningQuestions?.length) created.screeningQuestions = suggestScreeningQuestions(created);
       db.jobs.push(created);
       return created;
     });
@@ -444,6 +447,50 @@ app.post('/api/jobs/parse', async (req, res, next) => {
     const text = reqString(req.body, 'text', { min: 40, max: 20000 });
     const url = optString(req.body, 'url', { max: 400 });
     res.json(await parseJobText(text, url));
+  } catch (error) { next(error); }
+});
+
+// ---------------------------------------------------------------------------
+// Coaching: interview prep (item 9), screening suggestions (11), kits (12)
+// ---------------------------------------------------------------------------
+
+app.get('/api/jobs/:id/prep', async (req, res, next) => {
+  try {
+    const db = await store.read();
+    const job = db.jobs.find((item) => item.id === req.params.id);
+    if (!job) { const error = new Error('Job not found'); error.status = 404; throw error; }
+    if (job.prepCache) return res.json(job.prepCache); // cached per job
+    const prep = await generatePrep(job);
+    await store.transaction((inner) => {
+      const item = inner.jobs.find((entry) => entry.id === req.params.id);
+      if (item) item.prepCache = prep;
+    });
+    res.json(prep);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/coach/screening', (req, res, next) => {
+  try {
+    const skills = req.body?.requiredSkillsDetail;
+    if (!Array.isArray(skills) || !skills.length) throw new ValidationError('requiredSkillsDetail', 'Provide the required skills first');
+    res.json({ questions: suggestScreeningQuestions({ requiredSkillsDetail: skills }) });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/matches/:id/kit', async (req, res, next) => {
+  try {
+    const db = await store.read();
+    const match = db.matches.find((item) => item.id === req.params.id);
+    if (!match) { const error = new Error('Match not found'); error.status = 404; throw error; }
+    if (match.kitCache) return res.json(match.kitCache);
+    const candidate = db.users.find((user) => user.id === match.candidateId);
+    const job = db.jobs.find((item) => item.id === match.jobId);
+    const kit = await generateInterviewKit(candidate || {}, job || {});
+    await store.transaction((inner) => {
+      const item = inner.matches.find((entry) => entry.id === req.params.id);
+      if (item) item.kitCache = kit;
+    });
+    res.json(kit);
   } catch (error) { next(error); }
 });
 
@@ -480,7 +527,12 @@ app.get('/api/bootstrap', async (req, res, next) => {
       }
       return { ...withDistance, match };
     });
-    const matches = db.matches.filter((match) => role === 'candidate' ? match.candidateId === viewer.id : match.employerId === viewer.id).map((match) => ({ ...match, candidate: db.users.find((user) => user.id === match.candidateId), job: db.jobs.find((job) => job.id === match.jobId) }));
+    const matches = db.matches.filter((match) => role === 'candidate' ? match.candidateId === viewer.id : match.employerId === viewer.id).map((match) => ({
+      ...match,
+      candidate: db.users.find((user) => user.id === match.candidateId),
+      job: db.jobs.find((job) => job.id === match.jobId),
+      screeningAnswers: db.swipes.find((swipe) => swipe.actorId === match.candidateId && swipe.targetId === match.jobId && swipe.direction === 'like')?.answers,
+    }));
     const matchIds = new Set(matches.map((match) => match.id));
     res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), likesRemaining: likesRemainingToday(db.swipes, viewer.id) });
   } catch (error) { next(error); }
@@ -492,6 +544,10 @@ app.post('/api/swipes', async (req, res, next) => {
     const targetId = reqString(req.body, 'targetId', { max: 128 });
     const targetType = oneOf(req.body, 'targetType', ['job', 'candidate']);
     const direction = oneOf(req.body, 'direction', ['like', 'pass']);
+    // Item 11: candidate answers to the job's screening questions ride on the like-swipe.
+    const answers = Array.isArray(req.body.answers)
+      ? req.body.answers.map((item) => ({ question: String(item?.question || '').slice(0, 300), answer: String(item?.answer || '').slice(0, 600) })).filter((item) => item.question && item.answer).slice(0, 5)
+      : undefined;
     const result = await store.transaction((db) => {
       const actor = db.users.find((user) => user.id === actorId);
       if (!actor) throw new ValidationError('actorId', 'Unknown demo user');
@@ -500,7 +556,7 @@ app.post('/api/swipes', async (req, res, next) => {
       }
       const existing = db.swipes.find((swipe) => swipe.actorId === actorId && swipe.targetType === targetType && swipe.targetId === targetId);
       if (existing) return { swipe: existing, match: null, duplicate: true };
-      const swipe = { id: crypto.randomUUID(), actorId, targetId, targetType, direction, createdAt: Date.now() };
+      const swipe = { id: crypto.randomUUID(), actorId, targetId, targetType, direction, createdAt: Date.now(), ...(answers ? { answers } : {}) };
       const mutual = detectMutualMatch(swipe, db);
       db.swipes.push(swipe);
       let match = null;
