@@ -38,3 +38,22 @@ Ambiguities resolved in favor of the simplest option consistent with the
   workspace — the frame is a marketing preview, not a full app emulator.
 - The comparison content keeps the existing repo copy (it matches the brief's
   intent and was already written for this product).
+
+## Item 4 — Candidate profile model, wizard, page
+
+- **Dual skill representation.** Skills/languages are stored as detailed objects
+  (`skillsDetail: {name, level}`) while the plain name arrays (`skills`,
+  `languages`) are derived on every save — the existing matching engine and card
+  UI keep working unchanged.
+- **`seniority` also writes `experienceLevel`** so the fit score sees the wizard's
+  answer; `exec` was appended to the experience ladder.
+- **Completeness is computed server-side** on every profile save (70% weight on
+  required fields, 30% on optionals) — a single source of truth for the % shown
+  anywhere.
+- **Wizard saves per step** (PATCH on Continue), so a half-finished onboarding
+  survives a refresh; the final step clears the `onboarding` flag.
+- **Resume upload ships in item 4 as raw-body PDF/DOCX storage** under
+  `server/uploads/resumes/` (gitignored) with metadata in the store; conversion,
+  thumbnails, viewer, and anonymization arrive with item 6.
+- **Photo is a URL field** (pre-filled by mock SSO); no binary avatar upload —
+  keeps the demo dependency-free.

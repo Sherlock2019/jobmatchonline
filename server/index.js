@@ -6,6 +6,8 @@ import { JsonStore } from './store.js';
 import { PgStore } from './store-pg.js';
 import { createSeed } from './seed.js';
 import { detectMutualMatch, likesRemainingToday, scoreCandidateForJob, ValidationError, reqString, optString, oneOf } from './matching.js';
+import { applyCandidateProfile, applyRecruiterProfile, candidateCompleteness, recruiterCompleteness } from './profile.js';
+import fs from 'node:fs';
 import { exchangeLinkedinCode, linkedinAuthorizationUrl, readSignedValue, signedValue, toLinkedinJobPayload } from './integrations/linkedin.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -167,6 +169,63 @@ app.post('/api/auth/register', async (req, res, next) => {
       return created;
     });
     res.status(201).json({ user: publicProfile(user) });
+  } catch (error) { next(error); }
+});
+
+// ---------------------------------------------------------------------------
+// Profile: wizard saves + resume upload
+// ---------------------------------------------------------------------------
+
+app.patch('/api/users/:id', async (req, res, next) => {
+  try {
+    const user = await store.transaction((db) => {
+      const item = db.users.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('User not found'); error.status = 404; throw error; }
+      if (item.role === 'candidate') { applyCandidateProfile(item, req.body); item.completeness = candidateCompleteness(item); }
+      else { applyRecruiterProfile(item, req.body); item.completeness = recruiterCompleteness(item); }
+      return item;
+    });
+    res.json({ user });
+  } catch (error) { next(error); }
+});
+
+const RESUME_DIR = path.join(dirname, 'uploads', 'resumes');
+await fs.promises.mkdir(RESUME_DIR, { recursive: true });
+const RESUME_TYPES = {
+  'application/pdf': 'pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+};
+
+app.post('/api/users/:id/resume', express.raw({ type: () => true, limit: '10mb' }), async (req, res, next) => {
+  try {
+    const ext = RESUME_TYPES[req.headers['content-type']];
+    if (!ext) { const error = new Error('Only PDF or DOCX resumes are accepted'); error.status = 415; throw error; }
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) throw new ValidationError('file', 'Empty upload');
+    const originalName = decodeURIComponent(String(req.headers['x-filename'] || `resume.${ext}`)).replace(/[/\\]/g, '_').slice(0, 200);
+    const id = crypto.randomUUID();
+    const storedName = `${req.params.id}-${id}.${ext}`;
+    await fs.promises.writeFile(path.join(RESUME_DIR, storedName), req.body);
+    const meta = { id, originalName, storedName, ext, size: req.body.length, mime: req.headers['content-type'], uploadedAt: Date.now(), url: `/api/users/${req.params.id}/resume/original` };
+    const user = await store.transaction((db) => {
+      const item = db.users.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('User not found'); error.status = 404; throw error; }
+      item.documents = { ...(item.documents || {}), resume: meta };
+      if (item.role === 'candidate') item.completeness = candidateCompleteness(item);
+      return item;
+    });
+    res.status(201).json({ resume: meta, completeness: user.completeness });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/users/:id/resume/original', async (req, res, next) => {
+  try {
+    const db = await store.read();
+    const user = db.users.find((entry) => entry.id === req.params.id);
+    const resume = user?.documents?.resume;
+    if (!resume) { const error = new Error('No resume on file'); error.status = 404; throw error; }
+    res.setHeader('Content-Type', resume.mime);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(resume.originalName)}"`);
+    res.sendFile(path.join(RESUME_DIR, resume.storedName));
   } catch (error) { next(error); }
 });
 

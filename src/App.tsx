@@ -9,6 +9,8 @@ import { Browser } from '@capacitor/browser';
 import { App as NativeApp } from '@capacitor/app';
 import { LoginModal, RegisterModal } from './components/AuthModals';
 import { MobileLanding } from './components/MobileLanding';
+import { CandidateWizard } from './components/profile/CandidateWizard';
+import { CandidateProfilePage } from './components/profile/CandidateProfilePage';
 import { comparisonRows } from './content/landingContent';
 import { loadSession, saveSession } from './lib/auth';
 import type { Bootstrap, Job, JobMatch, Message, Person, Role, SessionUser, View } from './types';
@@ -125,6 +127,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [mobileNav, setMobileNav] = useState(false);
+  const [editStep, setEditStep] = useState<number | null>(null);
   const role: Role = data?.viewer.role ?? session.role;
 
   const load = () => { setLoading(true); setError(''); api.bootstrap(session.id).then(setData).catch((e) => setError(e.message)).finally(() => setLoading(false)); };
@@ -142,18 +145,25 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
     </aside>
     {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
     <section className="app-main"><header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><button aria-label="Notifications"><Bell size={19} /><i /></button><button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Candidate view' : 'Recruiter view'}<ChevronDown size={14} /></button></div></header>
-      {loading ? <LoadingState /> : error ? <ErrorState message={error} retry={load} /> : data && <ViewRouter view={view} role={role} data={data} setData={setData} navigate={setView} />}
+      {loading ? <LoadingState /> : error ? <ErrorState message={error} retry={load} /> : data && (
+        data.viewer.role === 'candidate' && (data.viewer.onboarding || editStep !== null)
+          ? <CandidateWizard viewer={data.viewer} initialStep={editStep ?? 0}
+              onDone={() => { setEditStep(null); setView('profile'); load(); }}
+              onCancel={data.viewer.onboarding ? undefined : () => setEditStep(null)} />
+          : <ViewRouter view={view} role={role} data={data} setData={setData} navigate={setView} onEditProfile={setEditStep} />
+      )}
     </section>
   </div>;
 }
 
-function ViewRouter({ view, role, data, setData, navigate }: { view: View; role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void }) {
+function ViewRouter({ view, role, data, setData, navigate, onEditProfile }: { view: View; role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void; onEditProfile: (step: number) => void }) {
   if (view === 'discover') return <Discover role={role} data={data} setData={setData} navigate={navigate} />;
   if (view === 'pipeline') return <Pipeline data={data} setData={setData} />;
   if (view === 'messages') return <Messages data={data} setData={setData} />;
   if (view === 'analytics') return <Analytics data={data} />;
   if (view === 'jobs') return <Jobs data={data} />;
   if (view === 'matches') return <Matches data={data} navigate={navigate} />;
+  if (role === 'candidate') return <CandidateProfilePage viewer={data.viewer} onEdit={onEditProfile} />;
   return <Profile data={data} />;
 }
 

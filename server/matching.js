@@ -4,7 +4,7 @@
 
 export const DAILY_LIKE_LIMIT = 50;
 
-const EXPERIENCE_ORDER = ['junior', 'mid', 'senior', 'lead'];
+const EXPERIENCE_ORDER = ['junior', 'mid', 'senior', 'lead', 'exec'];
 
 function overlap(a = [], b = []) {
   const setB = new Set(b.map((s) => s.toLowerCase()));
