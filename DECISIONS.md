@@ -152,3 +152,33 @@ Ambiguities resolved in favor of the simplest option consistent with the
   honest gaps.
 - **Screening questions auto-suggest at job creation** when none are provided,
   and the editor has a "Suggest from required skills" button (max 3 questions).
+
+## Part C — Extras (items 13–18, all completed)
+
+- **Icebreakers (13)** show inside the match modal; clicking one sends it as the
+  first chat message. Cached per match; Claude API when configured.
+- **Commute preview (14)** derives minutes from the straight-line distance at
+  ~30 km/h (city motorbike average) — no routing API, per the no-external-calls
+  constraint.
+- **Daily Top 3 (15)** is a client-side curation (top 3 by fit score) with a
+  "fresh matches tomorrow" state; a demo reset button keeps live demos unstuck.
+- **Confetti (16)** is dependency-free CSS/JSX; haptics fire via the existing
+  Capacitor plugin on native builds (the repo's native shell is Capacitor, not
+  Expo — the Expo launcher wraps the web app).
+- **Nudges (17)**: stage moves now stamp `stageChangedAt`; tiles idle >5 days
+  show an amber flag with a one-tap templated follow-up. One seed match is 6
+  days idle so the feature is visible immediately.
+- **Ready checklist (18)** hides itself once all three checks pass; fix links
+  deep-link into the relevant wizard step.
+
+## Acceptance notes
+
+- Full-stack verified end-to-end via API: register→onboarding→profile, demo
+  login list, mock SSO, resume PDF/DOCX + anonymization + post-match unlock,
+  job create/parse/demo-import, swipe→mutual match→salary reveal→chat, and all
+  coaching/extra endpoints. `npm run dev` (startdemo option 1) boots cleanly.
+- Port 3000 was occupied by a process outside WSL during verification; Vite
+  auto-falls back to the next port — environment quirk, not a regression.
+- Profile photos still load from Unsplash/DiceBear URLs (pre-existing pattern);
+  the demo functions without network, with image placeholders degrading
+  gracefully.
