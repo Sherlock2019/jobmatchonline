@@ -167,7 +167,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
 }
 
 function ViewRouter({ view, role, data, setData, navigate, onEditProfile, reload }: { view: View; role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void; onEditProfile: (step: number) => void; reload: () => void }) {
-  if (view === 'discover') return <Discover role={role} data={data} setData={setData} navigate={navigate} />;
+  if (view === 'discover') return <Discover role={role} data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} />;
   if (view === 'pipeline') return <Pipeline data={data} setData={setData} />;
   if (view === 'messages') return <Messages data={data} setData={setData} />;
   if (view === 'analytics') return <Analytics data={data} />;
@@ -177,7 +177,26 @@ function ViewRouter({ view, role, data, setData, navigate, onEditProfile, reload
   return <RecruiterProfilePage viewer={data.viewer} onEdit={onEditProfile} />;
 }
 
-function Discover({ role, data, setData, navigate }: { role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void }) {
+/** Item 18: pre-swipe readiness checklist for candidates, with fix links into the wizard. */
+function ReadyChecklist({ viewer, onEditProfile }: { viewer: Person; onEditProfile: (step: number) => void }) {
+  const items = [
+    { label: 'Resume uploaded', done: Boolean(viewer.documents?.resume), step: 3 },
+    { label: 'Salary expectation set', done: viewer.preferences?.salary?.min !== undefined, step: 2 },
+    { label: 'Profile at least 90% complete', done: (viewer.completeness ?? 0) >= 90, step: 0 },
+  ];
+  if (items.every((item) => item.done)) return null;
+  return <div className="ready-checklist">
+    <strong><ShieldCheck size={15} /> Am I ready to swipe?</strong>
+    <div className="ready-items">
+      {items.map((item) => <span key={item.label} className={item.done ? 'ready-item done' : 'ready-item'}>
+        {item.done ? <Check size={12} /> : <X size={12} />}{item.label}
+        {!item.done && <button onClick={() => onEditProfile(item.step)}>Fix</button>}
+      </span>)}
+    </div>
+  </div>;
+}
+
+function Discover({ role, data, setData, navigate, onEditProfile }: { role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void; onEditProfile: (step: number) => void }) {
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
   const [match, setMatch] = useState<JobMatch | null>(null);
@@ -214,6 +233,7 @@ function Discover({ role, data, setData, navigate }: { role: Role; data: Bootstr
   const refreshScores = () => api.bootstrap(data.viewer.id).then(setData).catch(() => undefined);
 
   return <div className="page discover-page"><div className="page-title"><div><span className="overline">{role === 'candidate' ? 'Your next move' : 'Recommended talent'}</span><h1>{role === 'candidate' ? 'Discover roles' : 'Discover people'}</h1><p>{role === 'candidate' ? 'Curated from your skills, goals, and work preferences.' : 'Ranked against Senior Product Designer · Northstar.'}</p></div><div className="title-actions"><button className="ghost-button"><SlidersHorizontal size={17} />Preferences</button><button className="ghost-button"><Filter size={17} />Filters <span>3</span></button></div></div>
+    {role === 'candidate' && <ReadyChecklist viewer={data.viewer} onEditProfile={onEditProfile} />}
     <section className="geo-control" aria-label="Geolocation of Opportunities"><div><MapPin size={18} /><span><small>Geolocation of Opportunities</small><strong>{role === 'candidate' ? 'Roles' : 'Candidates'} within {radius} km</strong></span></div><input aria-label="Maximum match distance in kilometres" type="range" min="5" max="100" step="5" value={radius} onChange={(event) => setRadius(Number(event.target.value))} /><p>City-level matching only. Exact locations stay private.</p></section>
     <div className="discover-layout"><section className="deck-area">
       <div className="deck-meta"><span><Sparkles size={15} />{role === 'candidate' ? 'Your Top 3 today' : 'Personalized for you'}</span><small>{role === 'candidate' ? `${Math.max(deck.length - index, 0)} of today's ${deck.length} left` : `${Math.max(deck.length - index, 0)} nearby recommendations`}</small></div>

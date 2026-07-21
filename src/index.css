@@ -531,6 +531,17 @@ button { cursor:pointer; }
 .device-screen::-webkit-scrollbar { display:none; }
 .device-screen .m-landing { min-height:100%; }
 
+/* ── Am I ready? checklist ── */
+.ready-checklist { max-width:965px; margin:0 auto 14px; padding:13px 17px; border:1px solid #fde4b8; background:linear-gradient(105deg,#fffaf0,#fff5f8); border-radius:15px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.ready-checklist>strong { display:flex; align-items:center; gap:7px; font-size:11px; white-space:nowrap; }
+.ready-checklist>strong svg { color:#c98f12; }
+.ready-items { display:flex; flex-wrap:wrap; gap:8px; }
+.ready-item { display:inline-flex; align-items:center; gap:5px; border:1px solid #eadfc9; background:white; border-radius:999px; padding:5px 10px; font-size:9px; font-weight:700; color:#9a6b12; }
+.ready-item svg { color:#d1a13c; }
+.ready-item.done { border-color:#bfe8cf; color:#0c7a43; }
+.ready-item.done svg { color:#0c7a43; }
+.ready-item button { border:0; background:#fff0f5; color:var(--green); border-radius:99px; padding:3px 9px; font-size:8px; font-weight:800; }
+
 /* ── Pipeline nudges ── */
 .tile-nudge { display:flex; align-items:center; justify-content:space-between; gap:7px; margin:9px 0; padding:7px 9px; border:1px solid #fde4b8; background:#fff8ea; border-radius:9px; color:#9a6b12; font-size:8px; font-weight:700; }
 .tile-nudge span { display:flex; align-items:center; gap:4px; }
