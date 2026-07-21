@@ -28,7 +28,7 @@ export function createSeed() {
     matches: [
       { id: 'm-candidate', candidateId: 'candidate-demo', employerId: 'e-3', jobId: 'j-3', stage: 'Matched', createdAt: now - 86400000 * 3 },
       { id: 'm-existing', candidateId: 'c-1', employerId: 'employer-demo', jobId: 'j-1', stage: 'Interview', createdAt: now - 86400000 * 2 },
-      { id: 'm-priya', candidateId: 'c-2', employerId: 'employer-demo', jobId: 'j-1', stage: 'Matched', createdAt: now - 86400000 }
+      { id: 'm-priya', candidateId: 'c-2', employerId: 'employer-demo', jobId: 'j-1', stage: 'Matched', createdAt: now - 86400000 * 6 }
     ],
     messages: [
       { id: 'msg-candidate-1', matchId: 'm-candidate', senderId: 'e-3', text: 'Hi Alex — your product strategy work looks highly relevant to what we’re building at Relay.', createdAt: now - 10800000 },

@@ -594,6 +594,7 @@ app.patch('/api/matches/:id', async (req, res, next) => {
       const item = db.matches.find((entry) => entry.id === req.params.id);
       if (!item) { const error = new Error('Match not found'); error.status = 404; throw error; }
       item.stage = stage;
+      item.stageChangedAt = Date.now(); // idle-time tracking for pipeline nudges
       return item;
     });
     res.json(match);

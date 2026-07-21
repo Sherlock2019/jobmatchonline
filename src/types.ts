@@ -53,7 +53,7 @@ export interface InterviewPrep { generator: string; topics: string[]; skillQuest
 export interface InterviewKit { generator: string; skillQuestions: SkillQuestions[]; gapProbes?: { skill: string; question: string }[]; gaps: string[]; salarySummary: string; salaryStatus: SalaryStatus }
 export interface ScreeningAnswer { question: string; answer: string }
 export type JobDraft = Partial<Omit<Job, 'id' | 'match'>>;
-export interface JobMatch { id: string; candidateId: string; employerId: string; jobId: string; stage: string; createdAt: number; candidate: Person; job: Job; screeningAnswers?: ScreeningAnswer[] }
+export interface JobMatch { id: string; candidateId: string; employerId: string; jobId: string; stage: string; createdAt: number; stageChangedAt?: number; candidate: Person; job: Job; screeningAnswers?: ScreeningAnswer[] }
 export interface Message { id: string; matchId: string; senderId: string; text: string; createdAt: number }
 export interface Bootstrap { viewer: Person; jobs: Job[]; candidates: Person[]; matches: JobMatch[]; messages: Message[]; likesRemaining: number }
 
