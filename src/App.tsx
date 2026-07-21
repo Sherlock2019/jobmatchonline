@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PhoneCarousel } from './components/PhoneCarousel';
+import { PhoneMockup } from './components/PhoneMockup';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
 import { Activity, ArrowRight, BarChart3, Bell, BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, Filter, Heart, Inbox, Layers3, Linkedin, MapPin, Menu, MessageCircle, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
@@ -68,16 +68,12 @@ function Landing({ onEnter }: { onEnter: () => void }) {
         <h1>Stop chasing jobs and candidates.<br /><span>Let the perfect match chase you.</span></h1>
         <p>Job seekers, let the perfect role find you. Hiring teams, let the right candidates come to you. A connection opens only when both sides choose.</p>
         <div className="location-pitch-app"><MapPin size={18} /><span><small>Geolocation of Opportunities</small><strong>Match nearby. Meet for a cup of coffee in your city.</strong></span></div>
-        <div className="hero-actions"><button className="primary-button" onClick={onEnter}>Find matches near me <ArrowRight size={18} /></button><button className="linkedin-button" onClick={connectLinkedIn}><Linkedin size={18} fill="currentColor" />Continue with LinkedIn</button></div>
+        <div className="hero-actions"><button className="primary-button" onClick={onEnter}>Register free <ArrowRight size={18} /></button><button className="secondary-button" onClick={onEnter}>Log in</button></div>
         <div className="proof-row"><span><Check size={14} /> Explainable fit</span><span><Check size={14} /> Private distance range</span><span><Check size={14} /> Salary up front</span></div>
       </div>
       <div className="hero-visual carousel-side" aria-label="JobsMatchNow product preview">
         <div className="floating-love love-one"><Heart size={16} fill="currentColor" /></div><div className="floating-love love-two"><Sparkles size={14} /></div>
-        <PhoneCarousel />
-        <div className="pc-auth">
-          <button className="primary-button" onClick={onEnter}>Register free <ArrowRight size={17} /></button>
-          <button className="linkedin-button" onClick={connectLinkedIn}><Linkedin size={17} fill="currentColor" /> Log in</button>
-        </div>
+        <PhoneMockup />
       </div>
     </section>
     <section className="logo-strip"><span>Built for the way modern teams hire</span><div><b>northstar</b><b>CANVAS</b><b>relay</b><b>ORBIT</b><b>stride</b></div></section>
