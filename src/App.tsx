@@ -254,6 +254,23 @@ function SalaryBadge({ status }: { status?: string }) {
   return <span className={`salary-badge salary-${badge.tone}`}>{badge.label}</span>;
 }
 
+const CONFETTI_COLORS = ['#fd267a', '#ff4458', '#ff6036', '#0a66c2', '#00a0dc', '#f5c518', '#20b46a'];
+
+/** Item 16: dependency-free confetti burst behind the "It's a Match" modal. */
+function Confetti() {
+  const pieces = useMemo(() => Array.from({ length: 60 }, (_, index) => ({
+    left: Math.random() * 100,
+    delay: Math.random() * 0.7,
+    duration: 2.4 + Math.random() * 1.6,
+    size: 6 + Math.random() * 7,
+    color: CONFETTI_COLORS[index % CONFETTI_COLORS.length],
+    spin: Math.random() > 0.5 ? 1 : -1,
+  })), []);
+  return <div className="confetti" aria-hidden="true">
+    {pieces.map((piece, index) => <i key={index} style={{ left: `${piece.left}%`, width: piece.size, height: piece.size * 0.45, background: piece.color, animationDelay: `${piece.delay}s`, animationDuration: `${piece.duration}s`, ['--spin' as string]: piece.spin }} />)}
+  </div>;
+}
+
 /** Item 14: straight-line distance → motorbike commute estimate (~30 km/h city average). */
 function motorbikeMinutes(distanceKm: number) { return Math.max(3, Math.round(distanceKm * 2)); }
 
@@ -316,7 +333,12 @@ function MatchModal({ match, viewer, onClose, onMessage }: { match: JobMatch; vi
     try { await api.message({ matchId: match.id, senderId: viewer.id, text }); onMessage(); }
     catch { setSendingIdx(-1); }
   };
-  return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div className="match-modal" initial={{ y: 30, scale: .96 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: .96 }}><button className="modal-close" onClick={onClose}><X /></button><div className="match-glow"><Heart fill="currentColor" /></div><span className="overline">Mutual interest</span><h2>It’s a match.</h2><p>{counterpart} is interested too. Start a conversation while the momentum is fresh.</p>
+  // Item 16: celebrate the moment — haptics on native builds.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    import('@capacitor/haptics').then(({ Haptics, ImpactStyle }) => Haptics.impact({ style: ImpactStyle.Heavy })).catch(() => undefined);
+  }, []);
+  return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><Confetti /><motion.div className="match-modal" initial={{ y: 30, scale: .96 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: .96 }}><button className="modal-close" onClick={onClose}><X /></button><div className="match-glow"><Heart fill="currentColor" /></div><span className="overline">Mutual interest</span><h2>It’s a match.</h2><p>{counterpart} is interested too. Start a conversation while the momentum is fresh.</p>
     <div className="match-faces"><img src={match.candidate?.photo || viewer.photo} /><div style={{ background: match.job?.accent || 'var(--blue)' }}>{match.job?.logo || counterpart[0]}</div></div>
     {(jobRange || candidateRange) && <div className="salary-reveal">
       <span className="overline">Mutual salary reveal</span>

@@ -531,6 +531,14 @@ button { cursor:pointer; }
 .device-screen::-webkit-scrollbar { display:none; }
 .device-screen .m-landing { min-height:100%; }
 
+/* ── Match confetti ── */
+.confetti { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+.confetti i { position:absolute; top:-16px; border-radius:2px; opacity:0; animation:confetti-fall linear forwards; }
+@keyframes confetti-fall {
+  0% { opacity:1; transform:translateY(0) rotate(0deg); }
+  100% { opacity:.15; transform:translateY(105vh) rotate(calc(720deg * var(--spin, 1))); }
+}
+
 /* ── Icebreakers (match modal) ── */
 .icebreakers { margin:0 0 18px; text-align:left; display:flex; flex-direction:column; gap:7px; }
 .icebreakers .overline { justify-content:center; margin-bottom:3px; }
