@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PhoneMockup } from './components/PhoneMockup';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
-import { Activity, ArrowRight, BarChart3, Bell, BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, Filter, Heart, Inbox, Layers3, Linkedin, MapPin, Menu, MessageCircle, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowRight, BarChart3, Bell, BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, Filter, Heart, Inbox, Layers3, Linkedin, MapPin, Menu, MessageCircle, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
 import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { App as NativeApp } from '@capacitor/app';
 import { LoginModal, RegisterModal } from './components/AuthModals';
+import { MobileLanding } from './components/MobileLanding';
+import { comparisonRows } from './content/landingContent';
 import { loadSession, saveSession } from './lib/auth';
 import type { Bootstrap, Job, JobMatch, Message, Person, Role, SessionUser, View } from './types';
 
@@ -18,19 +20,17 @@ const employerNav: { view: View; label: string; icon: typeof Compass }[] = [
   { view: 'discover', label: 'Talent', icon: Compass }, { view: 'pipeline', label: 'Pipeline', icon: Layers3 }, { view: 'messages', label: 'Messages', icon: MessageCircle }, { view: 'jobs', label: 'Jobs', icon: BriefcaseBusiness }, { view: 'analytics', label: 'Insights', icon: BarChart3 }, { view: 'profile', label: 'My profile', icon: Users },
 ];
 
-const comparisonRows = [
-  { feature: 'Discovery', traditional: 'Search boxes, job-board scrolling, and generic alerts', jobmatch: 'Personalized card deck ranked by skills, goals, location, and work style', impact: 'Less noise' },
-  { feature: 'Geolocation of Opportunities', traditional: 'Broad city filters or sharing an exact address too early', jobmatch: 'Private city and distance matching before a mutual coffee or interview', impact: 'Closer matches' },
-  { feature: 'Fit signal', traditional: 'CV keyword filters and recruiter guesswork', jobmatch: 'Transparent 0–100 fit score with matched skills and experience evidence', impact: 'Better decisions' },
-  { feature: 'Applying', traditional: 'Repeated forms, cover letters, and resume uploads', jobmatch: 'One complete profile and a single intentional swipe', impact: 'Minutes, not hours' },
-  { feature: 'Interest', traditional: 'One-way applications or unsolicited recruiter messages', jobmatch: 'A conversation opens only after both sides choose each other', impact: 'Mutual intent' },
-  { feature: 'Privacy', traditional: 'Personal details copied across portals and inboxes', jobmatch: 'Candidate-controlled visibility; contact details stay hidden until a match', impact: 'Consent first' },
-  { feature: 'Conversation', traditional: 'Email chains, missed follow-ups, and calendar ping-pong', jobmatch: 'Contextual chat, interview scheduling, and read status in one place', impact: 'Faster response' },
-  { feature: 'Recruiting workflow', traditional: 'Spreadsheets, disconnected inboxes, and ATS hand-offs', jobmatch: 'Live talent discovery, mutual matches, and a visual hiring pipeline', impact: 'One workspace' },
-  { feature: 'Distribution', traditional: 'Manually repost every role on every job site', jobmatch: 'Integration-ready job adapters for LinkedIn and future job-site partners', impact: 'Publish once' },
-  { feature: 'Experience', traditional: 'Desktop-first portals that fight the user', jobmatch: 'Responsive web, installable desktop PWA, iOS, and Android from one product', impact: 'Hire anywhere' },
-  { feature: 'Intelligence', traditional: 'Volume metrics: applications received and resumes viewed', jobmatch: 'Match quality, response rate, funnel conversion, and time-to-hire insights', impact: 'Quality over volume' },
-] as const;
+/** Matches the mobile-landing breakpoint (<768px). */
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 767px)');
+    const onChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
+  return isMobile;
+}
 
 async function connectLinkedIn() {
   const url = `${apiBase}/api/auth/linkedin${Capacitor.isNativePlatform() ? '?platform=native' : ''}`;
@@ -61,11 +61,26 @@ export default function App() {
 function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const linkedinState = new URLSearchParams(window.location.search).get('linkedin');
   const [authModal, setAuthModal] = useState<'login' | 'register' | null>(null);
+  const isMobile = useIsMobile();
+  const [mobilePreview, setMobilePreview] = useState(false);
   const openLogin = () => setAuthModal('login');
   const openRegister = () => setAuthModal('register');
   const complete = (user: SessionUser) => { setAuthModal(null); onLogin(user); };
+  const modals = <AnimatePresence>
+    {authModal === 'login' && <LoginModal onClose={() => setAuthModal(null)} onComplete={complete} />}
+    {authModal === 'register' && <RegisterModal onClose={() => setAuthModal(null)} onComplete={complete} />}
+  </AnimatePresence>;
+
+  if (isMobile) return <>{<MobileLanding onRegister={openRegister} onLogin={openLogin} />}{modals}</>;
+
+  if (mobilePreview) return <div className="preview-shell">
+    <nav className="landing-nav"><Brand /><div className="landing-links"><button className="mobile-toggle active" onClick={() => setMobilePreview(false)} aria-pressed="true"><Smartphone size={15} /> Mobile view</button></div></nav>
+    <div className="device-stage"><div className="device-frame"><div className="device-screen"><MobileLanding onRegister={openRegister} onLogin={openLogin} /></div></div></div>
+    {modals}
+  </div>;
+
   return <main className="landing">
-    <nav className="landing-nav"><Brand /><div className="landing-links"><a href="#how">How it works</a><a href="#compare">Why JobsMatchNow</a><a href="#trust">Trust & fairness</a><button className="text-button" onClick={openLogin}>Log in</button><button className="primary-button small" onClick={openRegister}>Register free <ArrowRight size={16} /></button></div></nav>
+    <nav className="landing-nav"><Brand /><div className="landing-links"><a href="#how">How it works</a><a href="#compare">Why JobsMatchNow</a><a href="#trust">Trust & fairness</a><button className="mobile-toggle" onClick={() => setMobilePreview(true)} aria-pressed="false"><Smartphone size={15} /> Mobile view</button><button className="text-button" onClick={openLogin}>Log in</button><button className="primary-button small" onClick={openRegister}>Register free <ArrowRight size={16} /></button></div></nav>
     {linkedinState && <div className="integration-notice">{linkedinState === 'connected' ? 'LinkedIn connected. Your professional identity is ready to use.' : 'Add LinkedIn app credentials to enable live account connection. The demo remains available.'}<button onClick={() => history.replaceState({}, '', '/')}>×</button></div>}
     <section className="hero">
       <div className="hero-copy">
@@ -95,10 +110,7 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     <section className="value-section" id="how"><div><span className="section-kicker">A better signal</span><h2>Hiring works better when<br />both sides choose.</h2></div><div className="value-grid"><Feature icon={Target} title="Fit, explained" text="Go beyond keywords with transparent skill, experience, and preference signals." /><Feature icon={Zap} title="Intent, confirmed" text="A conversation opens only after both sides express interest. No cold outreach." /><Feature icon={MapPin} title="Geolocation of Opportunities" text="Choose a city and private distance range, then meet for coffee only when both sides agree." /><Feature icon={ShieldCheck} title="People, respected" text="Salary and work style are clear up front. Candidate controls stay at the center." /></div></section>
     <section className="trust-section" id="trust"><div className="trust-copy"><span className="section-kicker light">Designed for trust</span><h2>Less noise.<br />More possibility.</h2><p>Every recommendation carries its reason. Every connection starts with consent. Every candidate gets control over what employers can see.</p><button className="white-button" onClick={openLogin}>Open recruiter workspace <ArrowRight size={17} /></button></div><div className="metrics"><div><strong>3.2×</strong><span>more qualified conversations</span></div><div><strong>48h</strong><span>median time to first response</span></div><div><strong>42%</strong><span>fewer screening steps</span></div><small>Illustrative product targets for the demo experience.</small></div></section>
     <footer><Brand /><span>Perfect matches should feel human.</span><small>© 2026 JobsMatchNow</small></footer>
-    <AnimatePresence>
-      {authModal === 'login' && <LoginModal onClose={() => setAuthModal(null)} onComplete={complete} />}
-      {authModal === 'register' && <RegisterModal onClose={() => setAuthModal(null)} onComplete={complete} />}
-    </AnimatePresence>
+    {modals}
   </main>;
 }
 

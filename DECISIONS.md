@@ -24,3 +24,17 @@ Ambiguities resolved in favor of the simplest option consistent with the
   `src/lib/auth.ts` is where a real OAuth/token flow would plug in.
 - **Seed additions are merged idempotently at server start** (by id), so existing
   `data/db.json` files pick up new demo accounts without a reset.
+
+## Item 3 — Mobile landing + "Mobile view" toggle
+
+- **The mobile layout is a separate component** (`MobileLanding`), selected via a
+  `matchMedia('(max-width:767px)')` hook rather than CSS-only, because its DOM
+  order (mockup → pitch → CTAs → accordion) differs from the desktop landing.
+- **All marketing copy lives verbatim in `src/content/landingContent.ts`**; the
+  desktop comparison table imports the same 11 rows, so both layouts can't drift.
+- **The "Mobile view" toggle previews the mobile landing** inside a 390px device
+  frame. Auth modals opened inside the frame render full-screen (they're
+  portal-level overlays), and completing login exits the preview into the real
+  workspace — the frame is a marketing preview, not a full app emulator.
+- The comparison content keeps the existing repo copy (it matches the brief's
+  intent and was already written for this product).
