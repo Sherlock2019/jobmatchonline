@@ -30,7 +30,19 @@ export interface Person {
   linkedinUrl?: string; specializations?: string[]; regions?: string[]; clients?: string[];
   contactName?: string; contactEmail?: string; calendarLink?: string;
 }
-export interface Job { id: string; employerId: string; title: string; company: string; logo: string; accent: string; location: string; distanceKm?: number; workMode: string; salary: string; type: string; experienceLevel: string; requiredSkills: string[]; requiredLanguages: string[]; description: string; mission: string; culture: string[]; responseTime: string; applicants: number; status: string; match: MatchEvidence }
+export interface WeightedSkill { name: string; weight: number }
+export interface SalaryRange { min: number; max: number; currency: string }
+export interface Job {
+  id: string; employerId: string; title: string; company: string; logo: string; accent: string; location: string;
+  distanceKm?: number; workMode: string; salary: string; type: string; experienceLevel: string;
+  requiredSkills: string[]; requiredLanguages: string[]; description: string; mission: string; culture: string[];
+  responseTime: string; applicants: number; status: string; match: MatchEvidence;
+  // Item 7 structured fields
+  department?: string; seniority?: Seniority; requiredSkillsDetail?: WeightedSkill[]; niceToHaves?: string[];
+  hiringRadiusKm?: number; salaryRange?: SalaryRange; responsibilities?: string[]; interviewProcess?: string[];
+  startDate?: string; externalUrl?: string; createdAt?: number;
+}
+export type JobDraft = Partial<Omit<Job, 'id' | 'match'>>;
 export interface JobMatch { id: string; candidateId: string; employerId: string; jobId: string; stage: string; createdAt: number; candidate: Person; job: Job }
 export interface Message { id: string; matchId: string; senderId: string; text: string; createdAt: number }
 export interface Bootstrap { viewer: Person; jobs: Job[]; candidates: Person[]; matches: JobMatch[]; messages: Message[]; likesRemaining: number }

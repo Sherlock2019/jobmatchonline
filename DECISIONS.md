@@ -88,3 +88,24 @@ Ambiguities resolved in favor of the simplest option consistent with the
   sufficient with zero external calls.
 - **Pre-match thumbnails are CSS-blurred** on the recruiter card; deck candidates
   are served without email/phone fields pre-match.
+
+## Item 7 — Job postings: create + import
+
+- **Weighted skills reuse the wizard's LevelTagInput** capped at 3 dots (weight
+  1–3); names are derived into `requiredSkills` so existing matching/UI work
+  unchanged until item 8 consumes the weights.
+- **`salaryRange` is the structured source of truth**; the display string
+  `salary` is formatted server-side on every save.
+- **Responsibilities and interview steps use the tag input as bullet/step
+  builders** (Enter per bullet) instead of a bespoke editor.
+- **JobSourceAdapter lives client-side** (`src/lib/jobSources.ts`); the paste
+  adapter posts URL+text to `/api/jobs/parse`, which uses the Claude API when
+  `ANTHROPIC_API_KEY` is set and a dictionary/regex heuristic parser otherwise
+  (also the fallback on any API failure). No scraping — the URL is stored as a
+  reference only.
+- **Demo import picks a random bundled sample** from
+  `src/content/jobSamples.ts`; a sample pasteable posting is one click away in
+  the paste panel so the parser is demoable without leaving the app.
+- **Import fills the same editor form as the review screen** — imported values
+  are editable before saving, satisfying "review before saving" without a
+  second UI.

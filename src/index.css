@@ -531,6 +531,17 @@ button { cursor:pointer; }
 .device-screen::-webkit-scrollbar { display:none; }
 .device-screen .m-landing { min-height:100%; }
 
+/* ── Job editor + import ── */
+.job-editor { width:min(860px,100%); }
+.job-import-bar { display:flex; align-items:center; flex-wrap:wrap; gap:9px; margin-bottom:20px; padding:13px; border:1px dashed #cfd6e4; border-radius:14px; background:#f7f9fd; }
+.job-import-btn { min-height:40px; font-size:11px; gap:7px; }
+.job-import-note { display:inline-flex; align-items:center; gap:6px; color:var(--green); font-size:10px; font-weight:700; }
+.job-paste-panel { display:flex; flex-direction:column; gap:14px; margin-bottom:20px; padding:16px; border:1px solid #cfe4f8; border-radius:14px; background:#f4faff; }
+.job-paste-actions { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.status-draft i { background:#a3a9b7!important; }
+.status-paused i { background:#f59e0b!important; }
+.status-filled i { background:#3d5afe!important; }
+
 /* ── Resume chip + in-app viewer ── */
 .resume-chip { margin-top:15px; width:100%; display:flex; align-items:center; gap:11px; border:1px solid #cfe4f8; background:linear-gradient(105deg,#f4faff,#fff6f9); border-radius:13px; padding:9px 13px; text-align:left; transition:.15s; }
 .resume-chip:hover { border-color:var(--blue); box-shadow:0 6px 18px rgba(10,102,194,.12); }

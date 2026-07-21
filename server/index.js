@@ -8,6 +8,7 @@ import { createSeed } from './seed.js';
 import { detectMutualMatch, likesRemainingToday, scoreCandidateForJob, ValidationError, reqString, optString, oneOf } from './matching.js';
 import { applyCandidateProfile, applyRecruiterProfile, candidateCompleteness, recruiterCompleteness } from './profile.js';
 import { anonymizeText, convertDocxToPdf, detectTools, docxToHtml, extractDocxText, extractPdfText, makeSimplePdf, pdfThumbnail } from './resume.js';
+import { applyJob, parseJobText } from './jobs.js';
 import fs from 'node:fs';
 import { exchangeLinkedinCode, linkedinAuthorizationUrl, readSignedValue, signedValue, toLinkedinJobPayload } from './integrations/linkedin.js';
 
@@ -397,6 +398,52 @@ app.get('/api/users/:id/resume/original', async (req, res, next) => {
     res.setHeader('Content-Type', resume.mime);
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(resume.originalName)}"`);
     res.sendFile(path.join(RESUME_DIR, resume.storedName));
+  } catch (error) { next(error); }
+});
+
+// ---------------------------------------------------------------------------
+// Job postings: create, update, paste-import parsing
+// ---------------------------------------------------------------------------
+
+const JOB_ACCENTS = ['#3d5afe', '#ff5a5f', '#00a884', '#8b5cf6', '#f59e0b', '#0ea5e9', '#e11d48'];
+
+app.post('/api/jobs', async (req, res, next) => {
+  try {
+    const employerId = reqString(req.body, 'employerId', { max: 128 });
+    const job = await store.transaction((db) => {
+      const employer = db.users.find((user) => user.id === employerId && user.role === 'employer');
+      if (!employer) throw new ValidationError('employerId', 'Unknown recruiter account');
+      const created = applyJob({
+        id: `j-${crypto.randomUUID().slice(0, 8)}`, employerId,
+        company: employer.company || employer.name,
+        logo: (employer.company || employer.name || '?').trim()[0].toUpperCase(),
+        accent: JOB_ACCENTS[db.jobs.length % JOB_ACCENTS.length],
+        requiredLanguages: [], culture: [], mission: employer.about ? employer.about.slice(0, 80) : 'Posted on JobsMatchNow.',
+        responseTime: '< 1 week', applicants: 0, status: 'draft', createdAt: Date.now(),
+      }, req.body, { strict: true });
+      db.jobs.push(created);
+      return created;
+    });
+    res.status(201).json({ job });
+  } catch (error) { next(error); }
+});
+
+app.patch('/api/jobs/:id', async (req, res, next) => {
+  try {
+    const job = await store.transaction((db) => {
+      const item = db.jobs.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Job not found'); error.status = 404; throw error; }
+      return applyJob(item, req.body);
+    });
+    res.json({ job });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/jobs/parse', async (req, res, next) => {
+  try {
+    const text = reqString(req.body, 'text', { min: 40, max: 20000 });
+    const url = optString(req.body, 'url', { max: 400 });
+    res.json(await parseJobText(text, url));
   } catch (error) { next(error); }
 });
 
