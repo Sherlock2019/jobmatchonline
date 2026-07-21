@@ -57,3 +57,14 @@ Ambiguities resolved in favor of the simplest option consistent with the
   thumbnails, viewer, and anonymization arrive with item 6.
 - **Photo is a URL field** (pre-filled by mock SSO); no binary avatar upload —
   keeps the demo dependency-free.
+
+## Item 5 — Recruiter profile (company & headhunter)
+
+- **Two wizard steps** (Organization → Contact & finish): the brief enumerates one
+  branching form plus shared contact fields, so a 4-step ceremony would be padding.
+- **The account-type switch lives in step 1** and can be flipped mid-wizard; both
+  branches write to the same user record, and completeness is computed per-branch.
+- **Startup seed merge now backfills absent fields** on existing seed records
+  (never overwriting edits), so older dev databases gain the new recruiter fields.
+- The old generic profile view was removed; candidates and recruiters each have a
+  dedicated profile page with per-section edit buttons.

@@ -17,12 +17,18 @@ const store = process.env.DATABASE_URL
   ? new PgStore(process.env.DATABASE_URL, createSeed)
   : new JsonStore(process.env.DB_PATH || path.join(root, 'data', 'db.json'), createSeed);
 await store.init();
-// Merge any seed entities added since the database was first created (idempotent by id).
+// Merge any seed entities added since the database was first created: add
+// missing records by id, and backfill fields the seed has gained since —
+// never overwriting values a user has edited.
 await store.transaction((db) => {
   const seed = createSeed();
   for (const collection of ['users', 'jobs']) {
-    const known = new Set(db[collection].map((item) => item.id));
-    for (const item of seed[collection]) if (!known.has(item.id)) db[collection].push(item);
+    const byId = new Map(db[collection].map((item) => [item.id, item]));
+    for (const item of seed[collection]) {
+      const existing = byId.get(item.id);
+      if (!existing) db[collection].push(item);
+      else for (const [key, value] of Object.entries(item)) if (existing[key] === undefined) existing[key] = value;
+    }
   }
 });
 console.log(`JobMatch store: ${process.env.DATABASE_URL ? 'postgresql (RDS)' : 'json file'}`);

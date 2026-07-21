@@ -653,6 +653,7 @@ button { cursor:pointer; }
 .pf-timeline p { margin:5px 0 0; color:#5d6962; font-size:11px; line-height:1.55; }
 .pf-links { display:flex; flex-wrap:wrap; gap:8px; }
 .pf-links a { display:inline-flex; align-items:center; gap:5px; border:1px solid var(--line); border-radius:999px; padding:6px 12px; font-size:10px; font-weight:700; color:var(--blue); text-transform:capitalize; }
+.pf-about { margin:4px 0 10px; color:#5d6962; font-size:12px; line-height:1.6; }
 @media (max-width:850px) { .pf-grid { grid-template-columns:1fr; } .profile-hero { flex-wrap:wrap; } }
 
 /* exact photo mockup slide (slide 1) + hero play chip */

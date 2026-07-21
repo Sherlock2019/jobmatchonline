@@ -11,6 +11,8 @@ import { LoginModal, RegisterModal } from './components/AuthModals';
 import { MobileLanding } from './components/MobileLanding';
 import { CandidateWizard } from './components/profile/CandidateWizard';
 import { CandidateProfilePage } from './components/profile/CandidateProfilePage';
+import { RecruiterWizard } from './components/profile/RecruiterWizard';
+import { RecruiterProfilePage } from './components/profile/RecruiterProfilePage';
 import { comparisonRows } from './content/landingContent';
 import { loadSession, saveSession } from './lib/auth';
 import type { Bootstrap, Job, JobMatch, Message, Person, Role, SessionUser, View } from './types';
@@ -146,10 +148,14 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
     {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
     <section className="app-main"><header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><button aria-label="Notifications"><Bell size={19} /><i /></button><button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Candidate view' : 'Recruiter view'}<ChevronDown size={14} /></button></div></header>
       {loading ? <LoadingState /> : error ? <ErrorState message={error} retry={load} /> : data && (
-        data.viewer.role === 'candidate' && (data.viewer.onboarding || editStep !== null)
-          ? <CandidateWizard viewer={data.viewer} initialStep={editStep ?? 0}
-              onDone={() => { setEditStep(null); setView('profile'); load(); }}
-              onCancel={data.viewer.onboarding ? undefined : () => setEditStep(null)} />
+        (data.viewer.onboarding || editStep !== null)
+          ? (data.viewer.role === 'candidate'
+              ? <CandidateWizard viewer={data.viewer} initialStep={editStep ?? 0}
+                  onDone={() => { setEditStep(null); setView('profile'); load(); }}
+                  onCancel={data.viewer.onboarding ? undefined : () => setEditStep(null)} />
+              : <RecruiterWizard viewer={data.viewer} initialStep={editStep ?? 0}
+                  onDone={() => { setEditStep(null); setView('profile'); load(); }}
+                  onCancel={data.viewer.onboarding ? undefined : () => setEditStep(null)} />)
           : <ViewRouter view={view} role={role} data={data} setData={setData} navigate={setView} onEditProfile={setEditStep} />
       )}
     </section>
@@ -164,7 +170,7 @@ function ViewRouter({ view, role, data, setData, navigate, onEditProfile }: { vi
   if (view === 'jobs') return <Jobs data={data} />;
   if (view === 'matches') return <Matches data={data} navigate={navigate} />;
   if (role === 'candidate') return <CandidateProfilePage viewer={data.viewer} onEdit={onEditProfile} />;
-  return <Profile data={data} />;
+  return <RecruiterProfilePage viewer={data.viewer} onEdit={onEditProfile} />;
 }
 
 function Discover({ role, data, setData, navigate }: { role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void }) {
@@ -232,8 +238,6 @@ function Matches({ data, navigate }: { data: Bootstrap; navigate: (v: View) => v
 function Jobs({ data }: { data: Bootstrap }) { return <div className="page"><div className="page-title"><div><span className="overline">Recruiting</span><h1>Open roles</h1><p>Manage jobs, recommendations, and candidate interest.</p></div><button className="primary-button small">+ Create job</button></div><div className="channel-bar"><div className="linkedin-mark"><Linkedin size={18} fill="currentColor" /></div><section><strong>LinkedIn Talent Solutions ready</strong><p>Sync job lifecycle and Apply Connect data after partner approval.</p></section><span>Adapter configured</span><button className="secondary-button">Integration settings</button></div><div className="jobs-table"><header><span>Role</span><span>Status</span><span>Matches</span><span>Applicants</span><span>Quality</span><span /></header>{data.jobs.filter((j) => j.employerId === data.viewer.id).map((job) => <div className="job-row" key={job.id}><div><div className="company-logo small-logo" style={{ background: job.accent }}>{job.logo}</div><section><strong>{job.title}</strong><small>{job.location} · Posted 8d ago</small></section></div><span className="status"><i />{job.status}</span><strong>18</strong><span>{job.applicants}</span><span className="quality">Excellent</span><button><MoreHorizontal /></button></div>)}</div><div className="job-empty"><div><Sparkles /></div><section><h3>Reach the right people, not the most people.</h3><p>JobsMatchNow recommends your role only to candidates with meaningful fit and verified intent.</p></section><button className="secondary-button">Preview candidate experience</button></div></div>; }
 
 function Analytics({ data }: { data: Bootstrap }) { return <div className="page"><div className="page-title"><div><span className="overline">Talent intelligence</span><h1>Hiring insights</h1><p>Signals that help your team improve quality, speed, and candidate experience.</p></div><button className="ghost-button">Last 30 days <ChevronDown size={15} /></button></div><div className="analytics-grid"><Metric label="Profile views" value="1,284" change="↑ 18.2%" /><Metric label="Mutual match rate" value="24.8%" change="↑ 4.1%" /><Metric label="Candidate response" value="82%" change="↑ 6.7%" /><Metric label="Qualified conversations" value="36" change="↑ 12" /></div><div className="chart-grid"><section className="chart-card wide"><header><div><strong>Matching funnel</strong><p>From recommendation to qualified conversation</p></div><button><MoreHorizontal /></button></header><div className="bar-chart">{[62, 78, 49, 86, 72, 94, 81, 68, 90, 76, 88, 96].map((height, i) => <div key={i}><i style={{ height: `${height}%` }} /><span>{i % 2 === 0 ? ['Jul 1', '5', '9', '13', '17', '21'][i / 2] : ''}</span></div>)}</div></section><section className="chart-card"><header><div><strong>Match quality</strong><p>Recommended candidates</p></div></header><div className="donut"><div><strong>86</strong><span>avg. score</span></div></div><div className="legend"><span><i className="excellent" />Excellent <b>54%</b></span><span><i className="good" />Good <b>32%</b></span><span><i className="fair" />Developing <b>14%</b></span></div></section></div><section className="insight-callout"><div><Sparkles /></div><section><span>Opportunity insight</span><h3>Add “Design systems” to the role’s must-have skills.</h3><p>High-performing matches mention it 2.4× more often, and your strongest current candidates all have verified experience.</p></section><button className="secondary-button">Review suggestion</button></section></div>; }
-
-function Profile({ data }: { data: Bootstrap }) { const p = data.viewer; return <div className="page profile-page"><div className="profile-hero"><img src={p.photo} /><div><span className="overline">{p.role === 'employer' ? 'Your recruiter profile' : 'Your candidate profile'}</span><h1>{p.name}</h1><p>{p.title}{p.location ? ` · ${p.location}` : p.company ? ` · ${p.company}` : ''}</p><div className="skill-list">{p.skills.map((s) => <span key={s}>{s}</span>)}</div></div><button className="secondary-button">Edit profile</button></div><div className="linkedin-connect"><div className="linkedin-mark"><Linkedin size={20} fill="currentColor" /></div><div><strong>Bring your professional identity</strong><p>Connect LinkedIn to import your basic profile and reduce onboarding friction. You stay in control of what employers see.</p></div><button className="linkedin-button" onClick={connectLinkedIn}>Connect LinkedIn</button></div><div className="profile-grid"><section><h2>Your profile strength</h2><div className="completion"><strong>{p.completeness}%</strong><div><i style={{ width: `${p.completeness}%` }} /></div></div><p>Your profile is ready to be shown to high-fit teams.</p></section><section><h2>Visibility & trust</h2><p><Linkedin size={16} />LinkedIn identity details supported</p><p><Check size={16} />Skills evidence added</p><p><ShieldCheck size={16} />Contact details hidden until match</p></section><section><h2>What you want next</h2><p>Senior or lead product roles at mission-led teams, with hybrid flexibility and strong design culture.</p><button className="text-button">Edit preferences <ArrowRight size={14} /></button></section></div></div>; }
 
 function Metric({ label, value, change }: { label: string; value: string; change: string }) { return <article className="metric"><span>{label}</span><strong>{value}</strong><small>{change}</small></article>; }
 function LoadingState() { return <div className="loading-state"><div className="loading-mark brand-heart-mark" /><p>Building your best matches…</p></div>; }
