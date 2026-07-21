@@ -27,6 +27,7 @@
     "@capacitor/haptics": "^8.0.0",
     "@capacitor/ios": "^8.0.0",
     "express": "^4.21.2",
+    "pdfjs-dist": "^6.1.200",
     "pg": "^8.13.1"
   },
   "devDependencies": {

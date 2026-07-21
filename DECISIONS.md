@@ -68,3 +68,23 @@ Ambiguities resolved in favor of the simplest option consistent with the
   (never overwriting edits), so older dev databases gain the new recruiter fields.
 - The old generic profile view was removed; candidates and recruiters each have a
   dedicated profile page with per-section edit buttons.
+
+## Item 6 — Resume upload + in-app viewer
+
+- **Runtime tool detection**: LibreOffice (`soffice`) and `pdftoppm` are probed
+  once per process. On this demo host neither exists, so DOCX renders via
+  mammoth HTML and page-1 thumbnails are generated in the uploader's browser
+  with pdf.js and posted back (`needsClientThumbnail` handshake).
+- **Text extraction uses pdfjs-dist (Node legacy build) for PDFs** and mammoth
+  for DOCX — no native dependencies.
+- **Anonymization order matters**: emails/phones/links are redacted before the
+  candidate's name tokens, so the name pass can't break the email pattern.
+- **Access rule is viewerId-based** (owner, or recruiter with a mutual match) —
+  demo-level enforcement matching the app's sessionless auth; noted as the seam
+  where real session auth would go.
+- **Every seed candidate gets a generated one-page PDF resume at server start**
+  (with visible contact details, so the anonymized preview is demonstrable),
+  written by a ~40-line built-in PDF writer — keeps `./startdemo.sh` self-
+  sufficient with zero external calls.
+- **Pre-match thumbnails are CSS-blurred** on the recruiter card; deck candidates
+  are served without email/phone fields pre-match.

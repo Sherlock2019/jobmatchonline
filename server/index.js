@@ -7,6 +7,7 @@ import { PgStore } from './store-pg.js';
 import { createSeed } from './seed.js';
 import { detectMutualMatch, likesRemainingToday, scoreCandidateForJob, ValidationError, reqString, optString, oneOf } from './matching.js';
 import { applyCandidateProfile, applyRecruiterProfile, candidateCompleteness, recruiterCompleteness } from './profile.js';
+import { anonymizeText, convertDocxToPdf, detectTools, docxToHtml, extractDocxText, extractPdfText, makeSimplePdf, pdfThumbnail } from './resume.js';
 import fs from 'node:fs';
 import { exchangeLinkedinCode, linkedinAuthorizationUrl, readSignedValue, signedValue, toLinkedinJobPayload } from './integrations/linkedin.js';
 
@@ -202,6 +203,43 @@ const RESUME_TYPES = {
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
 };
 
+/**
+ * Demo access rule: the owner always sees their full resume; a recruiter sees
+ * it only after a mutual match with that candidate. Everyone else gets the
+ * anonymized preview. (Demo-level check via viewerId param — a real deployment
+ * would derive the viewer from an authenticated session.)
+ */
+function fullResumeAccess(db, viewerId, ownerId) {
+  if (!viewerId) return false;
+  if (viewerId === ownerId) return true;
+  return db.matches.some((match) => match.candidateId === ownerId && match.employerId === viewerId);
+}
+
+async function processResume(userId, meta) {
+  const originalPath = path.join(RESUME_DIR, meta.storedName);
+  const base = path.join(RESUME_DIR, `${userId}-${meta.id}`);
+  let pdfPath = meta.ext === 'pdf' ? originalPath : null;
+  if (meta.ext === 'docx') {
+    const converted = await convertDocxToPdf(originalPath, RESUME_DIR);
+    if (converted) { meta.pdfName = path.basename(converted); pdfPath = converted; }
+    else {
+      // LibreOffice unavailable: mammoth HTML keeps DOCX viewable in-app.
+      try { await fs.promises.writeFile(`${base}.html`, await docxToHtml(originalPath)); meta.htmlName = path.basename(`${base}.html`); } catch { /* viewer falls back to text */ }
+    }
+  }
+  try {
+    const text = meta.ext === 'docx' ? await extractDocxText(originalPath) : await extractPdfText(originalPath);
+    await fs.promises.writeFile(`${base}.txt`, text);
+    meta.textName = path.basename(`${base}.txt`);
+  } catch { /* preview will report extraction unavailable */ }
+  if (pdfPath) {
+    const thumb = await pdfThumbnail(pdfPath, `${base}-thumb`);
+    if (thumb) meta.thumbName = path.basename(thumb);
+    else meta.needsClientThumbnail = true; // uploader's browser renders page 1 with pdf.js and posts it back
+  }
+  return meta;
+}
+
 app.post('/api/users/:id/resume', express.raw({ type: () => true, limit: '10mb' }), async (req, res, next) => {
   try {
     const ext = RESUME_TYPES[req.headers['content-type']];
@@ -211,7 +249,11 @@ app.post('/api/users/:id/resume', express.raw({ type: () => true, limit: '10mb' 
     const id = crypto.randomUUID();
     const storedName = `${req.params.id}-${id}.${ext}`;
     await fs.promises.writeFile(path.join(RESUME_DIR, storedName), req.body);
-    const meta = { id, originalName, storedName, ext, size: req.body.length, mime: req.headers['content-type'], uploadedAt: Date.now(), url: `/api/users/${req.params.id}/resume/original` };
+    const meta = await processResume(req.params.id, {
+      id, originalName, storedName, ext, size: req.body.length, mime: req.headers['content-type'], uploadedAt: Date.now(),
+      url: `/api/users/${req.params.id}/resume/original`,
+      thumbnailUrl: `/api/users/${req.params.id}/resume/thumbnail`,
+    });
     const user = await store.transaction((db) => {
       const item = db.users.find((entry) => entry.id === req.params.id);
       if (!item) { const error = new Error('User not found'); error.status = 404; throw error; }
@@ -223,12 +265,135 @@ app.post('/api/users/:id/resume', express.raw({ type: () => true, limit: '10mb' 
   } catch (error) { next(error); }
 });
 
+app.post('/api/users/:id/resume/thumbnail', express.raw({ type: 'image/png', limit: '2mb' }), async (req, res, next) => {
+  try {
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) throw new ValidationError('file', 'Empty thumbnail');
+    const resume = await store.transaction((db) => {
+      const item = db.users.find((entry) => entry.id === req.params.id);
+      if (!item?.documents?.resume) { const error = new Error('No resume on file'); error.status = 404; throw error; }
+      item.documents.resume.thumbName = `${req.params.id}-${item.documents.resume.id}-thumb.png`;
+      delete item.documents.resume.needsClientThumbnail;
+      return item.documents.resume;
+    });
+    await fs.promises.writeFile(path.join(RESUME_DIR, resume.thumbName), req.body);
+    res.status(201).json({ ok: true });
+  } catch (error) { next(error); }
+});
+
+// Give every seed candidate a realistic on-disk resume (with contact details,
+// so the pre-match anonymization is demonstrable). Idempotent.
+await (async () => {
+  const db = await store.read();
+  const seedCandidates = db.users.filter((user) => user.role === 'candidate' && !user.documents?.resume);
+  for (const candidate of seedCandidates) {
+    const phone = `+84 90${String(Math.abs([...candidate.id].reduce((sum, ch) => sum + ch.charCodeAt(0), 0)) % 10000000).padStart(7, '0')}`;
+    const lines = [
+      candidate.name,
+      `${candidate.title} · ${candidate.location || ''}`,
+      `Email: ${candidate.email || 'hello@example.com'}   Phone: ${phone}`,
+      '',
+      'SUMMARY',
+      `${candidate.experienceLevel} professional focused on ${candidate.skills.slice(0, 3).join(', ')}.`,
+      'Track record of shipping user-centred work with cross-functional teams.',
+      '',
+      'SKILLS',
+      candidate.skills.join(' · '),
+      '',
+      'LANGUAGES',
+      candidate.languages.join(' · '),
+      '',
+      'EXPERIENCE',
+      `${candidate.title} — most recent role`,
+      'Led projects end-to-end, from discovery through launch and iteration.',
+      'Partnered with product and engineering to raise the craft bar.',
+    ];
+    const id = crypto.randomUUID();
+    const storedName = `${candidate.id}-${id}.pdf`;
+    await fs.promises.writeFile(path.join(RESUME_DIR, storedName), makeSimplePdf(lines));
+    const meta = await processResume(candidate.id, {
+      id, originalName: `${candidate.name.replace(/\s+/g, '-')}-Resume.pdf`, storedName, ext: 'pdf', size: 0, mime: 'application/pdf', uploadedAt: Date.now(),
+      url: `/api/users/${candidate.id}/resume/original`, thumbnailUrl: `/api/users/${candidate.id}/resume/thumbnail`,
+    });
+    meta.size = (await fs.promises.stat(path.join(RESUME_DIR, storedName))).size;
+    await store.transaction((inner) => {
+      const item = inner.users.find((entry) => entry.id === candidate.id);
+      if (item && !item.documents?.resume) item.documents = { ...(item.documents || {}), resume: meta };
+    });
+  }
+})();
+
+async function loadResume(req) {
+  const db = await store.read();
+  const user = db.users.find((entry) => entry.id === req.params.id);
+  const resume = user?.documents?.resume;
+  if (!resume) { const error = new Error('No resume on file'); error.status = 404; throw error; }
+  return { db, user, resume, viewerId: typeof req.query.viewerId === 'string' ? req.query.viewerId : '' };
+}
+
+// Descriptor the in-app viewer uses to decide how to render.
+app.get('/api/users/:id/resume/view', async (req, res, next) => {
+  try {
+    const { db, resume, viewerId } = await loadResume(req);
+    const unlocked = fullResumeAccess(db, viewerId, req.params.id);
+    const tools = await detectTools();
+    if (!unlocked) return res.json({ mode: 'preview', name: 'Anonymized resume', previewUrl: `/api/users/${req.params.id}/resume/preview?viewerId=${encodeURIComponent(viewerId)}` });
+    const hasPdf = resume.ext === 'pdf' || resume.pdfName;
+    res.json({
+      mode: hasPdf ? 'pdf' : resume.htmlName ? 'html' : 'text',
+      name: resume.originalName, size: resume.size, uploadedAt: resume.uploadedAt, converter: tools.soffice ? 'libreoffice' : 'mammoth',
+      pdfUrl: hasPdf ? `/api/users/${req.params.id}/resume/pdf?viewerId=${encodeURIComponent(viewerId)}` : undefined,
+      htmlUrl: resume.htmlName ? `/api/users/${req.params.id}/resume/html?viewerId=${encodeURIComponent(viewerId)}` : undefined,
+      textUrl: `/api/users/${req.params.id}/resume/preview?viewerId=${encodeURIComponent(viewerId)}`,
+      originalUrl: `/api/users/${req.params.id}/resume/original?viewerId=${encodeURIComponent(viewerId)}`,
+    });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/users/:id/resume/pdf', async (req, res, next) => {
+  try {
+    const { db, resume, viewerId } = await loadResume(req);
+    if (!fullResumeAccess(db, viewerId, req.params.id)) { const error = new Error('Full resume unlocks after a mutual match'); error.status = 403; throw error; }
+    const fileName = resume.ext === 'pdf' ? resume.storedName : resume.pdfName;
+    if (!fileName) { const error = new Error('No PDF rendition available'); error.status = 404; throw error; }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(resume.originalName.replace(/\.docx$/i, '.pdf'))}"`);
+    res.sendFile(path.join(RESUME_DIR, fileName));
+  } catch (error) { next(error); }
+});
+
+app.get('/api/users/:id/resume/html', async (req, res, next) => {
+  try {
+    const { db, resume, viewerId } = await loadResume(req);
+    if (!fullResumeAccess(db, viewerId, req.params.id)) { const error = new Error('Full resume unlocks after a mutual match'); error.status = 403; throw error; }
+    if (!resume.htmlName) { const error = new Error('No HTML rendition available'); error.status = 404; throw error; }
+    res.json({ html: await fs.promises.readFile(path.join(RESUME_DIR, resume.htmlName), 'utf8') });
+  } catch (error) { next(error); }
+});
+
+// Anonymized text preview: available pre-match (consent-first).
+app.get('/api/users/:id/resume/preview', async (req, res, next) => {
+  try {
+    const { db, user, resume, viewerId } = await loadResume(req);
+    if (!resume.textName) return res.json({ text: '', note: 'Text extraction unavailable for this file.' });
+    const raw = await fs.promises.readFile(path.join(RESUME_DIR, resume.textName), 'utf8');
+    const unlocked = fullResumeAccess(db, viewerId, req.params.id);
+    res.json({ text: unlocked ? raw : anonymizeText(raw, user), anonymized: !unlocked });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/users/:id/resume/thumbnail', async (req, res, next) => {
+  try {
+    const { resume } = await loadResume(req);
+    if (!resume.thumbName) { const error = new Error('No thumbnail'); error.status = 404; throw error; }
+    res.setHeader('Content-Type', 'image/png');
+    res.sendFile(path.join(RESUME_DIR, resume.thumbName));
+  } catch (error) { next(error); }
+});
+
 app.get('/api/users/:id/resume/original', async (req, res, next) => {
   try {
-    const db = await store.read();
-    const user = db.users.find((entry) => entry.id === req.params.id);
-    const resume = user?.documents?.resume;
-    if (!resume) { const error = new Error('No resume on file'); error.status = 404; throw error; }
+    const { db, resume, viewerId } = await loadResume(req);
+    if (!fullResumeAccess(db, viewerId, req.params.id)) { const error = new Error('Full resume unlocks after a mutual match'); error.status = 403; throw error; }
     res.setHeader('Content-Type', resume.mime);
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(resume.originalName)}"`);
     res.sendFile(path.join(RESUME_DIR, resume.storedName));
@@ -244,7 +409,8 @@ app.get('/api/bootstrap', async (req, res, next) => {
     const role = viewer.role === 'employer' ? 'employer' : 'candidate';
     const candidates = db.users.filter((user) => user.role === 'candidate');
     const scoredJobs = db.jobs.map((job) => ({ ...job, distanceKm: job.distanceKm ?? demoDistances[job.id], match: scoreCandidateForJob(viewer, job) }));
-    const scoredCandidates = candidates.filter((candidate) => candidate.id !== viewer.id).map((candidate) => ({ ...candidate, distanceKm: candidate.distanceKm ?? demoDistances[candidate.id], match: scoreCandidateForJob(candidate, db.jobs[0]) }));
+    // Deck candidates: contact details stay hidden until a mutual match.
+    const scoredCandidates = candidates.filter((candidate) => candidate.id !== viewer.id).map(({ email, phone, ...candidate }) => ({ ...candidate, distanceKm: candidate.distanceKm ?? demoDistances[candidate.id], match: scoreCandidateForJob(candidate, db.jobs[0]) }));
     const matches = db.matches.filter((match) => role === 'candidate' ? match.candidateId === viewer.id : match.employerId === viewer.id).map((match) => ({ ...match, candidate: db.users.find((user) => user.id === match.candidateId), job: db.jobs.find((job) => job.id === match.jobId) }));
     const matchIds = new Set(matches.map((match) => match.id));
     res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), likesRemaining: likesRemainingToday(db.swipes, viewer.id) });

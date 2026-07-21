@@ -132,7 +132,16 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
   const uploadResume = async (file: File) => {
     if (file.size > 10 * 1024 * 1024) { setError('Resume must be 10MB or smaller'); return; }
     setUploading(true); setError('');
-    try { const { resume } = await api.uploadResume(viewer.id, file); patch({ resume }); }
+    try {
+      const { resume } = await api.uploadResume(viewer.id, file);
+      patch({ resume });
+      // No pdftoppm on the server: render the page-1 thumbnail here with pdf.js.
+      if (resume.needsClientThumbnail && file.type === 'application/pdf') {
+        const { makePdfThumbnail } = await import('../../lib/pdf');
+        const thumbnail = await makePdfThumbnail(file);
+        if (thumbnail) await api.uploadResumeThumbnail(viewer.id, thumbnail);
+      }
+    }
     catch (e) { setError(e instanceof Error ? e.message : 'Upload failed'); }
     finally { setUploading(false); }
   };

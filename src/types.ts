@@ -10,7 +10,7 @@ export interface SkillTag { name: string; level: number }
 export interface LanguageTag { name: string; level: string }
 export interface WorkExperience { title?: string; company?: string; from?: string; to?: string; description?: string }
 export interface Education { school?: string; degree?: string; from?: string; to?: string }
-export interface ResumeMeta { id: string; originalName: string; storedName?: string; ext?: string; size: number; mime: string; uploadedAt: number; url: string; thumbnailUrl?: string; previewUrl?: string }
+export interface ResumeMeta { id: string; originalName: string; storedName?: string; ext?: string; size: number; mime: string; uploadedAt: number; url: string; thumbnailUrl?: string; previewUrl?: string; needsClientThumbnail?: boolean; pdfName?: string; htmlName?: string; textName?: string; thumbName?: string }
 export interface CandidatePreferences { desiredRoles?: string[]; employmentTypes?: string[]; workMode?: { mode: 'remote' | 'hybrid' | 'onsite'; hybridDays?: number }; salary?: { min?: number; max?: number; currency?: string }; availability?: string; relocate?: { open: boolean; locations?: string[] }; companySize?: string; workStyle?: string[] }
 export interface PrivacySettings { visibility?: 'all' | 'after-swipe' | 'paused'; blockedCompanies?: string[]; openToWork?: boolean }
 
