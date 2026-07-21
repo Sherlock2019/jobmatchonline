@@ -207,14 +207,61 @@ function Discover({ role, data, setData, navigate }: { role: Role; data: Bootstr
       {current && <div className="action-row"><button onClick={() => act('pass')} disabled={busy} className="pass-action" aria-label="Pass"><X /></button><button className="undo-action" aria-label="Undo" disabled><RotateCcw /></button><button onClick={() => act('like')} disabled={busy} className="like-action" aria-label="Like"><Heart fill="currentColor" /></button></div>}
       <div className="keyboard-hint"><span><kbd>←</kbd> Pass</span><span><kbd>→</kbd> Like</span><span><kbd>Space</kbd> View details</span></div>
     </section><aside className="insight-panel"><div className="daily-card"><div><span>Today’s activity</span><strong>{data.likesRemaining}</strong><small>likes remaining</small></div><div className="ring" style={{ '--progress': `${data.likesRemaining * 2}%` } as React.CSSProperties}><Heart size={18} /></div></div><div className="tip-card"><div className="tip-icon"><Zap size={17} /></div><strong>{role === 'candidate' ? 'Complete your preferences' : 'Calibrate your search'}</strong><p>{role === 'candidate' ? 'Add your preferred team size to improve recommendations by up to 18%.' : 'Review five profiles to help JobsMatchNow learn what great looks like for this role.'}</p><button>{role === 'candidate' ? 'Update preferences' : 'View calibration'} <ArrowRight size={14} /></button></div><div className="quality-card"><div className="quality-head"><span>Match quality</span><strong>Excellent</strong></div><div className="quality-bar"><i /></div><p>Your recommendations use 12 verified profile signals.</p></div></aside></div>
-    <AnimatePresence>{match && <MatchModal match={match} onClose={() => setMatch(null)} onMessage={() => { setMatch(null); navigate('messages'); }} />}</AnimatePresence>
+    <AnimatePresence>{match && <MatchModal match={match} viewer={data.viewer} onClose={() => setMatch(null)} onMessage={() => { setMatch(null); navigate('messages'); }} />}</AnimatePresence>
     <AnimatePresence>{resumeFor && <ResumeViewerModal person={resumeFor} viewerId={data.viewer.id} onClose={() => setResumeFor(null)} />}</AnimatePresence></div>;
 }
 
 function SwipeCard({ item, role, onSwipe, onOpenResume, resumeUnlocked }: { item: Job | Person; role: Role; onSwipe: (direction: 'like' | 'pass') => void; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean }) {
+  const [flipped, setFlipped] = useState(false);
   const x = useMotionValue(0); const rotate = useTransform(x, [-220, 220], [-8, 8]); const likeOpacity = useTransform(x, [20, 120], [0, 1]); const passOpacity = useTransform(x, [-120, -20], [1, 0]);
   return <motion.article className="swipe-card" style={{ x, rotate }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.85} onDragEnd={(_, info) => { if (info.offset.x > 110) onSwipe('like'); else if (info.offset.x < -110) onSwipe('pass'); }}>
-    <motion.div className="swipe-stamp like-stamp" style={{ opacity: likeOpacity }}>INTERESTED</motion.div><motion.div className="swipe-stamp pass-stamp" style={{ opacity: passOpacity }}>PASS</motion.div><CardSummary item={item} role={role} detailed onOpenResume={onOpenResume} resumeUnlocked={resumeUnlocked} /></motion.article>;
+    <motion.div className="swipe-stamp like-stamp" style={{ opacity: likeOpacity }}>INTERESTED</motion.div><motion.div className="swipe-stamp pass-stamp" style={{ opacity: passOpacity }}>PASS</motion.div>
+    <div className={flipped ? 'card-flip flipped' : 'card-flip'}>
+      <div className="card-face card-front">
+        <CardSummary item={item} role={role} detailed onOpenResume={onOpenResume} resumeUnlocked={resumeUnlocked} />
+        <button className="flip-button" onPointerDownCapture={(event) => event.stopPropagation()} onClick={() => setFlipped(true)}><Sparkles size={13} /> Why this match</button>
+      </div>
+      <div className="card-face card-back"><FitBreakdown item={item} role={role} onBack={() => setFlipped(false)} /></div>
+    </div>
+  </motion.article>;
+}
+
+const SALARY_BADGES: Record<string, { label: string; tone: string }> = {
+  within: { label: 'Within your expected range', tone: 'good' },
+  above: { label: 'Above your expected range', tone: 'info' },
+  below: { label: 'Below your minimum', tone: 'bad' },
+  unknown: { label: 'Salary revealed after match', tone: 'muted' },
+};
+
+function SalaryBadge({ status }: { status?: string }) {
+  const badge = SALARY_BADGES[status || 'unknown'] || SALARY_BADGES.unknown;
+  return <span className={`salary-badge salary-${badge.tone}`}>{badge.label}</span>;
+}
+
+function formatRange(range?: { min: number; max: number; currency: string }) {
+  if (!range) return null;
+  const compact = (value: number) => (value >= 1000 && value % 1000 === 0 ? `${value / 1000}k` : value.toLocaleString());
+  return `${compact(range.min)}–${compact(range.max)} ${range.currency}`;
+}
+
+/** Back of the flip card: per-factor score breakdown with evidence lines. */
+function FitBreakdown({ item, role, onBack }: { item: Job | Person; role: Role; onBack: () => void }) {
+  const match = item.match;
+  const title = role === 'candidate' ? (item as Job).title : (item as Person).name;
+  return <div className="fit-breakdown" onPointerDownCapture={(event) => event.stopPropagation()}>
+    <header>
+      <div><span className="overline">Why this match</span><h2>{match?.score}% fit · {title}</h2></div>
+      <button className="modal-close" onClick={onBack} aria-label="Back to card"><RotateCcw size={16} /></button>
+    </header>
+    <div className="fit-factors">
+      {(match?.breakdown || []).map((factor) => <div className="fit-factor" key={factor.factor}>
+        <div className="fit-factor-head"><strong>{factor.label}</strong><span>{Math.round(factor.score * 100)}%</span></div>
+        <div className="fit-factor-bar"><i style={{ width: `${Math.round(factor.score * 100)}%` }} /></div>
+        <p>{factor.evidence}</p>
+      </div>)}
+    </div>
+    {match && match.matchedSkills.length > 0 && <div className="card-section"><span className="card-label">Matched skills</span><div className="skill-list">{match.matchedSkills.map((skill) => <span key={skill}><Check size={12} />{skill}</span>)}</div></div>}
+  </div>;
 }
 
 function ResumeChip({ person, unlocked, onOpen }: { person: Person; unlocked: boolean; onOpen: (person: Person) => void }) {
@@ -228,13 +275,28 @@ function ResumeChip({ person, unlocked, onOpen }: { person: Person; unlocked: bo
 }
 
 function CardSummary({ item, role, detailed = false, onOpenResume, resumeUnlocked = false }: { item: Job | Person; role: Role; detailed?: boolean; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean }) {
-  if (role === 'candidate') { const job = item as Job; return <><div className="card-header"><div className="company-logo" style={{ background: job.accent }}>{job.logo}</div><div className="fit-badge"><span>{job.match.score}%</span> match</div><button aria-label="More"><MoreHorizontal /></button></div><div className="card-body"><div className="company-line">{job.company}<i />{job.responseTime} response</div><h2>{job.title}</h2><div className="job-meta"><span><MapPin size={15} />{job.location}</span>{job.distanceKm !== undefined && <span className="distance-badge">{job.distanceKm} km away</span>}<span><BriefcaseBusiness size={15} />{job.type}</span><span>{job.salary}</span></div><p className="description">{job.description}</p>{detailed && <><div className="match-reason"><div><Sparkles size={17} /></div><section><strong>Why you’re a strong match</strong><p>{job.match.matchedSkills.length} priority skills match, your experience level fits, and the role supports your preferred work style.</p></section></div><div className="card-section"><span className="card-label">Your matching skills</span><div className="skill-list">{job.match.matchedSkills.map((skill) => <span key={skill}><Check size={12} />{skill}</span>)}</div></div><div className="card-foot"><div><strong>{job.mission}</strong><small>{job.culture.join(' · ')}</small></div><button>Full role <ArrowRight size={14} /></button></div></>}</div></>; }
+  if (role === 'candidate') { const job = item as Job; return <><div className="card-header"><div className="company-logo" style={{ background: job.accent }}>{job.logo}</div><div className="fit-badge"><span>{job.match.score}%</span> match</div><button aria-label="More"><MoreHorizontal /></button></div><div className="card-body"><div className="company-line">{job.company}<i />{job.responseTime} response</div><h2>{job.title}</h2><div className="job-meta"><span><MapPin size={15} />{job.location}</span>{job.distanceKm !== undefined && <span className="distance-badge">{job.distanceKm} km away</span>}<span><BriefcaseBusiness size={15} />{job.type}</span>{job.salaryHidden ? <SalaryBadge status={job.match?.salaryStatus} /> : <span>{job.salary}</span>}</div><p className="description">{job.description}</p>{detailed && <><div className="match-reason"><div><Sparkles size={17} /></div><section><strong>Why you’re a strong match</strong><p>{job.match.matchedSkills.length} priority skills match, your experience level fits, and the role supports your preferred work style.</p></section></div><div className="card-section"><span className="card-label">Your matching skills</span><div className="skill-list">{job.match.matchedSkills.map((skill) => <span key={skill}><Check size={12} />{skill}</span>)}</div></div><div className="card-foot"><div><strong>{job.mission}</strong><small>{job.culture.join(' · ')}</small></div><button>Full role <ArrowRight size={14} /></button></div></>}</div></>; }
   const person = item as Person; return <><div className="talent-photo"><img src={person.photo} alt="" /><div className="availability"><i />Available {person.availability}</div></div><div className="card-body talent-body"><div className="fit-badge talent-fit"><span>{person.match?.score}%</span> match</div><h2>{person.name}</h2><p className="talent-title">{person.title}</p><div className="job-meta"><span><MapPin size={15} />{person.location}</span>{person.distanceKm !== undefined && <span className="distance-badge">{person.distanceKm} km away</span>}<span><BriefcaseBusiness size={15} />{person.experienceLevel}</span></div>{detailed && <><div className="match-reason"><div><Sparkles size={17} /></div><section><strong>Why they stand out</strong><p>{person.match?.matchedSkills.join(', ')} align with the role. Their background and availability fit your hiring plan.</p></section></div><div className="card-section"><span className="card-label">Top skills</span><div className="skill-list">{person.skills.map((skill) => <span key={skill}>{skill}</span>)}</div></div>{onOpenResume && <ResumeChip person={person} unlocked={resumeUnlocked} onOpen={onOpenResume} />}</>}</div></>;
 }
 
 function EmptyDeck({ onReset }: { onReset: () => void }) { return <div className="empty-deck"><div><Check /></div><h2>You’re all caught up</h2><p>We’ll bring you fresh recommendations as soon as the fit is strong enough.</p><button className="primary-button" onClick={onReset}><RotateCcw size={16} />Review again</button></div>; }
 
-function MatchModal({ match, onClose, onMessage }: { match: JobMatch; onClose: () => void; onMessage: () => void }) { return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div className="match-modal" initial={{ y: 30, scale: .96 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: .96 }}><button className="modal-close" onClick={onClose}><X /></button><div className="match-glow"><Heart fill="currentColor" /></div><span className="overline">Mutual interest</span><h2>It’s a match.</h2><p>Northstar is interested too. Start a conversation while the momentum is fresh.</p><div className="match-faces"><img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop" /><div>N</div></div><button className="primary-button" onClick={onMessage}><MessageCircle size={17} />Send a message</button><button className="text-button" onClick={onClose}>Keep exploring</button></motion.div></motion.div>; }
+function MatchModal({ match, viewer, onClose, onMessage }: { match: JobMatch; viewer: Person; onClose: () => void; onMessage: () => void }) {
+  const counterpart = viewer.role === 'candidate' ? (match.job?.company || 'The team') : (match.candidate?.name || 'The candidate');
+  const jobRange = formatRange(match.job?.salaryRange);
+  const candidateRange = formatRange(viewer.role === 'candidate' ? viewer.preferences?.salary as { min: number; max: number; currency: string } | undefined : match.candidate?.preferences?.salary as { min: number; max: number; currency: string } | undefined);
+  return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div className="match-modal" initial={{ y: 30, scale: .96 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: .96 }}><button className="modal-close" onClick={onClose}><X /></button><div className="match-glow"><Heart fill="currentColor" /></div><span className="overline">Mutual interest</span><h2>It’s a match.</h2><p>{counterpart} is interested too. Start a conversation while the momentum is fresh.</p>
+    <div className="match-faces"><img src={match.candidate?.photo || viewer.photo} /><div style={{ background: match.job?.accent || 'var(--blue)' }}>{match.job?.logo || counterpart[0]}</div></div>
+    {(jobRange || candidateRange) && <div className="salary-reveal">
+      <span className="overline">Mutual salary reveal</span>
+      <div className="salary-reveal-rows">
+        {jobRange && <div><small>{match.job?.title || 'Role'} offers</small><strong>{jobRange}</strong></div>}
+        {candidateRange && <div><small>{viewer.role === 'candidate' ? 'Your expectation' : `${match.candidate?.name?.split(' ')[0]}'s expectation`}</small><strong>{candidateRange}</strong></div>}
+      </div>
+      <p>Both ranges are now visible to both sides — at the same time.</p>
+    </div>}
+    <button className="primary-button" onClick={onMessage}><MessageCircle size={17} />Send a message</button><button className="text-button" onClick={onClose}>Keep exploring</button></motion.div></motion.div>;
+}
 
 function Pipeline({ data, setData }: { data: Bootstrap; setData: (d: Bootstrap) => void }) {
   const stages = ['Matched', 'Screen', 'Interview', 'Offer'];

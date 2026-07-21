@@ -3,7 +3,9 @@ export type View = 'discover' | 'matches' | 'messages' | 'pipeline' | 'jobs' | '
 export type EmployerKind = 'company' | 'headhunter';
 export type ProviderId = 'linkedin' | 'google' | 'email' | 'demo';
 
-export interface MatchEvidence { score: number; matchedSkills: string[]; matchedLanguages: string[]; experienceFit: boolean }
+export interface FitFactor { factor: string; label: string; weight: number; score: number; evidence: string }
+export type SalaryStatus = 'within' | 'below' | 'above' | 'unknown';
+export interface MatchEvidence { score: number; matchedSkills: string[]; matchedLanguages: string[]; experienceFit: boolean; breakdown?: FitFactor[]; salaryStatus?: SalaryStatus }
 
 export type Seniority = 'junior' | 'mid' | 'senior' | 'lead' | 'exec';
 export interface SkillTag { name: string; level: number }
@@ -17,7 +19,7 @@ export interface PrivacySettings { visibility?: 'all' | 'after-swipe' | 'paused'
 export interface Person {
   id: string; role: Role; kind?: EmployerKind; name: string; email?: string; provider?: string; title: string;
   location?: string; distanceKm?: number; company?: string; photo: string; skills: string[]; languages: string[];
-  experienceLevel: string; completeness?: number; availability?: string; match?: MatchEvidence; onboarding?: boolean;
+  experienceLevel: string; completeness?: number; availability?: string; match?: MatchEvidence; onboarding?: boolean; salaryHidden?: boolean;
   // Candidate profile model (item 4)
   headline?: string; phone?: string; city?: string; country?: string; distanceRangeKm?: number;
   languageDetail?: LanguageTag[]; yearsExperience?: number; seniority?: Seniority; skillsDetail?: SkillTag[];
@@ -41,6 +43,8 @@ export interface Job {
   department?: string; seniority?: Seniority; requiredSkillsDetail?: WeightedSkill[]; niceToHaves?: string[];
   hiringRadiusKm?: number; salaryRange?: SalaryRange; responsibilities?: string[]; interviewProcess?: string[];
   startDate?: string; externalUrl?: string; createdAt?: number;
+  /** true when the exact range is withheld pre-match (mutual salary reveal) */
+  salaryHidden?: boolean;
 }
 export type JobDraft = Partial<Omit<Job, 'id' | 'match'>>;
 export interface JobMatch { id: string; candidateId: string; employerId: string; jobId: string; stage: string; createdAt: number; candidate: Person; job: Job }

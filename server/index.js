@@ -455,9 +455,31 @@ app.get('/api/bootstrap', async (req, res, next) => {
     const viewer = db.users.find((user) => user.id === requestedId) || db.users.find((user) => user.id === `${fallbackRole}-demo`);
     const role = viewer.role === 'employer' ? 'employer' : 'candidate';
     const candidates = db.users.filter((user) => user.role === 'candidate');
-    const scoredJobs = db.jobs.map((job) => ({ ...job, distanceKm: job.distanceKm ?? demoDistances[job.id], match: scoreCandidateForJob(viewer, job) }));
-    // Deck candidates: contact details stay hidden until a mutual match.
-    const scoredCandidates = candidates.filter((candidate) => candidate.id !== viewer.id).map(({ email, phone, ...candidate }) => ({ ...candidate, distanceKm: candidate.distanceKm ?? demoDistances[candidate.id], match: scoreCandidateForJob(candidate, db.jobs[0]) }));
+    // Mutual salary reveal: exact ranges are hidden until both sides matched.
+    const matchedJobIds = new Set(db.matches.filter((match) => match.candidateId === viewer.id).map((match) => match.jobId));
+    const matchedCandidateIds = new Set(db.matches.filter((match) => match.employerId === viewer.id).map((match) => match.candidateId));
+    const scoredJobs = db.jobs.map((job) => {
+      const withDistance = { ...job, distanceKm: job.distanceKm ?? demoDistances[job.id] };
+      const match = scoreCandidateForJob(viewer, withDistance);
+      if (role === 'candidate' && !matchedJobIds.has(job.id)) {
+        delete withDistance.salary; delete withDistance.salaryRange;
+        withDistance.salaryHidden = true;
+      }
+      return { ...withDistance, match };
+    });
+    // Score candidates against this recruiter's own (first active) job when possible.
+    const referenceJob = db.jobs.find((job) => job.employerId === viewer.id && String(job.status).toLowerCase() === 'active')
+      || db.jobs.find((job) => job.employerId === viewer.id) || db.jobs[0];
+    // Deck candidates: contact details and exact salary stay hidden until a mutual match.
+    const scoredCandidates = candidates.filter((candidate) => candidate.id !== viewer.id).map(({ email, phone, ...candidate }) => {
+      const withDistance = { ...candidate, distanceKm: candidate.distanceKm ?? demoDistances[candidate.id] };
+      const match = scoreCandidateForJob(withDistance, { ...referenceJob, distanceKm: withDistance.distanceKm });
+      if (!matchedCandidateIds.has(candidate.id) && withDistance.preferences?.salary) {
+        withDistance.preferences = { ...withDistance.preferences, salary: undefined };
+        withDistance.salaryHidden = true;
+      }
+      return { ...withDistance, match };
+    });
     const matches = db.matches.filter((match) => role === 'candidate' ? match.candidateId === viewer.id : match.employerId === viewer.id).map((match) => ({ ...match, candidate: db.users.find((user) => user.id === match.candidateId), job: db.jobs.find((job) => job.id === match.jobId) }));
     const matchIds = new Set(matches.map((match) => match.id));
     res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), likesRemaining: likesRemainingToday(db.swipes, viewer.id) });
@@ -485,6 +507,8 @@ app.post('/api/swipes', async (req, res, next) => {
       if (mutual && !db.matches.some((item) => item.candidateId === mutual.candidateId && item.jobId === mutual.jobId)) {
         match = { id: crypto.randomUUID(), ...mutual, stage: 'Matched', createdAt: Date.now() };
         db.matches.push(match);
+        // Expand for the match screen: names, photos, and the mutual salary reveal.
+        match = { ...match, candidate: db.users.find((user) => user.id === match.candidateId), job: db.jobs.find((job) => job.id === match.jobId) };
       }
       return { swipe, match, duplicate: false, likesRemaining: likesRemainingToday(db.swipes, actorId) };
     });

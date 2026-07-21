@@ -12,31 +12,93 @@ function overlap(a = [], b = []) {
 }
 
 /**
- * Score a candidate against a job. Returns { score: 0-100, matchedSkills, matchedLanguages, experienceFit }.
- * Weights: skills 60%, experience 20%, languages 20%.
+ * Salary compatibility between a candidate's expectation and a job's range.
+ * Returns { score: 0-1, status: 'within'|'below'|'above'|'unknown', evidence }.
+ */
+export function salaryCompatibility(candidateSalary, jobSalary) {
+  if (!candidateSalary || !jobSalary || candidateSalary.min === undefined || jobSalary.min === undefined) {
+    return { score: 0.5, status: 'unknown', evidence: 'Salary expectation not compared yet.' };
+  }
+  if (candidateSalary.currency !== jobSalary.currency) {
+    return { score: 0.5, status: 'unknown', evidence: `Different currencies (${candidateSalary.currency} vs ${jobSalary.currency}).` };
+  }
+  if (jobSalary.max < candidateSalary.min) return { score: 0, status: 'below', evidence: 'The role tops out below the expected minimum.' };
+  if (jobSalary.min > candidateSalary.max) return { score: 0.8, status: 'above', evidence: 'The role pays above the expected range.' };
+  const overlapAmount = Math.min(jobSalary.max, candidateSalary.max) - Math.max(jobSalary.min, candidateSalary.min);
+  const span = Math.max(1, Math.min(jobSalary.max - jobSalary.min, candidateSalary.max - candidateSalary.min));
+  return { score: Math.max(0.6, Math.min(1, overlapAmount / span)), status: 'within', evidence: 'Expected and offered ranges overlap.' };
+}
+
+const WORK_MODE_SCORES = {
+  remote: { Remote: 1, Hybrid: 0.5, 'On-site': 0.1, Flexible: 1 },
+  hybrid: { Remote: 0.8, Hybrid: 1, 'On-site': 0.5, Flexible: 1 },
+  onsite: { Remote: 0.4, Hybrid: 0.8, 'On-site': 1, Flexible: 1 },
+};
+
+/**
+ * Fit score 0–100 with a per-factor breakdown.
+ * Factors: weighted skill overlap 40%, seniority 15%, salary overlap 15%,
+ * distance vs both radii 10%, work-mode compatibility 10%, employment type 10%.
  */
 export function scoreCandidateForJob(candidate, job) {
+  // Skills: weighted by the job's per-skill weight (1-3; default 2).
+  const weights = new Map((job.requiredSkillsDetail || (job.requiredSkills || []).map((name) => ({ name, weight: 2 })))
+    .map((skill) => [skill.name.toLowerCase(), skill.weight || 2]));
   const matchedSkills = overlap(candidate.skills, job.requiredSkills);
-  const skillRatio = job.requiredSkills?.length
-    ? matchedSkills.length / job.requiredSkills.length
-    : 0;
+  const totalWeight = [...weights.values()].reduce((sum, weight) => sum + weight, 0);
+  const matchedWeight = matchedSkills.reduce((sum, name) => sum + (weights.get(name.toLowerCase()) || 2), 0);
+  const skillScore = totalWeight ? matchedWeight / totalWeight : 0;
 
-  const ci = EXPERIENCE_ORDER.indexOf(candidate.experienceLevel);
-  const ji = EXPERIENCE_ORDER.indexOf(job.experienceLevel);
-  let expScore = 0.5; // unknown levels -> neutral
+  // Seniority
+  const ci = EXPERIENCE_ORDER.indexOf(candidate.seniority || candidate.experienceLevel);
+  const ji = EXPERIENCE_ORDER.indexOf(job.seniority || job.experienceLevel);
+  let seniorityScore = 0.5;
   if (ci >= 0 && ji >= 0) {
     const dist = Math.abs(ci - ji);
-    expScore = dist === 0 ? 1 : dist === 1 ? 0.6 : dist === 2 ? 0.25 : 0;
+    seniorityScore = dist === 0 ? 1 : dist === 1 ? 0.6 : dist === 2 ? 0.25 : 0;
   }
   const experienceFit = ci >= 0 && ji >= 0 && Math.abs(ci - ji) <= 1;
 
-  const matchedLanguages = overlap(candidate.languages, job.requiredLanguages);
-  const langRatio = job.requiredLanguages?.length
-    ? matchedLanguages.length / job.requiredLanguages.length
-    : 1;
+  // Salary
+  const salary = salaryCompatibility(candidate.preferences?.salary, job.salaryRange);
 
-  const score = Math.round(100 * (0.6 * skillRatio + 0.2 * expScore + 0.2 * langRatio));
-  return { score, matchedSkills, matchedLanguages, experienceFit };
+  // Distance vs both radii
+  const distanceKm = job.distanceKm ?? candidate.distanceKm;
+  let distanceScore = 0.7;
+  let distanceEvidence = 'Distance not compared yet.';
+  if (distanceKm !== undefined) {
+    const withinCandidate = candidate.distanceRangeKm !== undefined ? distanceKm <= candidate.distanceRangeKm : undefined;
+    const withinJob = job.hiringRadiusKm !== undefined ? distanceKm <= job.hiringRadiusKm : undefined;
+    const known = [withinCandidate, withinJob].filter((value) => value !== undefined);
+    if (known.length === 0) { distanceScore = 0.7; }
+    else if (known.every(Boolean)) { distanceScore = 1; distanceEvidence = `${distanceKm} km apart — inside both distance preferences.`; }
+    else if (known.some(Boolean)) { distanceScore = 0.4; distanceEvidence = `${distanceKm} km apart — inside one side's preferred range.`; }
+    else { distanceScore = 0; distanceEvidence = `${distanceKm} km apart — outside both preferred ranges.`; }
+  }
+
+  // Work mode
+  const preferredMode = candidate.preferences?.workMode?.mode;
+  const workModeScore = preferredMode ? (WORK_MODE_SCORES[preferredMode]?.[job.workMode] ?? 0.7) : 0.7;
+  const workModeEvidence = preferredMode
+    ? (workModeScore >= 1 ? `${job.workMode} matches the preferred way of working.` : workModeScore >= 0.5 ? `${job.workMode} partially fits a ${preferredMode} preference.` : `${job.workMode} conflicts with a ${preferredMode} preference.`)
+    : 'Work-mode preference not set yet.';
+
+  // Employment type
+  const types = candidate.preferences?.employmentTypes;
+  const typeScore = types?.length ? (types.includes(job.type) ? 1 : 0.2) : 0.7;
+
+  const breakdown = [
+    { factor: 'skills', label: 'Skill overlap', weight: 0.4, score: skillScore, evidence: matchedSkills.length ? `${matchedSkills.length} of ${weights.size} required skills matched${matchedWeight ? ', weighted toward the priority skills' : ''}.` : 'No required skills matched yet.' },
+    { factor: 'seniority', label: 'Seniority', weight: 0.15, score: seniorityScore, evidence: seniorityScore === 1 ? 'Seniority level matches exactly.' : seniorityScore >= 0.6 ? 'One level apart — close fit.' : 'Seniority levels are far apart.' },
+    { factor: 'salary', label: 'Salary overlap', weight: 0.15, score: salary.score, evidence: salary.evidence },
+    { factor: 'distance', label: 'Distance', weight: 0.1, score: distanceScore, evidence: distanceEvidence },
+    { factor: 'workMode', label: 'Work mode', weight: 0.1, score: workModeScore, evidence: workModeEvidence },
+    { factor: 'employmentType', label: 'Employment type', weight: 0.1, score: typeScore, evidence: types?.length ? (typeScore === 1 ? `${job.type} is one of the preferred employment types.` : `${job.type} is not among the preferred types.`) : 'Employment-type preference not set yet.' },
+  ];
+
+  const score = Math.round(100 * breakdown.reduce((sum, factor) => sum + factor.weight * factor.score, 0));
+  const matchedLanguages = overlap(candidate.languages, job.requiredLanguages);
+  return { score, matchedSkills, matchedLanguages, experienceFit, breakdown, salaryStatus: salary.status };
 }
 
 /** Start of the current UTC day, as a timestamp. */

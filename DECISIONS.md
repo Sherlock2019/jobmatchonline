@@ -109,3 +109,23 @@ Ambiguities resolved in favor of the simplest option consistent with the
 - **Import fills the same editor form as the review screen** — imported values
   are editable before saving, satisfying "review before saving" without a
   second UI.
+
+## Item 8 — Matching core
+
+- **Factor weights**: skills 40%, seniority 15%, salary 15%, distance 10%,
+  work mode 10%, employment type 10%. Languages no longer carry weight (the
+  brief doesn't list them) but stay in the evidence.
+- **Unknown factors score neutrally** (0.5–0.7) rather than zero, so half-filled
+  demo profiles still get sensible scores; every neutral factor says so in its
+  evidence line ("not set yet"), doubling as a completion nudge.
+- **Cross-currency salary comparison returns 'unknown'** — honest, and avoids
+  baking exchange rates into a demo.
+- **"Above your expected range" scores 0.8** and gets its own (positive) badge —
+  a role paying more than expected is not a mismatch.
+- **Recruiter decks score candidates against that recruiter's first active
+  job** (falling back to any of their jobs, then the first job in the store).
+- **The flip card is CSS 3D** on the existing swipe card; the "Why this match"
+  button stops pointer capture so flipping never fights the drag gesture.
+- **Salary reveal**: deck cards carry `salaryHidden` + a server-computed
+  `salaryStatus` badge; exact ranges appear only in match-expanded payloads
+  (both directions at once, shown in the match modal).
