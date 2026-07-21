@@ -460,6 +460,35 @@ button { cursor:pointer; }
 .pc-phone{position:relative;width:305px;height:610px;background:#101218;border-radius:46px;border:9px solid #23262e;box-shadow:0 42px 90px -32px rgba(190,24,93,.4),0 18px 40px rgba(15,23,42,.3);overflow:hidden;user-select:none;}
 @media(max-width:760px){.pc-phone{width:272px;height:560px;}}
 
+/* ── Auth modals (demo login / instant register) ── */
+.auth-modal { width:min(430px,100%); max-height:calc(100vh - 40px); overflow-y:auto; background:white; border-radius:24px; padding:38px 34px 30px; position:relative; box-shadow:0 35px 100px rgba(0,0,0,.3); text-align:center; }
+.auth-mark { width:56px; height:56px; margin:0 auto 14px; }
+.auth-modal h2 { font:800 27px 'Manrope'; letter-spacing:-.045em; margin:0 0 6px; }
+.auth-subtitle { color:var(--muted); font-size:12px; margin:0 0 22px; }
+.auth-form { display:flex; flex-direction:column; gap:10px; text-align:left; }
+.auth-label { color:var(--muted); text-transform:uppercase; letter-spacing:.1em; font-size:8px; font-weight:800; }
+.auth-select,.auth-input { width:100%; min-height:46px; border:1px solid var(--line); border-radius:12px; padding:0 14px; background:white; font-size:13px; outline:0; }
+.auth-select:focus,.auth-input:focus { border-color:var(--green); box-shadow:0 0 0 3px rgba(253,38,122,.12); }
+.auth-submit { width:100%; margin-top:4px; }
+.auth-divider { display:flex; align-items:center; gap:12px; margin:18px 0; color:#9aa39d; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; }
+.auth-divider:before,.auth-divider:after { content:""; flex:1; height:1px; background:var(--line); }
+.sso-stack { display:flex; flex-direction:column; gap:9px; }
+.sso-button { min-height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; gap:9px; font-weight:700; font-size:13px; border:1px solid var(--line); background:white; transition:.15s; }
+.sso-button:disabled { opacity:.6; }
+.sso-linkedin { border-color:#0a66c2; color:#0a66c2; }
+.sso-linkedin:hover:not(:disabled) { background:#f1f7fd; }
+.sso-google:hover:not(:disabled) { background:#f8f9fa; }
+.auth-error { margin:14px 0 0; color:var(--accent); font-size:11px; font-weight:600; }
+.role-choice { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-bottom:16px; }
+.role-option { display:flex; flex-direction:column; align-items:center; gap:3px; padding:14px 8px; border:1.5px solid var(--line); border-radius:14px; background:white; color:var(--muted); transition:.15s; }
+.role-option svg { margin-bottom:4px; }
+.role-option strong { font-size:11px; color:var(--ink); }
+.role-option small { font-size:9px; }
+.role-option.active { border-color:var(--green); background:#fff0f5; color:var(--green); }
+.role-option.active strong { color:var(--green); }
+.spin { animation:spin 1s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
 /* exact photo mockup slide (slide 1) + hero play chip */
 .pc-phone.pc-photo{width:424px;max-width:92vw;background:transparent;border:none;box-shadow:none;border-radius:0;overflow:visible;display:flex;align-items:center;justify-content:center;}
 .pc-exact-img{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 34px 60px rgba(190,24,93,.28));}

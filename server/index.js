@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { JsonStore } from './store.js';
 import { PgStore } from './store-pg.js';
 import { createSeed } from './seed.js';
-import { detectMutualMatch, likesRemainingToday, scoreCandidateForJob, ValidationError, reqString, oneOf } from './matching.js';
+import { detectMutualMatch, likesRemainingToday, scoreCandidateForJob, ValidationError, reqString, optString, oneOf } from './matching.js';
 import { exchangeLinkedinCode, linkedinAuthorizationUrl, readSignedValue, signedValue, toLinkedinJobPayload } from './integrations/linkedin.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -15,6 +15,14 @@ const store = process.env.DATABASE_URL
   ? new PgStore(process.env.DATABASE_URL, createSeed)
   : new JsonStore(process.env.DB_PATH || path.join(root, 'data', 'db.json'), createSeed);
 await store.init();
+// Merge any seed entities added since the database was first created (idempotent by id).
+await store.transaction((db) => {
+  const seed = createSeed();
+  for (const collection of ['users', 'jobs']) {
+    const known = new Set(db[collection].map((item) => item.id));
+    for (const item of seed[collection]) if (!known.has(item.id)) db[collection].push(item);
+  }
+});
 console.log(`JobMatch store: ${process.env.DATABASE_URL ? 'postgresql (RDS)' : 'json file'}`);
 const demoDistances = { 'j-1': 7, 'j-2': 18, 'j-3': 42, 'j-4': 75, 'c-1': 5, 'c-2': 26, 'c-3': 12, 'c-4': 65 };
 const sessionSecret = process.env.SESSION_SECRET || 'jobmatch-local-development-only-secret';
@@ -100,14 +108,78 @@ app.post('/api/integrations/linkedin/jobs/:jobId/sync', async (req, res, next) =
   } catch (error) { next(error); }
 });
 
+// ---------------------------------------------------------------------------
+// Demo auth: instant profile login, mock SSO, near-instant registration.
+// ---------------------------------------------------------------------------
+
+function publicProfile(user) {
+  return { id: user.id, role: user.role, kind: user.kind, name: user.name, email: user.email, title: user.title, company: user.company, photo: user.photo, provider: user.provider, completeness: user.completeness };
+}
+
+app.get('/api/auth/profiles', async (_req, res, next) => {
+  try {
+    const db = await store.read();
+    // SSO demo accounts stay out of the dropdown: they are reached via the provider buttons.
+    res.json({ profiles: db.users.filter((user) => !String(user.id).startsWith('sso-')).map(publicProfile) });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/login', async (req, res, next) => {
+  try {
+    const userId = reqString(req.body, 'userId', { max: 128 });
+    const db = await store.read();
+    const user = db.users.find((item) => item.id === userId);
+    if (!user) { const error = new Error('Unknown profile'); error.status = 404; throw error; }
+    res.json({ user: publicProfile(user) });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/sso', async (req, res, next) => {
+  try {
+    const provider = oneOf(req.body, 'provider', ['linkedin', 'google']);
+    const db = await store.read();
+    const user = db.users.find((item) => item.id === `sso-${provider}-demo`);
+    if (!user) { const error = new Error('SSO demo profile missing'); error.status = 500; throw error; }
+    res.json({ user: publicProfile(user) });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/register', async (req, res, next) => {
+  try {
+    const role = oneOf(req.body, 'role', ['candidate', 'employer']);
+    const kind = oneOf(req.body, 'kind', ['company', 'headhunter'], { optional: true });
+    const provider = oneOf(req.body, 'provider', ['linkedin', 'google', 'email'], { optional: true });
+    const name = reqString(req.body, 'name', { max: 120 });
+    const email = reqString(req.body, 'email', { max: 200 });
+    const photo = optString(req.body, 'photo', { max: 500 });
+    const user = await store.transaction((db) => {
+      const existing = db.users.find((item) => item.email && item.email.toLowerCase() === email.toLowerCase());
+      if (existing) return existing;
+      const created = {
+        id: `u-${crypto.randomUUID().slice(0, 8)}`, role, name, email,
+        ...(role === 'employer' ? { kind: kind || 'company' } : {}),
+        provider: provider || 'email',
+        title: role === 'candidate' ? 'New member' : 'Recruiter',
+        photo: photo || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,
+        skills: [], languages: [], experienceLevel: 'mid', completeness: 15, onboarding: true, createdAt: Date.now(),
+      };
+      db.users.push(created);
+      return created;
+    });
+    res.status(201).json({ user: publicProfile(user) });
+  } catch (error) { next(error); }
+});
+
 app.get('/api/bootstrap', async (req, res, next) => {
   try {
-    const role = req.query.role === 'employer' ? 'employer' : 'candidate';
     const db = await store.read();
-    const viewer = db.users.find((user) => user.id === `${role}-demo`);
+    const requestedId = typeof req.query.userId === 'string' ? req.query.userId : '';
+    const fallbackRole = req.query.role === 'employer' ? 'employer' : 'candidate';
+    const viewer = db.users.find((user) => user.id === requestedId) || db.users.find((user) => user.id === `${fallbackRole}-demo`);
+    const role = viewer.role === 'employer' ? 'employer' : 'candidate';
     const candidates = db.users.filter((user) => user.role === 'candidate');
     const scoredJobs = db.jobs.map((job) => ({ ...job, distanceKm: job.distanceKm ?? demoDistances[job.id], match: scoreCandidateForJob(viewer, job) }));
-    const scoredCandidates = candidates.filter((candidate) => candidate.id !== 'candidate-demo').map((candidate) => ({ ...candidate, distanceKm: candidate.distanceKm ?? demoDistances[candidate.id], match: scoreCandidateForJob(candidate, db.jobs[0]) }));
+    const scoredCandidates = candidates.filter((candidate) => candidate.id !== viewer.id).map((candidate) => ({ ...candidate, distanceKm: candidate.distanceKm ?? demoDistances[candidate.id], match: scoreCandidateForJob(candidate, db.jobs[0]) }));
     const matches = db.matches.filter((match) => role === 'candidate' ? match.candidateId === viewer.id : match.employerId === viewer.id).map((match) => ({ ...match, candidate: db.users.find((user) => user.id === match.candidateId), job: db.jobs.find((job) => job.id === match.jobId) }));
     const matchIds = new Set(matches.map((match) => match.id));
     res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), likesRemaining: likesRemainingToday(db.swipes, viewer.id) });
