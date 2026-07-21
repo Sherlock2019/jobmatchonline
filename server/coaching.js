@@ -83,6 +83,19 @@ export function suggestScreeningQuestions(job) {
   return topSkills(job, 3).map((skill) => questionsForSkill(skill.name)[0]);
 }
 
+/** Item 13: three tailored conversation starters from profile/job overlap. */
+export async function generateIcebreakers(candidate, job) {
+  const matched = (candidate.skills || []).filter((skill) => (job.requiredSkills || []).some((required) => required.toLowerCase() === skill.toLowerCase()));
+  const generated = await claudeJson(`Write 3 short, warm, specific conversation starters a recruiter or candidate could send after matching. Candidate: ${candidate.name}, ${candidate.title}, skills ${(candidate.skills || []).join(', ')}. Role: "${job.title}" at ${job.company}, mission "${job.mission}". Shared skills: ${matched.join(', ') || 'none'}. No emojis, no exclamation spam. Reply ONLY JSON: {"icebreakers": ["...", "...", "..."]}`, 500);
+  if (Array.isArray(generated?.icebreakers) && generated.icebreakers.length) return { icebreakers: generated.icebreakers.slice(0, 3), generator: 'claude' };
+  const options = [
+    matched.length ? `I noticed we matched on ${matched.slice(0, 2).join(' and ')} — I'd love to hear about the most interesting ${matched[0]} problem you've worked on recently.` : `Your background in ${(candidate.skills || ['your field'])[0]} caught my eye — what are you most proud of shipping recently?`,
+    `What drew you to ${job.company ? `the ${job.title} role at ${job.company}` : 'this role'}? Happy to share what the team is really like.`,
+    job.mission ? `"${job.mission}" — that mission is why this role exists. Curious what it means to you.` : `If the first month went perfectly in this role, what would you want to have learned?`,
+  ];
+  return { icebreakers: options, generator: 'templates' };
+}
+
 /** Item 12: interview kit for a matched candidate. */
 export async function generateInterviewKit(candidate, job) {
   const claimed = (candidate.skillsDetail || (candidate.skills || []).map((name) => ({ name, level: 3 })));

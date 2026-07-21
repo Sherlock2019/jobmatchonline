@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PhoneMockup } from './components/PhoneMockup';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
-import { Activity, ArrowRight, BarChart3, Bell, BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Lock, MapPin, Menu, MessageCircle, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowRight, BarChart3, Bell, BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, MapPin, Menu, MessageCircle, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
 import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
@@ -299,6 +299,15 @@ function MatchModal({ match, viewer, onClose, onMessage }: { match: JobMatch; vi
   const counterpart = viewer.role === 'candidate' ? (match.job?.company || 'The team') : (match.candidate?.name || 'The candidate');
   const jobRange = formatRange(match.job?.salaryRange);
   const candidateRange = formatRange(viewer.role === 'candidate' ? viewer.preferences?.salary as { min: number; max: number; currency: string } | undefined : match.candidate?.preferences?.salary as { min: number; max: number; currency: string } | undefined);
+  // Item 13: tailored conversation starters from the profile/job overlap.
+  const [icebreakers, setIcebreakers] = useState<string[]>([]);
+  const [sendingIdx, setSendingIdx] = useState(-1);
+  useEffect(() => { api.matchIcebreakers(match.id).then((result) => setIcebreakers(result.icebreakers)).catch(() => undefined); }, [match.id]);
+  const sendIcebreaker = async (text: string, index: number) => {
+    setSendingIdx(index);
+    try { await api.message({ matchId: match.id, senderId: viewer.id, text }); onMessage(); }
+    catch { setSendingIdx(-1); }
+  };
   return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div className="match-modal" initial={{ y: 30, scale: .96 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: .96 }}><button className="modal-close" onClick={onClose}><X /></button><div className="match-glow"><Heart fill="currentColor" /></div><span className="overline">Mutual interest</span><h2>It’s a match.</h2><p>{counterpart} is interested too. Start a conversation while the momentum is fresh.</p>
     <div className="match-faces"><img src={match.candidate?.photo || viewer.photo} /><div style={{ background: match.job?.accent || 'var(--blue)' }}>{match.job?.logo || counterpart[0]}</div></div>
     {(jobRange || candidateRange) && <div className="salary-reveal">
@@ -308,6 +317,10 @@ function MatchModal({ match, viewer, onClose, onMessage }: { match: JobMatch; vi
         {candidateRange && <div><small>{viewer.role === 'candidate' ? 'Your expectation' : `${match.candidate?.name?.split(' ')[0]}'s expectation`}</small><strong>{candidateRange}</strong></div>}
       </div>
       <p>Both ranges are now visible to both sides — at the same time.</p>
+    </div>}
+    {icebreakers.length > 0 && <div className="icebreakers">
+      <span className="overline">Break the ice</span>
+      {icebreakers.map((text, index) => <button key={text} className="icebreaker" disabled={sendingIdx >= 0} onClick={() => sendIcebreaker(text, index)}>{sendingIdx === index ? <Loader2 size={13} className="spin" /> : <Send size={13} />}<span>{text}</span></button>)}
     </div>}
     <button className="primary-button" onClick={onMessage}><MessageCircle size={17} />Send a message</button><button className="text-button" onClick={onClose}>Keep exploring</button></motion.div></motion.div>;
 }

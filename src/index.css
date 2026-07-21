@@ -531,6 +531,14 @@ button { cursor:pointer; }
 .device-screen::-webkit-scrollbar { display:none; }
 .device-screen .m-landing { min-height:100%; }
 
+/* ── Icebreakers (match modal) ── */
+.icebreakers { margin:0 0 18px; text-align:left; display:flex; flex-direction:column; gap:7px; }
+.icebreakers .overline { justify-content:center; margin-bottom:3px; }
+.icebreaker { display:flex; align-items:flex-start; gap:9px; text-align:left; border:1px solid var(--line); background:#fdfcfd; border-radius:12px; padding:10px 13px; font-size:11px; line-height:1.5; color:#4a5560; transition:.15s; }
+.icebreaker:hover:not(:disabled) { border-color:#ffd7e5; background:#fff8fb; }
+.icebreaker svg { flex:none; margin-top:2px; color:var(--green); }
+.icebreaker:disabled { opacity:.6; }
+
 /* ── Coaching: prep, gaps, screening, interview kits ── */
 .coach-modal { width:min(560px,100%); max-height:calc(100vh - 40px); background:white; border-radius:20px; overflow-y:auto; position:relative; box-shadow:0 35px 100px rgba(0,0,0,.35); padding:26px 28px; }
 .coach-modal.wide { width:min(680px,100%); }

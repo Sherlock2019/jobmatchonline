@@ -9,7 +9,7 @@ import { detectMutualMatch, likesRemainingToday, scoreCandidateForJob, Validatio
 import { applyCandidateProfile, applyRecruiterProfile, candidateCompleteness, recruiterCompleteness } from './profile.js';
 import { anonymizeText, convertDocxToPdf, detectTools, docxToHtml, extractDocxText, extractPdfText, makeSimplePdf, pdfThumbnail } from './resume.js';
 import { applyJob, parseJobText } from './jobs.js';
-import { generateInterviewKit, generatePrep, suggestScreeningQuestions } from './coaching.js';
+import { generateIcebreakers, generateInterviewKit, generatePrep, suggestScreeningQuestions } from './coaching.js';
 import fs from 'node:fs';
 import { exchangeLinkedinCode, linkedinAuthorizationUrl, readSignedValue, signedValue, toLinkedinJobPayload } from './integrations/linkedin.js';
 
@@ -474,6 +474,21 @@ app.post('/api/coach/screening', (req, res, next) => {
     const skills = req.body?.requiredSkillsDetail;
     if (!Array.isArray(skills) || !skills.length) throw new ValidationError('requiredSkillsDetail', 'Provide the required skills first');
     res.json({ questions: suggestScreeningQuestions({ requiredSkillsDetail: skills }) });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/matches/:id/icebreakers', async (req, res, next) => {
+  try {
+    const db = await store.read();
+    const match = db.matches.find((item) => item.id === req.params.id);
+    if (!match) { const error = new Error('Match not found'); error.status = 404; throw error; }
+    if (match.icebreakerCache) return res.json(match.icebreakerCache);
+    const result = await generateIcebreakers(db.users.find((user) => user.id === match.candidateId) || {}, db.jobs.find((item) => item.id === match.jobId) || {});
+    await store.transaction((inner) => {
+      const item = inner.matches.find((entry) => entry.id === req.params.id);
+      if (item) item.icebreakerCache = result;
+    });
+    res.json(result);
   } catch (error) { next(error); }
 });
 
