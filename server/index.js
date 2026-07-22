@@ -9,6 +9,7 @@ import { detectMutualMatch, likesRemainingToday, scoreCandidateForJob, Validatio
 import { applyCandidateProfile, applyRecruiterProfile, candidateCompleteness, recruiterCompleteness } from './profile.js';
 import { anonymizeText, convertDocxToPdf, detectTools, docxToHtml, extractDocxText, extractPdfText, makeSimplePdf, pdfThumbnail } from './resume.js';
 import { applyJob, parseJobText } from './jobs.js';
+import { backupToS3, mirrorToS3, restoreFromS3, s3Enabled } from './storage.js';
 import { parseResumeToProfile } from './resume-parse.js';
 import os from 'node:os';
 import { generateIcebreakers, generateInterviewKit, generatePrep, suggestScreeningQuestions } from './coaching.js';
@@ -573,10 +574,12 @@ app.patch('/api/users/:id', async (req, res, next) => {
 
 // UPLOADS_DIR keeps user files outside the release directory in production,
 // so resumes survive deploys (e.g. /var/lib/jobsmatchnow/uploads).
-const RESUME_DIR = process.env.UPLOADS_DIR
-  ? path.join(process.env.UPLOADS_DIR, 'resumes')
-  : path.join(dirname, 'uploads', 'resumes');
+const UPLOADS_ROOT = process.env.UPLOADS_DIR || path.join(dirname, 'uploads');
+const RESUME_DIR = path.join(UPLOADS_ROOT, 'resumes');
+const mirror = (localPath) => mirrorToS3(localPath, UPLOADS_ROOT); // durable copy to S3 when configured
 await fs.promises.mkdir(RESUME_DIR, { recursive: true });
+// Restore any previously-uploaded files from S3 (survives instance replacement).
+if (s3Enabled()) { await restoreFromS3(UPLOADS_ROOT); await backupToS3(UPLOADS_ROOT); console.log(`uploads: S3 mirror enabled (${process.env.S3_BUCKET})`); }
 const RESUME_TYPES = {
   'application/pdf': 'pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
@@ -616,6 +619,10 @@ async function processResume(userId, meta) {
     if (thumb) meta.thumbName = path.basename(thumb);
     else meta.needsClientThumbnail = true; // uploader's browser renders page 1 with pdf.js and posts it back
   }
+  // Mirror the original + every derivative to S3 (no-op when S3 isn't configured).
+  for (const name of [meta.storedName, meta.pdfName, meta.htmlName, meta.textName, meta.thumbName]) {
+    if (name) await mirror(path.join(RESUME_DIR, name));
+  }
   return meta;
 }
 
@@ -631,6 +638,7 @@ app.post('/api/users/:id/resume', uploadLimiter, express.raw({ type: () => true,
     const id = crypto.randomUUID();
     const storedName = `${req.params.id}-${id}.${ext}`;
     await fs.promises.writeFile(path.join(RESUME_DIR, storedName), req.body);
+    await mirror(path.join(RESUME_DIR, storedName));
     const meta = await processResume(req.params.id, {
       id, originalName, storedName, ext, size: req.body.length, mime: req.headers['content-type'], uploadedAt: Date.now(),
       url: `/api/users/${req.params.id}/resume/original`,
@@ -661,6 +669,7 @@ app.post('/api/users/:id/resume/thumbnail', uploadLimiter, express.raw({ type: '
       return item.documents.resume;
     });
     await fs.promises.writeFile(path.join(RESUME_DIR, resume.thumbName), req.body);
+    await mirror(path.join(RESUME_DIR, resume.thumbName));
     res.status(201).json({ ok: true });
   } catch (error) { next(error); }
 });
@@ -854,7 +863,7 @@ app.patch('/api/jobs/:id', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-const COVER_DIR = process.env.UPLOADS_DIR ? path.join(process.env.UPLOADS_DIR, 'covers') : path.join(dirname, 'uploads', 'covers');
+const COVER_DIR = path.join(UPLOADS_ROOT, 'covers');
 await fs.promises.mkdir(COVER_DIR, { recursive: true });
 const COVER_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
 
@@ -873,6 +882,7 @@ app.post('/api/jobs/:id/cover', uploadLimiter, express.raw({ type: () => true, l
     assertDemoActor(req, db0, job.employerId);
     const storedName = `${req.params.id}.${ext}`;
     await fs.promises.writeFile(path.join(COVER_DIR, storedName), req.body);
+    await mirror(path.join(COVER_DIR, storedName));
     const coverImage = `/api/jobs/${req.params.id}/cover?v=${Date.now()}`;
     await store.transaction((db) => { const j = db.jobs.find((item) => item.id === req.params.id); if (j) { j.coverName = storedName; j.coverImage = coverImage; } });
     res.status(201).json({ coverImage });
