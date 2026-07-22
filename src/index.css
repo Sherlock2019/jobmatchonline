@@ -150,6 +150,9 @@ button { cursor:pointer; }
 .showcase-tabs button.active { border-color:var(--green); background:#fff0f5; color:var(--green); }
 .showcase-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:16px; }
 .showcase-job, .showcase-person { border:1px solid var(--line); border-radius:18px; overflow:hidden; background:white; box-shadow:0 12px 34px rgba(29,53,37,.06); transition:.18s; }
+.showcase-person { border-top:4px solid var(--accent, var(--green)); }
+.showcase-person .showcase-skills span { color:var(--accent); border-color:color-mix(in srgb, var(--accent) 35%, white); background:color-mix(in srgb, var(--accent) 8%, white); }
+.showcase-person .showcase-meta .avail { color:var(--accent); font-weight:700; }
 .showcase-job:hover, .showcase-person:hover { transform:translateY(-4px); box-shadow:0 20px 44px rgba(29,53,37,.12); }
 .showcase-job-hero, .showcase-person-photo { position:relative; height:150px; background-size:cover; background-position:center; color:white; display:flex; align-items:flex-end; }
 .showcase-job-logo { position:absolute; inset:0; display:grid; place-items:center; font:800 56px 'Manrope'; color:rgba(255,255,255,.9); }

@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight, BriefcaseBusiness, Check, FileText, Heart, Loader2, MapPin, MessageCircle, PenLine, Send, Sparkles, Star, UserPlus } from 'lucide-react';
 import { api, apiBase } from '../api';
+import { appleColor, appleGradient } from '../lib/colors';
 import type { Job, Person, Review } from '../types';
 
+// Apple iOS system colors, one per step.
 const JOURNEY = [
-  { icon: UserPlus, title: 'Register free', text: 'One click with Google, LinkedIn, or email.', hue: '#fd267a' },
-  { icon: FileText, title: 'Build your profile', text: 'Upload a resume and we auto-fill it.', hue: '#ff4458' },
-  { icon: Sparkles, title: 'Get matched', text: 'A ranked deck with explainable fit scores.', hue: '#ff6036' },
-  { icon: Heart, title: 'Mutual interest', text: 'A connection opens only when both swipe.', hue: '#f5a623' },
-  { icon: MessageCircle, title: 'Start chatting', text: 'Salaries revealed, contact shared, ice broken.', hue: '#22c1a4' },
-  { icon: BriefcaseBusiness, title: 'Interview', text: 'Prep tools and interview kits, built in.', hue: '#0a9bd8' },
-  { icon: Star, title: 'Offer', text: 'Move through the pipeline to an offer.', hue: '#2b6ef5' },
-  { icon: Check, title: 'Sign the contract', text: 'From first hello to signed — one place.', hue: '#7c3aed' },
+  { icon: UserPlus, title: 'Register free', text: 'One click with Google, LinkedIn, or email.', hue: '#FF3B30' },
+  { icon: FileText, title: 'Build your profile', text: 'Upload a resume and we auto-fill it.', hue: '#FF9500' },
+  { icon: Sparkles, title: 'Get matched', text: 'A ranked deck with explainable fit scores.', hue: '#FF2D55' },
+  { icon: Heart, title: 'Mutual interest', text: 'A connection opens only when both swipe.', hue: '#34C759' },
+  { icon: MessageCircle, title: 'Start chatting', text: 'Salaries revealed, contact shared, ice broken.', hue: '#00C7BE' },
+  { icon: BriefcaseBusiness, title: 'Interview', text: 'Prep tools and interview kits, built in.', hue: '#32ADE6' },
+  { icon: Star, title: 'Offer', text: 'Move through the pipeline to an offer.', hue: '#007AFF' },
+  { icon: Check, title: 'Sign the contract', text: 'From first hello to signed — one place.', hue: '#AF52DE' },
 ];
 
 export function JourneyPipeline() {
@@ -48,7 +50,7 @@ export function LatestShowcase() {
     </div>
     {tab === 'jobs' ? <div className="showcase-grid">
       {jobs.map((job) => <article className="showcase-job" key={job.id}>
-        <div className="showcase-job-hero" style={job.coverImage ? { backgroundImage: `linear-gradient(transparent 45%, rgba(0,0,0,.8)), url(${apiBase}${job.coverImage})` } : { background: `linear-gradient(150deg, ${job.accent}, ${job.accent}bb)` }}>
+        <div className="showcase-job-hero" style={job.coverImage ? { backgroundImage: `linear-gradient(transparent 45%, rgba(0,0,0,.8)), url(${apiBase}${job.coverImage})` } : { background: appleGradient(job.id) }}>
           {!job.coverImage && <span className="showcase-job-logo">{job.logo}</span>}
           <div className="showcase-job-cap"><strong>{job.title}</strong><span>{job.company}</span></div>
         </div>
@@ -59,7 +61,7 @@ export function LatestShowcase() {
         </div>
       </article>)}
     </div> : <div className="showcase-grid people">
-      {candidates.map((person) => <article className="showcase-person" key={person.id}>
+      {candidates.map((person) => <article className="showcase-person" key={person.id} style={{ ['--accent' as string]: appleColor(person.id) }}>
         <div className="showcase-person-photo" style={{ backgroundImage: `linear-gradient(transparent 50%, rgba(0,0,0,.78)), url(${person.photo})` }}>
           <div className="showcase-person-cap"><strong>{person.name}</strong><span>{person.title}</span></div>
         </div>
