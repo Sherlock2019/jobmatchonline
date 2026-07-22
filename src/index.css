@@ -973,6 +973,8 @@ button { cursor:pointer; }
 .sso-linkedin { border-color:#0a66c2; color:#0a66c2; }
 .sso-linkedin:hover:not(:disabled) { background:#f1f7fd; }
 .sso-google:hover:not(:disabled) { background:#f8f9fa; }
+.sso-native-note { font-size:11px; line-height:1.5; color:var(--muted); text-align:center; padding:2px 4px; }
+.sso-native-note b { color:var(--ink); }
 .auth-error { margin:14px 0 0; color:var(--accent); font-size:11px; font-weight:600; }
 .role-choice { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-bottom:16px; }
 .role-option { display:flex; flex-direction:column; align-items:center; gap:3px; padding:14px 8px; border:1.5px solid var(--line); border-radius:14px; background:white; color:var(--muted); transition:.15s; }

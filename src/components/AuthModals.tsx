@@ -11,6 +11,10 @@ function GoogleMark() {
 
 type SsoBusy = 'linkedin' | 'google' | null;
 
+// Google/LinkedIn block OAuth inside embedded webviews, so inside the native
+// app wrapper we hide SSO and steer users to email/demo (which work fine).
+const isNativeWebview = typeof navigator !== 'undefined' && /JobsMatchNowExpoPreview|Capacitor|Median/i.test(navigator.userAgent || '');
+
 const defaultConfig: AuthConfig = { demoAuth: true, passwordMinLength: 8, sso: { google: false, linkedin: false } };
 
 function useAuthConfig() {
@@ -29,6 +33,8 @@ function SsoButtons({ config, role, busy, onMockSso }: { config: AuthConfig; rol
     if (config.sso[provider]) { window.location.href = `${apiBase}/api/auth/oauth/${provider}${role ? `?role=${role}` : ''}`; return; }
     onMockSso(provider);
   };
+  // In the native app, real SSO can't run in a webview — show a hint instead.
+  if (isNativeWebview) return <p className="sso-native-note">Signing in with Google or LinkedIn? Open <b>jobsmatchnow.com</b> in your browser. On the app, use email or a demo profile below.</p>;
   const visible = (provider: 'linkedin' | 'google') => config.sso[provider] || config.demoAuth;
   if (!visible('linkedin') && !visible('google')) return null;
   return <div className="sso-stack">
