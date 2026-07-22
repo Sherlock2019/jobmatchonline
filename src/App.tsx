@@ -360,8 +360,41 @@ function ResumeChip({ person, unlocked, onOpen }: { person: Person; unlocked: bo
 }
 
 function CardSummary({ item, role, detailed = false, onOpenResume, resumeUnlocked = false, onOpenJob, gapViewer, onSkillAdded }: { item: Job | Person; role: Role; detailed?: boolean; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean; onOpenJob?: (job: Job) => void; gapViewer?: Person; onSkillAdded?: () => void }) {
-  if (role === 'candidate') { const job = item as Job; return <><div className="card-header"><div className="company-logo" style={{ background: job.accent }}>{job.logo}</div>{job.demo && <span className="demo-badge">Demo</span>}<div className="fit-badge"><span>{job.match.score}%</span> match</div><button aria-label="More"><MoreHorizontal /></button></div><div className="card-body"><div className="company-line">{job.company}{job.verified && <BadgeCheck size={13} className="verified-mark" />}<i />{job.responseTime} response</div><h2>{job.title}</h2><div className="job-meta"><span><MapPin size={15} />{job.location}</span><span className="mode-badge">{workModeLabel(job)}</span>{showsCommute(job) && <span className="distance-badge">{job.distanceKm} km · ≈ {motorbikeMinutes(job.distanceKm!)} min by motorbike</span>}<span><BriefcaseBusiness size={15} />{job.type}</span>{job.salaryHidden ? <SalaryBadge status={job.match?.salaryStatus} /> : <span>{job.salary}</span>}</div><p className="description">{job.description}</p>{detailed && <><div className="match-reason"><div><Sparkles size={17} /></div><section><strong>Why you’re a strong match</strong><p>{job.match.matchedSkills.length} priority skills match, your experience level fits, and the role supports your preferred work style.</p></section></div><div className="card-section"><span className="card-label">Your matching skills</span><div className="skill-list">{job.match.matchedSkills.map((skill) => <span key={skill}><Check size={12} />{skill}</span>)}</div></div>{gapViewer && onSkillAdded && <GapCoach job={job} viewer={gapViewer} onSkillAdded={onSkillAdded} />}<div className="card-foot"><div><strong>{job.mission}</strong><small>{job.culture.join(' · ')}</small></div><button onPointerDownCapture={(event) => event.stopPropagation()} onClick={() => onOpenJob?.(job)}>Full role <ArrowRight size={14} /></button></div></>}</div></>; }
-  const person = item as Person; return <><div className="talent-photo"><img src={person.photo} alt="" /><div className="availability"><i />Available {person.availability}</div></div><div className="card-body talent-body"><div className="fit-badge talent-fit"><span>{person.match?.score}%</span> match</div><h2>{person.name}{person.verified && <BadgeCheck size={17} className="verified-mark" />}{person.demo && <span className="demo-badge">Demo</span>}</h2><p className="talent-title">{person.title}</p>{(person.preferences?.desiredRoles?.[0] || person.availability) && <div className="looking-for"><Target size={12} />Looking for: {person.preferences?.desiredRoles?.[0] || `available ${person.availability}`}</div>}<div className="job-meta"><span><MapPin size={15} />{person.location}</span>{person.distanceKm !== undefined && <span className="distance-badge">{person.distanceKm} km away</span>}<span><BriefcaseBusiness size={15} />{person.experienceLevel}</span></div>{detailed && <><div className="match-reason"><div><Sparkles size={17} /></div><section><strong>Why they stand out</strong><p>{person.match?.matchedSkills.join(', ')} align with the role. Their background and availability fit your hiring plan.</p></section></div><div className="card-section"><span className="card-label">Top skills</span><div className="skill-list">{person.skills.map((skill) => <span key={skill}>{skill}</span>)}</div></div>{onOpenResume && <ResumeChip person={person} unlocked={resumeUnlocked} onOpen={onOpenResume} />}</>}</div></>;
+  if (role === 'candidate') {
+    const job = item as Job;
+    const heroStyle = job.coverImage ? { backgroundImage: `linear-gradient(transparent 38%, rgba(0,0,0,.82)), url(${apiBase}${job.coverImage})` } : { background: `linear-gradient(150deg, ${job.accent}, ${job.accent}bb)` };
+    return <>
+      <div className="card-hero" style={heroStyle}>
+        {!job.coverImage && <span className="card-hero-logo" aria-hidden="true">{job.logo}</span>}
+        <div className="card-hero-top"><div className="fit-badge"><span>{job.match.score}%</span> match</div>{job.demo && <span className="demo-badge">Demo</span>}</div>
+        <div className="card-hero-overlay">
+          <div className="card-hero-eyebrow">{job.company}{job.verified && <BadgeCheck size={14} className="verified-mark" />}</div>
+          <h2>{job.title}</h2>
+          <div className="card-hero-meta"><span><MapPin size={14} />{job.location}</span><span className="mode-badge">{workModeLabel(job)}</span>{showsCommute(job) && <span className="distance-badge">{job.distanceKm} km · ≈ {motorbikeMinutes(job.distanceKm!)} min</span>}</div>
+        </div>
+      </div>
+      <div className="card-body">
+        <div className="job-meta"><span><BriefcaseBusiness size={15} />{job.type}</span>{job.salaryHidden ? <SalaryBadge status={job.match?.salaryStatus} /> : <span>{job.salary}</span>}<span>{job.responseTime} response</span></div>
+        <p className="description">{job.description}</p>
+        {detailed && <><div className="match-reason"><div><Sparkles size={17} /></div><section><strong>Why you’re a strong match</strong><p>{job.match.matchedSkills.length} priority skills match, your experience level fits, and the role supports your preferred work style.</p></section></div><div className="card-section"><span className="card-label">Your matching skills</span><div className="skill-list">{job.match.matchedSkills.map((skill) => <span key={skill}><Check size={12} />{skill}</span>)}</div></div>{gapViewer && onSkillAdded && <GapCoach job={job} viewer={gapViewer} onSkillAdded={onSkillAdded} />}<div className="card-foot"><div><strong>{job.mission}</strong><small>{job.culture.join(' · ')}</small></div><button onPointerDownCapture={(event) => event.stopPropagation()} onClick={() => onOpenJob?.(job)}>Full role <ArrowRight size={14} /></button></div></>}
+      </div>
+    </>;
+  }
+  const person = item as Person;
+  return <>
+    <div className="card-hero" style={{ backgroundImage: `linear-gradient(transparent 38%, rgba(0,0,0,.82)), url(${person.photo})` }}>
+      <div className="card-hero-top"><div className="fit-badge"><span>{person.match?.score}%</span> match</div>{person.availability && <span className="avail-pill"><i />Available {person.availability}</span>}</div>
+      <div className="card-hero-overlay">
+        <h2>{person.name}{person.verified && <BadgeCheck size={18} className="verified-mark" />}{person.demo && <span className="demo-badge">Demo</span>}</h2>
+        <p className="card-hero-sub">{person.title}</p>
+        {(person.preferences?.desiredRoles?.[0] || person.availability) && <div className="looking-for"><Target size={12} />Looking for: {person.preferences?.desiredRoles?.[0] || `available ${person.availability}`}</div>}
+        <div className="card-hero-meta"><span><MapPin size={14} />{person.location}</span>{person.distanceKm !== undefined && <span className="distance-badge">{person.distanceKm} km away</span>}<span><BriefcaseBusiness size={14} />{person.experienceLevel}</span></div>
+      </div>
+    </div>
+    <div className="card-body">
+      {detailed && <><div className="match-reason"><div><Sparkles size={17} /></div><section><strong>Why they stand out</strong><p>{person.match?.matchedSkills.join(', ')} align with the role. Their background and availability fit your hiring plan.</p></section></div><div className="card-section"><span className="card-label">Top skills</span><div className="skill-list">{person.skills.map((skill) => <span key={skill}>{skill}</span>)}</div></div>{onOpenResume && <ResumeChip person={person} unlocked={resumeUnlocked} onOpen={onOpenResume} />}</>}
+    </div>
+  </>;
 }
 
 function EmptyDeck({ role, onReset }: { role: Role; onReset: () => void }) {

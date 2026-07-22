@@ -664,6 +664,41 @@ app.patch('/api/jobs/:id', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+const COVER_DIR = process.env.UPLOADS_DIR ? path.join(process.env.UPLOADS_DIR, 'covers') : path.join(dirname, 'uploads', 'covers');
+await fs.promises.mkdir(COVER_DIR, { recursive: true });
+const COVER_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+
+// Recruiter uploads a cover image for a job card (owner-only). Gradient fallback otherwise.
+app.post('/api/jobs/:id/cover', uploadLimiter, express.raw({ type: () => true, limit: '6mb' }), async (req, res, next) => {
+  try {
+    const ext = COVER_TYPES[req.headers['content-type']];
+    if (!ext) { const error = new Error('Cover must be PNG, JPG, or WEBP'); error.status = 415; throw error; }
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) throw new ValidationError('file', 'Empty upload');
+    const db0 = await store.read();
+    const job = db0.jobs.find((item) => item.id === req.params.id);
+    if (!job) { const error = new Error('Job not found'); error.status = 404; throw error; }
+    const session = authSession(req);
+    if (session && job.employerId !== session.sub) { const error = new Error('You can only edit your own postings'); error.status = 403; throw error; }
+    if (!session && !demoAuth) { const error = new Error('Sign in to continue'); error.status = 401; throw error; }
+    assertDemoActor(req, db0, job.employerId);
+    const storedName = `${req.params.id}.${ext}`;
+    await fs.promises.writeFile(path.join(COVER_DIR, storedName), req.body);
+    const coverImage = `/api/jobs/${req.params.id}/cover?v=${Date.now()}`;
+    await store.transaction((db) => { const j = db.jobs.find((item) => item.id === req.params.id); if (j) { j.coverName = storedName; j.coverImage = coverImage; } });
+    res.status(201).json({ coverImage });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/jobs/:id/cover', async (req, res, next) => {
+  try {
+    const db = await store.read();
+    const job = db.jobs.find((item) => item.id === req.params.id);
+    if (!job?.coverName) { const error = new Error('No cover image'); error.status = 404; throw error; }
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.sendFile(path.join(COVER_DIR, job.coverName));
+  } catch (error) { next(error); }
+});
+
 app.post('/api/jobs/parse', async (req, res, next) => {
   try {
     const text = reqString(req.body, 'text', { min: 40, max: 20000 });

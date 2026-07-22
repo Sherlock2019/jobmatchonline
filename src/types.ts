@@ -44,7 +44,7 @@ export interface Job {
   department?: string; seniority?: Seniority; requiredSkillsDetail?: WeightedSkill[]; niceToHaves?: string[];
   remoteScope?: 'country' | 'worldwide'; country?: string; geo?: { lat: number; lng: number };
   hiringRadiusKm?: number; salaryRange?: SalaryRange; responsibilities?: string[]; interviewProcess?: string[];
-  startDate?: string; externalUrl?: string; createdAt?: number;
+  startDate?: string; externalUrl?: string; createdAt?: number; coverImage?: string;
   /** true when the exact range is withheld pre-match (mutual salary reveal) */
   salaryHidden?: boolean;
   screeningQuestions?: string[];

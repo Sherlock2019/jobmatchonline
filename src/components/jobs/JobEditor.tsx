@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Check, ClipboardPaste, Download, Loader2, Sparkles, Upload } from 'lucide-react';
-import { api } from '../../api';
+import { ArrowLeft, Check, ClipboardPaste, Download, Image as ImageIcon, Loader2, Sparkles, Upload } from 'lucide-react';
+import { api, apiBase } from '../../api';
 import { Chips, Field, LevelTagInput, Segmented, TagInput, TextInput } from '../profile/fields';
 import { demoAdapter, pasteAdapter } from '../../lib/jobSources';
 import { samplePasteText } from '../../content/jobSamples';
@@ -89,6 +89,8 @@ export function JobEditor({ viewer, job, onSaved, onCancel }: { viewer: Person; 
   const [attempted, setAttempted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string>(job?.coverImage ? `${apiBase}${job.coverImage}` : '');
   const [error, setError] = useState('');
   const patch = (changes: Partial<Form>) => setForm((current) => ({ ...current, ...changes }));
   const errors = useMemo(() => formErrors(form), [form]);
@@ -133,8 +135,10 @@ export function JobEditor({ viewer, job, onSaved, onCancel }: { viewer: Person; 
       screeningQuestions: form.screeningQuestions,
     };
     try {
+      let jobId = job?.id;
       if (job) await api.updateJob(job.id, payload);
-      else await api.createJob({ ...payload, employerId: viewer.id });
+      else { const { job: created } = await api.createJob({ ...payload, employerId: viewer.id }); jobId = created.id; }
+      if (coverFile && jobId) await api.uploadJobCover(jobId, coverFile);
       onSaved();
     } catch (e) { setError(e instanceof Error ? e.message : 'Save failed'); }
     finally { setSaving(false); }
@@ -166,6 +170,15 @@ export function JobEditor({ viewer, job, onSaved, onCancel }: { viewer: Person; 
       </div>}
 
       <div className="wz-body">
+        <Field label="Cover image (optional)" hint="Shown as the card background. Falls back to your brand color + logo.">
+          <label className="job-cover">
+            <div className="job-cover-preview" style={coverPreview ? { backgroundImage: `url(${coverPreview})` } : { background: 'linear-gradient(150deg,#3d5afe,#ff6036)' }}>
+              {!coverPreview && <><ImageIcon size={22} /><span>Add a cover</span></>}
+              <em className="job-cover-edit">{coverPreview ? 'Change cover' : 'Upload'}</em>
+            </div>
+            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setCoverFile(f); setCoverPreview(URL.createObjectURL(f)); } }} />
+          </label>
+        </Field>
         <div className="wz-row">
           <Field label="Job title" required><TextInput value={form.title} onChange={(e) => patch({ title: e.target.value })} /></Field>
           <Field label="Department"><TextInput value={form.department} onChange={(e) => patch({ department: e.target.value })} placeholder="e.g. Engineering" /></Field>
