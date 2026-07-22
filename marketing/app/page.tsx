@@ -55,15 +55,6 @@ const recruiterFeatures = [
   "LinkedIn-ready job distribution adapter",
 ];
 
-const architecture = [
-  ["Frontend", "React 19 + Vite responsive PWA", "Amplify Hosting or CloudFront + S3", "Ready to deploy"],
-  ["Mobile", "Capacitor iOS/Android + Expo QR preview", "Signed App Store and Google Play builds", "Preview ready; signing required"],
-  ["Backend", "Node.js + Express REST API", "ECS Fargate behind an Application Load Balancer", "MVP API working"],
-  ["Database", "Persistent JSON store for the demo", "Amazon RDS PostgreSQL with backups and Multi-AZ", "Production migration required"],
-  ["Identity", "Signed sessions + LinkedIn OAuth adapter", "Cognito/OIDC, Secrets Manager, partner credentials", "LinkedIn approval required"],
-  ["Location", "Private city + distance-range filtering", "PostGIS geospatial index; never expose exact coordinates", "MVP filter working"],
-  ["Operations", "Tests, health check, service restarts", "CloudWatch, WAF, alarms, CI/CD, blue/green deploys", "Hardening path defined"],
-] as const;
 
 export default function Home() {
   return (
@@ -77,7 +68,6 @@ export default function Home() {
           <a href="#product">How it works</a>
           <a href="#people">Job seekers</a>
           <a href="#teams">Employers</a>
-          <a href="#architecture">Architecture</a>
           <a href="#pricing">Pricing</a>
         </nav>
         <div className="nav-actions">
@@ -193,15 +183,6 @@ export default function Home() {
           <div className="compare-head"><span>Experience</span><span>Traditional hiring</span><span>JobsMatchNow</span></div>
           {comparisons.map(([label, oldWay, newWay]) => <div className="compare-row" key={label}><strong>{label}</strong><span className="old"><b>×</b>{oldWay}</span><span className="new"><b>✓</b>{newWay}</span></div>)}
         </div>
-      </section>
-
-      <section className="section architecture-section" id="architecture">
-        <div className="section-heading centered"><span className="eyebrow">Production path</span><h2>An MVP you can test now.<br />An architecture built to scale.</h2><p>The product separates the fast validation layer from the managed AWS services required for security, resilience, and growth.</p></div>
-        <div className="architecture-table" role="table" aria-label="JobsMatchNow application architecture">
-          <div className="architecture-head" role="row"><span>Layer</span><span>Current MVP</span><span>Production target</span><span>Status</span></div>
-          {architecture.map(([layer, mvp, production, status]) => <div className="architecture-row" role="row" key={layer}><strong><small>Layer</small>{layer}</strong><span><small>Current MVP</small>{mvp}</span><span><small>Production target</small>{production}</span><span className="architecture-status"><small>Status</small>{status}</span></div>)}
-        </div>
-        <div className="aws-path"><div><span className="eyebrow">Recommended AWS deployment</span><h3>From pilot to production without a rebuild.</h3><p>Use managed services for the public release while preserving the existing React and Express product boundaries.</p></div><ol><li><b>1</b><span><strong>Web edge</strong>Amplify Hosting, Route 53, ACM, and WAF</span></li><li><b>2</b><span><strong>API</strong>ECR + ECS Fargate + Application Load Balancer</span></li><li><b>3</b><span><strong>Data</strong>RDS PostgreSQL, encryption, backups, and migrations</span></li><li><b>4</b><span><strong>Secrets & observability</strong>Secrets Manager, CloudWatch logs, alarms, and tracing</span></li><li><b>5</b><span><strong>Mobile release</strong>EAS or native CI to TestFlight and Play internal testing</span></li></ol></div>
       </section>
 
       <section className="trust-section" id="trust">
