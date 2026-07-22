@@ -13,7 +13,14 @@ type SsoBusy = 'linkedin' | 'google' | null;
 
 // Google/LinkedIn block OAuth inside embedded webviews, so inside the native
 // app wrapper we hide SSO and steer users to email/demo (which work fine).
-const isNativeWebview = typeof navigator !== 'undefined' && /JobsMatchNowExpoPreview|Capacitor|Median/i.test(navigator.userAgent || '');
+// Detect both the Expo wrapper (UA marker) and Capacitor (runtime bridge).
+function detectNativeWebview() {
+  if (typeof window === 'undefined') return false;
+  const w = window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } };
+  if (w.Capacitor?.isNativePlatform?.()) return true;
+  return /JobsMatchNowExpoPreview|Median/i.test(navigator.userAgent || '');
+}
+const isNativeWebview = detectNativeWebview();
 
 const defaultConfig: AuthConfig = { demoAuth: true, passwordMinLength: 8, sso: { google: false, linkedin: false } };
 
