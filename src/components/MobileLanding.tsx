@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check, ChevronDown, MapPin, ShieldCheck, Sparkles, Target, X, Zap } from 'lucide-react';
 import { PhoneMockup } from './PhoneMockup';
 import { betterSignal, comparisonRows, howItWorksIntro, pitch, stats, trust } from '../content/landingContent';
+import { FeedbackSection, JourneyPipeline, LatestShowcase } from './LandingSections';
 
 const featureIcons = { target: Target, zap: Zap, 'map-pin': MapPin, 'shield-check': ShieldCheck } as const;
 
@@ -71,6 +72,8 @@ export function MobileLanding({ onRegister, onLogin }: { onRegister: () => void;
         </div>
       </div>}
     </section>
+
+    <div className="m-sections"><JourneyPipeline /><LatestShowcase /><FeedbackSection /></div>
 
     <footer className="m-footer"><Brand /><small>© 2026 JobsMatchNow</small></footer>
   </main>;

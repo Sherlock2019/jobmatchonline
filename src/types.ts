@@ -67,3 +67,5 @@ export interface SessionUser { id: string; role: Role; kind?: EmployerKind; name
 
 /** What the server allows for signing in (demo logins, real SSO availability). */
 export interface AuthConfig { demoAuth: boolean; passwordMinLength: number; sso: { google: boolean; linkedin: boolean } }
+
+export interface Review { id: string; name: string; role?: string; rating?: number; message: string; createdAt: number }

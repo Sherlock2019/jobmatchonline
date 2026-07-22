@@ -1,4 +1,4 @@
-import type { AuthConfig, Bootstrap, EmployerKind, InterviewKit, InterviewPrep, Job, JobDraft, JobMatch, Message, Person, ResumeMeta, Role, ScreeningAnswer, SessionUser, WeightedSkill } from './types';
+import type { AuthConfig, Bootstrap, EmployerKind, InterviewKit, InterviewPrep, Job, JobDraft, JobMatch, Message, Person, ResumeMeta, Review, Role, ScreeningAnswer, SessionUser, WeightedSkill } from './types';
 
 export const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
@@ -13,6 +13,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 export const api = {
   bootstrap: (userId: string) => request<Bootstrap>(`/api/bootstrap?userId=${encodeURIComponent(userId)}`),
   authConfig: () => request<AuthConfig>('/api/auth/config'),
+  showcase: () => request<{ jobs: Job[]; candidates: Person[] }>('/api/showcase'),
+  reviews: () => request<{ reviews: Review[] }>('/api/feedback'),
+  submitFeedback: (payload: { type: 'review' | 'suggestion'; message: string; name?: string; role?: string; rating?: number }) => request<{ ok: boolean; entry: Review }>('/api/feedback', { method: 'POST', body: JSON.stringify(payload) }),
   authProfiles: () => request<{ profiles: SessionUser[] }>('/api/auth/profiles'),
   login: (userId: string) => request<{ user: SessionUser }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ userId }) }),
   loginPassword: (email: string, password: string) => request<{ user: SessionUser }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),

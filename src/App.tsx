@@ -9,6 +9,7 @@ import { Browser } from '@capacitor/browser';
 import { App as NativeApp } from '@capacitor/app';
 import { LoginModal, RegisterModal } from './components/AuthModals';
 import { MobileLanding } from './components/MobileLanding';
+import { FeedbackSection, JourneyPipeline, LatestShowcase } from './components/LandingSections';
 import { CandidateWizard } from './components/profile/CandidateWizard';
 import { CandidateProfilePage } from './components/profile/CandidateProfilePage';
 import { RecruiterWizard } from './components/profile/RecruiterWizard';
@@ -111,6 +112,8 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
       </div>
     </section>
     <section className="logo-strip"><span>Built for the way modern teams hire</span><div><b>northstar</b><b>CANVAS</b><b>relay</b><b>ORBIT</b><b>stride</b></div></section>
+    <JourneyPipeline />
+    <LatestShowcase />
     <section className="comparison-section" id="compare">
       <div className="comparison-intro"><div><span className="section-kicker">The hiring upgrade</span><h2>Old hiring creates activity.<br />JobsMatchNow creates alignment.</h2></div><p>Everything candidates and hiring teams need—from first discovery to a qualified conversation—inside one respectful, intelligent experience.</p></div>
       <div className="comparison-table-wrap">
@@ -123,6 +126,7 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     </section>
     <section className="value-section" id="how"><div><span className="section-kicker">A better signal</span><h2>Hiring works better when<br />both sides choose.</h2></div><div className="value-grid"><Feature icon={Target} title="Fit, explained" text="Go beyond keywords with transparent skill, experience, and preference signals." /><Feature icon={Zap} title="Intent, confirmed" text="A conversation opens only after both sides express interest. No cold outreach." /><Feature icon={MapPin} title="Geolocation of Opportunities" text="Choose a city and private distance range, then meet for coffee only when both sides agree." /><Feature icon={ShieldCheck} title="People, respected" text="Salary and work style are clear up front. Candidate controls stay at the center." /></div></section>
     <section className="trust-section" id="trust"><div className="trust-copy"><span className="section-kicker light">Designed for trust</span><h2>Less noise.<br />More possibility.</h2><p>Every recommendation carries its reason. Every connection starts with consent. Every candidate gets control over what employers can see.</p><button className="white-button" onClick={openLogin}>Open recruiter workspace <ArrowRight size={17} /></button></div><div className="metrics"><div><strong>3.2×</strong><span>more qualified conversations</span></div><div><strong>48h</strong><span>median time to first response</span></div><div><strong>42%</strong><span>fewer screening steps</span></div><small>Illustrative product targets for the demo experience.</small></div></section>
+    <FeedbackSection />
     <footer><Brand /><span>Perfect matches should feel human.</span><small>© 2026 JobsMatchNow</small></footer>
     {modals}
   </main>;

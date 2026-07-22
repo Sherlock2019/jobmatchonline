@@ -37,6 +37,8 @@ await store.transaction((db) => {
       else for (const [key, value] of Object.entries(item)) if (existing[key] === undefined) existing[key] = value;
     }
   }
+  // Seed starter reviews the first time (public landing feedback section).
+  if (!Array.isArray(db.feedback) || db.feedback.length === 0) db.feedback = seed.feedback || [];
 });
 console.log(`JobMatch store: ${process.env.DATABASE_URL ? 'postgresql (RDS)' : 'json file'}`);
 const demoDistances = { 'j-1': 7, 'j-2': 18, 'j-3': 42, 'j-4': 75, 'c-1': 5, 'c-2': 26, 'c-3': 12, 'c-4': 65 };
@@ -142,6 +144,45 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '64kb' }));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, version: '1.0.0' }));
+
+// Public landing showcase: recent active jobs + demo candidate cards (no PII).
+app.get('/api/showcase', async (_req, res, next) => {
+  try {
+    const db = await store.read();
+    const jobs = db.jobs
+      .filter((job) => job.demo || String(job.status).toLowerCase() === 'active')
+      .slice(-10).reverse()
+      .map((job) => ({ id: job.id, title: job.title, company: job.company, logo: job.logo, accent: job.accent, location: job.location, workMode: job.workMode, remoteScope: job.remoteScope, country: job.country, salary: job.salary, type: job.type, requiredSkills: (job.requiredSkills || []).slice(0, 4), coverImage: job.coverImage }));
+    const candidates = db.users
+      .filter((user) => user.role === 'candidate' && user.demo)
+      .slice(0, 10)
+      .map((user) => ({ id: user.id, name: user.name, title: user.title, photo: user.photo, location: user.location, skills: (user.skills || []).slice(0, 4), availability: user.availability, experienceLevel: user.experienceLevel }));
+    res.json({ jobs, candidates });
+  } catch (error) { next(error); }
+});
+
+const publicReview = (f) => ({ id: f.id, name: f.name || 'Anonymous', role: f.role, rating: f.rating, message: f.message, createdAt: f.createdAt });
+const feedbackLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 20, bucket: 'feedback' });
+
+app.get('/api/feedback', async (_req, res, next) => {
+  try {
+    const db = await store.read();
+    res.json({ reviews: (db.feedback || []).filter((f) => f.type === 'review').slice(-8).reverse().map(publicReview) });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/feedback', feedbackLimiter, async (req, res, next) => {
+  try {
+    const type = oneOf(req.body, 'type', ['review', 'suggestion']);
+    const message = reqString(req.body, 'message', { min: 3, max: 1000 });
+    const name = optString(req.body, 'name', { max: 80 });
+    const role = optString(req.body, 'role', { max: 80 });
+    const rating = type === 'review' ? Math.max(1, Math.min(5, Math.round(Number(req.body.rating) || 5))) : undefined;
+    const entry = { id: `fb-${crypto.randomUUID().slice(0, 8)}`, type, name: name || 'Anonymous', role, rating, message, createdAt: Date.now() };
+    await store.transaction((db) => { db.feedback = Array.isArray(db.feedback) ? db.feedback : []; db.feedback.push(entry); });
+    res.status(201).json({ ok: true, entry: publicReview(entry) });
+  } catch (error) { next(error); }
+});
 
 app.get('/api/integrations', (_req, res) => res.json({
   linkedin: { signInConfigured: Boolean(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET && process.env.LINKEDIN_REDIRECT_URI), talentSyncEnabled: process.env.LINKEDIN_TALENT_SYNC_ENABLED === 'true' },
