@@ -30,6 +30,8 @@ $SSH "set -e
     || echo 'DEMO_AUTH=true' | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
   grep -q '^UPLOADS_DIR=' /etc/jobsmatchnow-api.env 2>/dev/null \
     || echo 'UPLOADS_DIR=/var/lib/jobsmatchnow/uploads' | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
+  grep -q '^APP_PATH=' /etc/jobsmatchnow-api.env 2>/dev/null \
+    || echo 'APP_PATH=/app/' | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
   sudo mkdir -p /var/lib/jobsmatchnow/uploads/resumes
   sudo chown -R www-data:www-data /var/lib/jobsmatchnow/uploads
   echo 'postgres ready'"

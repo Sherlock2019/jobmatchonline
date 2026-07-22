@@ -50,6 +50,9 @@ const demoAuth = process.env.DEMO_AUTH !== undefined
 
 const AUTH_COOKIE = 'jm_auth';
 const SESSION_TTL_SECONDS = 7 * 24 * 3600;
+// Where to land the browser after an SSO redirect. In production the SPA is
+// served under /app/, so set APP_PATH=/app/ there; defaults to / for dev.
+const APP_PATH = (process.env.APP_PATH || '/').replace(/\/?$/, '/');
 
 function authSession(req) {
   const payload = readSignedValue(cookies(req)[AUTH_COOKIE], sessionSecret);
@@ -203,7 +206,7 @@ app.get('/api/auth/oauth/:provider', (req, res, next) => {
 app.get('/api/auth/oauth/:provider/callback', async (req, res, next) => {
   try {
     const provider = oneOf(req.params, 'provider', ['google', 'linkedin']);
-    if (req.query.error) return res.redirect(`/?sso=${encodeURIComponent(String(req.query.error))}`);
+    if (req.query.error) return res.redirect(`${APP_PATH}?sso=${encodeURIComponent(String(req.query.error))}`);
     const state = String(req.query.state || '');
     const statePayload = readSignedValue(state, sessionSecret);
     if (!statePayload || statePayload.provider !== provider || cookies(req).jm_oauth_state !== state || Date.now() - statePayload.createdAt > 600000) {
@@ -232,7 +235,7 @@ app.get('/api/auth/oauth/:provider/callback', async (req, res, next) => {
     });
     setCookie(res, 'jm_oauth_state', '', { maxAge: 0 });
     issueSession(res, user);
-    res.redirect('/?sso=ok');
+    res.redirect(`${APP_PATH}?sso=ok`);
   } catch (error) { next(error); }
 });
 
