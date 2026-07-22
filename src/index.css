@@ -215,6 +215,61 @@ button { cursor:pointer; }
   .journey-arrow { display:none; }
 }
 
+/* ── Colorful landing (Apple palette) + bigger logo & CTAs ── */
+/* Logo ~5× more prominent in the landing nav */
+.landing-nav { height:auto; min-height:120px; padding-top:18px; padding-bottom:18px; }
+.landing-nav .brand { font-size:42px; gap:16px; letter-spacing:-1.4px; }
+.landing-nav .brand-heart-mark { width:94px; height:94px; }
+.preview-shell .landing-nav .brand { font-size:26px; }
+.preview-shell .landing-nav .brand-heart-mark { width:56px; height:56px; }
+
+/* Hero Register / Log in ~2× bigger and bolder */
+.hero-actions { gap:16px; margin-top:40px; }
+.hero-actions .primary-button, .hero-actions .secondary-button { min-height:68px; font-size:20px; padding:0 40px; border-radius:999px; }
+.hero-actions .primary-button { box-shadow:0 16px 34px rgba(253,38,122,.32); }
+.hero-actions .primary-button svg, .hero-actions .secondary-button svg { width:22px; height:22px; }
+
+/* Value cards — one Apple color each, with a colored top edge */
+.value-grid article { border-top-width:4px; border-top-style:solid; }
+.value-grid article:nth-child(1) { border-top-color:#FF3B30; }
+.value-grid article:nth-child(1) .feature-icon { background:#FFECEB; color:#FF3B30; }
+.value-grid article:nth-child(2) { border-top-color:#007AFF; }
+.value-grid article:nth-child(2) .feature-icon { background:#E5F0FF; color:#007AFF; }
+.value-grid article:nth-child(3) { border-top-color:#34C759; }
+.value-grid article:nth-child(3) .feature-icon { background:#E6F8EE; color:#1E9E48; }
+.value-grid article:nth-child(4) { border-top-color:#AF52DE; }
+.value-grid article:nth-child(4) .feature-icon { background:#F4EBFB; color:#AF52DE; }
+
+/* Comparison "What changes" badges cycle through Apple colors */
+.comparison-table tbody tr:nth-child(6n+1) td:last-child span { color:#FF3B30; background:#FFECEB; border-color:#FFD3D0; }
+.comparison-table tbody tr:nth-child(6n+2) td:last-child span { color:#FF9500; background:#FFF2E1; border-color:#FFE0BB; }
+.comparison-table tbody tr:nth-child(6n+3) td:last-child span { color:#1E9E48; background:#E6F8EE; border-color:#C3ECD2; }
+.comparison-table tbody tr:nth-child(6n+4) td:last-child span { color:#007AFF; background:#E5F0FF; border-color:#C4DEFF; }
+.comparison-table tbody tr:nth-child(6n+5) td:last-child span { color:#AF52DE; background:#F4EBFB; border-color:#E3CDF4; }
+.comparison-table tbody tr:nth-child(6n+6) td:last-child span { color:#FF2D55; background:#FFEBEF; border-color:#FFD0DA; }
+/* Colorful check marks on the JobsMatchNow column */
+.comparison-table tbody tr:nth-child(3n+1) td:nth-child(3) svg { color:#34C759; }
+.comparison-table tbody tr:nth-child(3n+2) td:nth-child(3) svg { color:#007AFF; }
+.comparison-table tbody tr:nth-child(3n+3) td:nth-child(3) svg { color:#AF52DE; }
+
+/* Livelier section eyebrows, cycling Apple accents */
+.value-section .section-kicker { color:#007AFF; }
+.trust-section .section-kicker.light { color:#FFD60A; }
+
+/* Mobile landing — same Apple coloring */
+.m-signal-grid article:nth-child(1) .feature-icon { background:#FFECEB; color:#FF3B30; }
+.m-signal-grid article:nth-child(2) .feature-icon { background:#E5F0FF; color:#007AFF; }
+.m-signal-grid article:nth-child(3) .feature-icon { background:#E6F8EE; color:#1E9E48; }
+.m-signal-grid article:nth-child(4) .feature-icon { background:#F4EBFB; color:#AF52DE; }
+.m-compare-list article:nth-child(6n+1) .m-impact-badge { color:#FF3B30; background:#FFECEB; border-color:#FFD3D0; }
+.m-compare-list article:nth-child(6n+2) .m-impact-badge { color:#FF9500; background:#FFF2E1; border-color:#FFE0BB; }
+.m-compare-list article:nth-child(6n+3) .m-impact-badge { color:#1E9E48; background:#E6F8EE; border-color:#C3ECD2; }
+.m-compare-list article:nth-child(6n+4) .m-impact-badge { color:#007AFF; background:#E5F0FF; border-color:#C4DEFF; }
+.m-compare-list article:nth-child(6n+5) .m-impact-badge { color:#AF52DE; background:#F4EBFB; border-color:#E3CDF4; }
+.m-compare-list article:nth-child(6n+6) .m-impact-badge { color:#FF2D55; background:#FFEBEF; border-color:#FFD0DA; }
+.m-nav .brand { font-size:22px; }
+.m-nav .brand-heart-mark { width:46px; height:46px; }
+
 /* App shell */
 .app-shell { min-height:100vh; display:flex; background:#f7f8f5; }
 .sidebar { position:fixed; inset:0 auto 0 0; width:232px; background:linear-gradient(180deg,#0d1939,#142650 60%,#162d5d); color:#e5ecfa; padding:calc(24px + env(safe-area-inset-top)) 15px calc(16px + env(safe-area-inset-bottom)); z-index:30; display:flex; flex-direction:column; }
