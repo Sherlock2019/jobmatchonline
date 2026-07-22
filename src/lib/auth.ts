@@ -15,7 +15,7 @@ export interface AuthProvider {
 
 export interface SignInOptions {
   userId?: string; // demo provider: which profile to log in as
-  register?: { role: Role; kind?: EmployerKind; name: string; email: string }; // email provider
+  register?: { role: Role; kind?: EmployerKind; name: string; email: string; password?: string }; // email provider
   registerRole?: Role; // SSO during registration: create/refresh account with this role
   registerKind?: EmployerKind;
 }

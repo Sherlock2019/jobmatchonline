@@ -171,6 +171,37 @@ Ambiguities resolved in favor of the simplest option consistent with the
 - **Ready checklist (18)** hides itself once all three checks pass; fix links
   deep-link into the relevant wizard step.
 
+## Real authentication (post-brief hardening)
+
+- **`DEMO_AUTH` flag**: demo logins (dropdown, mock SSO, spoofable ids) default
+  ON in development and OFF in production; either can be overridden. Real
+  email+password auth works in both modes, so demo and real accounts coexist.
+- **Sessions are signed HttpOnly cookies** (HMAC, 7-day TTL, Secure+SameSite=Lax
+  in production) reusing the existing `signedValue` helpers — no session table.
+- **Passwords are scrypt-hashed** (node:crypto, no dependencies), min 8 chars;
+  login returns the same error for unknown email and wrong password.
+- **A session always beats client-supplied ids**: bootstrap, swipes, messages,
+  profile/job edits, resume access, and match updates derive the actor from the
+  cookie; claimed ids are honored only in demo mode. Ownership checks: profile
+  and resume are self-only, jobs editable by their poster, matches/messages by
+  their parties.
+- **Demo accounts are flagged `demo: true`** (base seed + the 100-account
+  seeder, which already had the flag). They are the only accounts in the demo
+  dropdown (listed without emails), can never be claimed by re-registering
+  their email, and render with a "Demo" badge on cards. Real users are never
+  listed anywhere.
+- **Real SSO is env-var activated**: `server/integrations/oauth.js` implements
+  the OIDC code flow for Google and LinkedIn; setting
+  `GOOGLE_/LINKEDIN_CLIENT_ID + _CLIENT_SECRET + _REDIRECT_URI` switches the
+  SSO buttons from mock to real (find-or-create by provider subject, then by
+  verified email; demo accounts excluded). Callback path:
+  `/api/auth/oauth/<provider>/callback`.
+- **Rate limiting** is an in-memory sliding window (30/5min on auth, 30/hour on
+  uploads) — correct for the single-process MVP and production tiers; swap for
+  a shared store if the API ever scales horizontally.
+- Registration in strict mode requires a password and returns 409 on duplicate
+  emails; the demo-mode passwordless idempotent register remains for demos.
+
 ## Acceptance notes
 
 - Full-stack verified end-to-end via API: register→onboarding→profile, demo

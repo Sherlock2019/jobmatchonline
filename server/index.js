@@ -10,8 +10,10 @@ import { applyCandidateProfile, applyRecruiterProfile, candidateCompleteness, re
 import { anonymizeText, convertDocxToPdf, detectTools, docxToHtml, extractDocxText, extractPdfText, makeSimplePdf, pdfThumbnail } from './resume.js';
 import { applyJob, parseJobText } from './jobs.js';
 import { generateIcebreakers, generateInterviewKit, generatePrep, suggestScreeningQuestions } from './coaching.js';
+import { PASSWORD_MIN_LENGTH, hashPassword, rateLimit, validPassword, verifyPassword } from './auth.js';
 import fs from 'node:fs';
 import { exchangeLinkedinCode, linkedinAuthorizationUrl, readSignedValue, signedValue, toLinkedinJobPayload } from './integrations/linkedin.js';
+import { oauthAuthorizationUrl, oauthExchangeCode, oauthProviders } from './integrations/oauth.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(dirname, '..');
@@ -39,6 +41,48 @@ const demoDistances = { 'j-1': 7, 'j-2': 18, 'j-3': 42, 'j-4': 75, 'c-1': 5, 'c-
 const sessionSecret = process.env.SESSION_SECRET || 'jobmatch-local-development-only-secret';
 if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) throw new Error('SESSION_SECRET is required in production');
 
+// Demo auth (profile dropdown, mock SSO, spoofable ids) is on by default in
+// development and OFF in production. DEMO_AUTH=true/false overrides either way,
+// so the live showcase can keep demo logins alongside real accounts.
+const demoAuth = process.env.DEMO_AUTH !== undefined
+  ? process.env.DEMO_AUTH === 'true'
+  : process.env.NODE_ENV !== 'production';
+
+const AUTH_COOKIE = 'jm_auth';
+const SESSION_TTL_SECONDS = 7 * 24 * 3600;
+
+function authSession(req) {
+  const payload = readSignedValue(cookies(req)[AUTH_COOKIE], sessionSecret);
+  if (!payload || typeof payload.sub !== 'string' || payload.expiresAt < Date.now()) return null;
+  return payload;
+}
+
+function issueSession(res, user) {
+  const session = signedValue({ sub: user.id, role: user.role, expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000 }, sessionSecret);
+  setCookie(res, AUTH_COOKIE, session, { maxAge: SESSION_TTL_SECONDS });
+}
+
+/**
+ * Who is acting? A signed session always wins (claimed ids from the client are
+ * ignored). Without a session, the claimed id is honored only in demo mode.
+ */
+function resolveActor(req, claimedId) {
+  const session = authSession(req);
+  if (session) return session.sub;
+  if (demoAuth) return claimedId || '';
+  const error = new Error('Sign in to continue'); error.status = 401; throw error;
+}
+
+/** Guard for endpoints that operate on a specific user's own data. */
+function requireSelf(req, userId) {
+  const session = authSession(req);
+  if (session) {
+    if (session.sub !== userId) { const error = new Error('You can only modify your own profile'); error.status = 403; throw error; }
+    return;
+  }
+  if (!demoAuth) { const error = new Error('Sign in to continue'); error.status = 401; throw error; }
+}
+
 function cookies(req) {
   return Object.fromEntries((req.headers.cookie || '').split(';').filter(Boolean).map((part) => { const index = part.indexOf('='); return [part.slice(0, index).trim(), decodeURIComponent(part.slice(index + 1))]; }));
 }
@@ -50,6 +94,7 @@ function setCookie(res, name, value, { maxAge = 600, httpOnly = true } = {}) {
 
 export const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1); // nginx/CloudFront in front — req.ip = real client IP for rate limiting
 const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS || 'http://localhost:3000,https://localhost,capacitor://localhost').split(',').map((origin) => origin.trim()));
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -124,51 +169,139 @@ app.post('/api/integrations/linkedin/jobs/:jobId/sync', async (req, res, next) =
 // ---------------------------------------------------------------------------
 
 function publicProfile(user) {
-  return { id: user.id, role: user.role, kind: user.kind, name: user.name, email: user.email, title: user.title, company: user.company, photo: user.photo, provider: user.provider, completeness: user.completeness };
+  return { id: user.id, role: user.role, kind: user.kind, name: user.name, email: user.email, title: user.title, company: user.company, photo: user.photo, provider: user.provider, completeness: user.completeness, demo: user.demo === true };
 }
 
-app.get('/api/auth/profiles', async (_req, res, next) => {
+const authLimiter = rateLimit({ windowMs: 5 * 60 * 1000, max: 30, bucket: 'auth' });
+
+app.get('/api/auth/config', (_req, res) => res.json({ demoAuth, passwordMinLength: PASSWORD_MIN_LENGTH, sso: oauthProviders() }));
+
+// ---------------------------------------------------------------------------
+// Real SSO (Google / LinkedIn via OpenID Connect) — active when env vars exist.
+// ---------------------------------------------------------------------------
+
+app.get('/api/auth/oauth/:provider', (req, res, next) => {
   try {
-    const db = await store.read();
-    // SSO demo accounts stay out of the dropdown: they are reached via the provider buttons.
-    res.json({ profiles: db.users.filter((user) => !String(user.id).startsWith('sso-')).map(publicProfile) });
+    const provider = oneOf(req.params, 'provider', ['google', 'linkedin']);
+    const role = req.query.role === 'employer' ? 'employer' : 'candidate';
+    const state = signedValue({ nonce: crypto.randomUUID(), createdAt: Date.now(), provider, role }, sessionSecret);
+    setCookie(res, 'jm_oauth_state', state);
+    res.redirect(oauthAuthorizationUrl(provider, state));
   } catch (error) { next(error); }
 });
 
-app.post('/api/auth/login', async (req, res, next) => {
+app.get('/api/auth/oauth/:provider/callback', async (req, res, next) => {
   try {
-    const userId = reqString(req.body, 'userId', { max: 128 });
+    const provider = oneOf(req.params, 'provider', ['google', 'linkedin']);
+    if (req.query.error) return res.redirect(`/?sso=${encodeURIComponent(String(req.query.error))}`);
+    const state = String(req.query.state || '');
+    const statePayload = readSignedValue(state, sessionSecret);
+    if (!statePayload || statePayload.provider !== provider || cookies(req).jm_oauth_state !== state || Date.now() - statePayload.createdAt > 600000) {
+      const error = new Error('Invalid or expired OAuth state'); error.status = 401; throw error;
+    }
+    const identity = await oauthExchangeCode(provider, String(req.query.code || ''));
+    const user = await store.transaction((db) => {
+      // 1) returning SSO user; 2) existing real account with the same verified
+      // email (link it); 3) brand-new account. Demo accounts can't be claimed.
+      let found = db.users.find((item) => item.authProvider === provider && item.authSubject === identity.sub);
+      if (!found && identity.email) found = db.users.find((item) => item.demo !== true && item.email && item.email.toLowerCase() === identity.email);
+      if (found) {
+        Object.assign(found, { authProvider: provider, authSubject: identity.sub, provider, photo: found.photo || identity.picture });
+        return found;
+      }
+      const created = {
+        id: `u-${crypto.randomUUID().slice(0, 8)}`, role: statePayload.role, name: identity.name || 'New member', email: identity.email,
+        ...(statePayload.role === 'employer' ? { kind: 'company' } : {}),
+        authProvider: provider, authSubject: identity.sub, provider,
+        title: statePayload.role === 'candidate' ? 'New member' : 'Recruiter',
+        photo: identity.picture || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(identity.name || 'user')}`,
+        skills: [], languages: [], experienceLevel: 'mid', completeness: 15, onboarding: true, createdAt: Date.now(),
+      };
+      db.users.push(created);
+      return created;
+    });
+    setCookie(res, 'jm_oauth_state', '', { maxAge: 0 });
+    issueSession(res, user);
+    res.redirect('/?sso=ok');
+  } catch (error) { next(error); }
+});
+
+// Demo login dropdown: demo-flagged accounts only — real users are never listed,
+// and emails stay out of the listing.
+app.get('/api/auth/profiles', async (_req, res, next) => {
+  try {
+    if (!demoAuth) { const error = new Error('Demo logins are disabled'); error.status = 403; throw error; }
     const db = await store.read();
-    const user = db.users.find((item) => item.id === userId);
-    if (!user) { const error = new Error('Unknown profile'); error.status = 404; throw error; }
+    res.json({
+      profiles: db.users
+        .filter((user) => user.demo === true && !String(user.id).startsWith('sso-'))
+        .map((user) => ({ id: user.id, role: user.role, kind: user.kind, name: user.name, title: user.title, company: user.company, demo: true })),
+    });
+  } catch (error) { next(error); }
+});
+
+// Login: { email, password } for real accounts; { userId } instant-login for
+// demo-flagged accounts when demo auth is enabled. Both issue a session cookie.
+app.post('/api/auth/login', authLimiter, async (req, res, next) => {
+  try {
+    const db = await store.read();
+    let user;
+    if (typeof req.body.userId === 'string' && req.body.userId) {
+      if (!demoAuth) { const error = new Error('Demo logins are disabled — sign in with your email and password'); error.status = 403; throw error; }
+      user = db.users.find((item) => item.id === req.body.userId && item.demo === true);
+      if (!user) { const error = new Error('Unknown demo profile'); error.status = 404; throw error; }
+    } else {
+      const email = reqString(req.body, 'email', { max: 200 }).toLowerCase();
+      const password = reqString(req.body, 'password', { max: 200 });
+      user = db.users.find((item) => item.email && item.email.toLowerCase() === email);
+      // Same error for wrong email and wrong password — no account probing.
+      if (!user?.passwordHash || !verifyPassword(password, user.passwordHash)) {
+        const error = new Error('Email or password is incorrect'); error.status = 401; throw error;
+      }
+    }
+    issueSession(res, user);
     res.json({ user: publicProfile(user) });
   } catch (error) { next(error); }
 });
 
-app.post('/api/auth/sso', async (req, res, next) => {
+app.post('/api/auth/sso', authLimiter, async (req, res, next) => {
   try {
+    if (!demoAuth) { const error = new Error('Mock SSO is disabled'); error.status = 403; throw error; }
     const provider = oneOf(req.body, 'provider', ['linkedin', 'google']);
     const db = await store.read();
     const user = db.users.find((item) => item.id === `sso-${provider}-demo`);
     if (!user) { const error = new Error('SSO demo profile missing'); error.status = 500; throw error; }
+    issueSession(res, user);
     res.json({ user: publicProfile(user) });
   } catch (error) { next(error); }
 });
 
-app.post('/api/auth/register', async (req, res, next) => {
+app.post('/api/auth/register', authLimiter, async (req, res, next) => {
   try {
     const role = oneOf(req.body, 'role', ['candidate', 'employer']);
     const kind = oneOf(req.body, 'kind', ['company', 'headhunter'], { optional: true });
     const provider = oneOf(req.body, 'provider', ['linkedin', 'google', 'email'], { optional: true });
     const name = reqString(req.body, 'name', { max: 120 });
     const email = reqString(req.body, 'email', { max: 200 });
+    if (!/.+@.+\..+/.test(email)) throw new ValidationError('email', 'A valid email address is required');
+    const password = optString(req.body, 'password', { max: 200 });
     const photo = optString(req.body, 'photo', { max: 500 });
+    // Real accounts require a password; demo mode keeps the near-instant flow.
+    if (!demoAuth && !validPassword(password)) throw new ValidationError('password', `Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
+    if (password !== undefined && !validPassword(password)) throw new ValidationError('password', `Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
     const user = await store.transaction((db) => {
       const existing = db.users.find((item) => item.email && item.email.toLowerCase() === email.toLowerCase());
-      if (existing) return existing;
+      if (existing) {
+        // Demo accounts and real accounts can never be claimed by re-registering.
+        if (existing.demo === true || existing.passwordHash || !demoAuth) {
+          const error = new Error('An account with this email already exists — log in instead'); error.status = 409; throw error;
+        }
+        return existing; // demo-mode passwordless idempotency
+      }
       const created = {
         id: `u-${crypto.randomUUID().slice(0, 8)}`, role, name, email,
         ...(role === 'employer' ? { kind: kind || 'company' } : {}),
+        ...(password ? { passwordHash: hashPassword(password) } : {}),
         provider: provider || 'email',
         title: role === 'candidate' ? 'New member' : 'Recruiter',
         photo: photo || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,
@@ -177,7 +310,24 @@ app.post('/api/auth/register', async (req, res, next) => {
       db.users.push(created);
       return created;
     });
+    issueSession(res, user);
     res.status(201).json({ user: publicProfile(user) });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/logout', (_req, res) => {
+  setCookie(res, AUTH_COOKIE, '', { maxAge: 0 });
+  res.json({ ok: true });
+});
+
+app.get('/api/auth/me', async (req, res, next) => {
+  try {
+    const session = authSession(req);
+    if (!session) return res.status(401).json({ authenticated: false });
+    const db = await store.read();
+    const user = db.users.find((item) => item.id === session.sub);
+    if (!user) return res.status(401).json({ authenticated: false });
+    res.json({ authenticated: true, user: publicProfile(user) });
   } catch (error) { next(error); }
 });
 
@@ -187,6 +337,7 @@ app.post('/api/auth/register', async (req, res, next) => {
 
 app.patch('/api/users/:id', async (req, res, next) => {
   try {
+    requireSelf(req, req.params.id);
     const user = await store.transaction((db) => {
       const item = db.users.find((entry) => entry.id === req.params.id);
       if (!item) { const error = new Error('User not found'); error.status = 404; throw error; }
@@ -242,8 +393,11 @@ async function processResume(userId, meta) {
   return meta;
 }
 
-app.post('/api/users/:id/resume', express.raw({ type: () => true, limit: '10mb' }), async (req, res, next) => {
+const uploadLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 30, bucket: 'upload' });
+
+app.post('/api/users/:id/resume', uploadLimiter, express.raw({ type: () => true, limit: '10mb' }), async (req, res, next) => {
   try {
+    requireSelf(req, req.params.id);
     const ext = RESUME_TYPES[req.headers['content-type']];
     if (!ext) { const error = new Error('Only PDF or DOCX resumes are accepted'); error.status = 415; throw error; }
     if (!Buffer.isBuffer(req.body) || req.body.length === 0) throw new ValidationError('file', 'Empty upload');
@@ -267,8 +421,9 @@ app.post('/api/users/:id/resume', express.raw({ type: () => true, limit: '10mb' 
   } catch (error) { next(error); }
 });
 
-app.post('/api/users/:id/resume/thumbnail', express.raw({ type: 'image/png', limit: '2mb' }), async (req, res, next) => {
+app.post('/api/users/:id/resume/thumbnail', uploadLimiter, express.raw({ type: 'image/png', limit: '2mb' }), async (req, res, next) => {
   try {
+    requireSelf(req, req.params.id);
     if (!Buffer.isBuffer(req.body) || req.body.length === 0) throw new ValidationError('file', 'Empty thumbnail');
     const resume = await store.transaction((db) => {
       const item = db.users.find((entry) => entry.id === req.params.id);
@@ -329,7 +484,10 @@ async function loadResume(req) {
   const user = db.users.find((entry) => entry.id === req.params.id);
   const resume = user?.documents?.resume;
   if (!resume) { const error = new Error('No resume on file'); error.status = 404; throw error; }
-  return { db, user, resume, viewerId: typeof req.query.viewerId === 'string' ? req.query.viewerId : '' };
+  // Session identity wins; the query param only counts in demo mode.
+  const session = authSession(req);
+  const viewerId = session ? session.sub : (demoAuth && typeof req.query.viewerId === 'string' ? req.query.viewerId : '');
+  return { db, user, resume, viewerId };
 }
 
 // Descriptor the in-app viewer uses to decide how to render.
@@ -410,7 +568,7 @@ const JOB_ACCENTS = ['#3d5afe', '#ff5a5f', '#00a884', '#8b5cf6', '#f59e0b', '#0e
 
 app.post('/api/jobs', async (req, res, next) => {
   try {
-    const employerId = reqString(req.body, 'employerId', { max: 128 });
+    const employerId = resolveActor(req, reqString(req.body, 'employerId', { max: 128 }));
     const job = await store.transaction((db) => {
       const employer = db.users.find((user) => user.id === employerId && user.role === 'employer');
       if (!employer) throw new ValidationError('employerId', 'Unknown recruiter account');
@@ -433,9 +591,12 @@ app.post('/api/jobs', async (req, res, next) => {
 
 app.patch('/api/jobs/:id', async (req, res, next) => {
   try {
+    const session = authSession(req);
+    if (!session && !demoAuth) { const error = new Error('Sign in to continue'); error.status = 401; throw error; }
     const job = await store.transaction((db) => {
       const item = db.jobs.find((entry) => entry.id === req.params.id);
       if (!item) { const error = new Error('Job not found'); error.status = 404; throw error; }
+      if (session && item.employerId !== session.sub) { const error = new Error('You can only edit your own postings'); error.status = 403; throw error; }
       return applyJob(item, req.body);
     });
     res.json({ job });
@@ -512,9 +673,10 @@ app.get('/api/matches/:id/kit', async (req, res, next) => {
 app.get('/api/bootstrap', async (req, res, next) => {
   try {
     const db = await store.read();
-    const requestedId = typeof req.query.userId === 'string' ? req.query.userId : '';
+    const requestedId = resolveActor(req, typeof req.query.userId === 'string' ? req.query.userId : '');
     const fallbackRole = req.query.role === 'employer' ? 'employer' : 'candidate';
-    const viewer = db.users.find((user) => user.id === requestedId) || db.users.find((user) => user.id === `${fallbackRole}-demo`);
+    const viewer = db.users.find((user) => user.id === requestedId) || (demoAuth ? db.users.find((user) => user.id === `${fallbackRole}-demo`) : undefined);
+    if (!viewer) { const error = new Error('Sign in to continue'); error.status = 401; throw error; }
     const role = viewer.role === 'employer' ? 'employer' : 'candidate';
     const candidates = db.users.filter((user) => user.role === 'candidate');
     // Mutual salary reveal: exact ranges are hidden until both sides matched.
@@ -555,7 +717,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
 
 app.post('/api/swipes', async (req, res, next) => {
   try {
-    const actorId = reqString(req.body, 'actorId', { max: 128 });
+    const actorId = resolveActor(req, reqString(req.body, 'actorId', { max: 128 }));
     const targetId = reqString(req.body, 'targetId', { max: 128 });
     const targetType = oneOf(req.body, 'targetType', ['job', 'candidate']);
     const direction = oneOf(req.body, 'direction', ['like', 'pass']);
@@ -590,9 +752,12 @@ app.post('/api/swipes', async (req, res, next) => {
 app.patch('/api/matches/:id', async (req, res, next) => {
   try {
     const stage = oneOf(req.body, 'stage', ['Matched', 'Screen', 'Interview', 'Offer', 'Hired', 'Archived']);
+    const session = authSession(req);
+    if (!session && !demoAuth) { const error = new Error('Sign in to continue'); error.status = 401; throw error; }
     const match = await store.transaction((db) => {
       const item = db.matches.find((entry) => entry.id === req.params.id);
       if (!item) { const error = new Error('Match not found'); error.status = 404; throw error; }
+      if (session && item.candidateId !== session.sub && item.employerId !== session.sub) { const error = new Error('Only the matched parties can update this match'); error.status = 403; throw error; }
       item.stage = stage;
       item.stageChangedAt = Date.now(); // idle-time tracking for pipeline nudges
       return item;
@@ -604,10 +769,14 @@ app.patch('/api/matches/:id', async (req, res, next) => {
 app.post('/api/messages', async (req, res, next) => {
   try {
     const matchId = reqString(req.body, 'matchId', { max: 128 });
-    const senderId = reqString(req.body, 'senderId', { max: 128 });
+    const senderId = resolveActor(req, reqString(req.body, 'senderId', { max: 128 }));
     const text = reqString(req.body, 'text', { max: 2000 });
     const message = await store.transaction((db) => {
-      if (!db.matches.some((match) => match.id === matchId)) { const error = new Error('Match not found'); error.status = 404; throw error; }
+      const match = db.matches.find((item) => item.id === matchId);
+      if (!match) { const error = new Error('Match not found'); error.status = 404; throw error; }
+      if (authSession(req) && senderId !== match.candidateId && senderId !== match.employerId) {
+        const error = new Error('Only the matched parties can message this thread'); error.status = 403; throw error;
+      }
       const item = { id: crypto.randomUUID(), matchId, senderId, text, createdAt: Date.now() };
       db.messages.push(item);
       return item;

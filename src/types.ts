@@ -19,7 +19,7 @@ export interface PrivacySettings { visibility?: 'all' | 'after-swipe' | 'paused'
 export interface Person {
   id: string; role: Role; kind?: EmployerKind; name: string; email?: string; provider?: string; title: string;
   location?: string; distanceKm?: number; company?: string; photo: string; skills: string[]; languages: string[];
-  experienceLevel: string; completeness?: number; availability?: string; match?: MatchEvidence; onboarding?: boolean; salaryHidden?: boolean;
+  experienceLevel: string; completeness?: number; availability?: string; match?: MatchEvidence; onboarding?: boolean; salaryHidden?: boolean; demo?: boolean;
   // Candidate profile model (item 4)
   headline?: string; phone?: string; city?: string; country?: string; distanceRangeKm?: number;
   languageDetail?: LanguageTag[]; yearsExperience?: number; seniority?: Seniority; skillsDetail?: SkillTag[];
@@ -46,6 +46,7 @@ export interface Job {
   /** true when the exact range is withheld pre-match (mutual salary reveal) */
   salaryHidden?: boolean;
   screeningQuestions?: string[];
+  demo?: boolean;
 }
 
 export interface SkillQuestions { skill: string; questions: string[] }
@@ -58,4 +59,7 @@ export interface Message { id: string; matchId: string; senderId: string; text: 
 export interface Bootstrap { viewer: Person; jobs: Job[]; candidates: Person[]; matches: JobMatch[]; messages: Message[]; likesRemaining: number }
 
 /** Minimal identity persisted for the demo session. */
-export interface SessionUser { id: string; role: Role; kind?: EmployerKind; name: string; email?: string; photo?: string; provider?: string; isNew?: boolean }
+export interface SessionUser { id: string; role: Role; kind?: EmployerKind; name: string; email?: string; photo?: string; provider?: string; isNew?: boolean; demo?: boolean; title?: string; company?: string }
+
+/** What the server allows for signing in (demo logins, real SSO availability). */
+export interface AuthConfig { demoAuth: boolean; passwordMinLength: number; sso: { google: boolean; linkedin: boolean } }
