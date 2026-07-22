@@ -219,22 +219,34 @@ function Discover({ role, data, setData, navigate, onEditProfile }: { role: Role
   useEffect(() => setIndex(0), [radius, role]);
   const current = deck[index];
   const next = deck[index + 1];
-  const commitSwipe = async (direction: 'like' | 'pass', target: Job | Person, answers?: ScreeningAnswer[]) => {
+  const commitSwipe = async (direction: 'like' | 'pass', target: Job | Person, opts?: { superLike?: boolean; answers?: ScreeningAnswer[] }) => {
     if (busy) return;
     setBusy(true);
     try {
-      const result = await api.swipe({ actorId: data.viewer.id, targetId: target.id, targetType: role === 'candidate' ? 'job' : 'candidate', direction, answers: answers?.length ? answers : undefined });
+      const result = await api.swipe({ actorId: data.viewer.id, targetId: target.id, targetType: role === 'candidate' ? 'job' : 'candidate', direction, superLike: opts?.superLike || undefined, answers: opts?.answers?.length ? opts.answers : undefined });
       if (result.match) setMatch(result.match);
       setData({ ...data, likesRemaining: result.likesRemaining ?? data.likesRemaining - (direction === 'like' ? 1 : 0) });
       setIndex((value) => value + 1);
     } catch (e) { alert(e instanceof Error ? e.message : 'Swipe failed'); }
     finally { setBusy(false); }
   };
-  const act = (direction: 'like' | 'pass') => {
+  const act = (direction: 'like' | 'pass', superLike = false) => {
     if (!current || busy) return;
-    // Item 11: a right-swipe on a job with screening questions pauses for the 30-second form.
-    if (direction === 'like' && role === 'candidate' && (current as Job).screeningQuestions?.length) { setScreeningFor(current as Job); return; }
-    void commitSwipe(direction, current);
+    // Item 11: a plain right-swipe on a job with screening questions pauses for the 30-second form.
+    if (direction === 'like' && !superLike && role === 'candidate' && (current as Job).screeningQuestions?.length) { setScreeningFor(current as Job); return; }
+    void commitSwipe(direction, current, { superLike });
+  };
+  // Rewind/Undo: take back the last swipe (removes it server-side, incl. any match).
+  const undo = async () => {
+    if (index === 0 || busy) return;
+    setBusy(true);
+    try {
+      await api.undoSwipe(data.viewer.id);
+      const fresh = await api.bootstrap(data.viewer.id);
+      setData(fresh);
+      setIndex((value) => Math.max(0, value - 1));
+    } catch (e) { alert(e instanceof Error ? e.message : 'Undo failed'); }
+    finally { setBusy(false); }
   };
   // Item 10: after a gap skill is added, re-bootstrap so every fit score recalculates live.
   const refreshScores = () => api.bootstrap(data.viewer.id).then(setData).catch(() => undefined);
@@ -245,13 +257,13 @@ function Discover({ role, data, setData, navigate, onEditProfile }: { role: Role
     <div className="discover-layout"><section className="deck-area">
       <div className="deck-meta"><span><Sparkles size={15} />{role === 'candidate' ? 'Your Top 3 today' : 'Personalized for you'}</span><small>{role === 'candidate' ? `${Math.max(deck.length - index, 0)} of today's ${deck.length} left` : `${Math.max(deck.length - index, 0)} nearby recommendations`}</small></div>
       <div className="card-stack">{next && <div className="stack-card"><CardSummary item={next} role={role} /></div>}{current ? <SwipeCard key={current.id} item={current} role={role} onSwipe={act} onOpenResume={role === 'employer' ? setResumeFor : undefined} resumeUnlocked={role === 'employer' && matchedCandidateIds.has(current.id)} onOpenJob={role === 'candidate' ? setJobDetail : undefined} gapViewer={role === 'candidate' ? data.viewer : undefined} onSkillAdded={refreshScores} /> : <EmptyDeck role={role} onReset={() => setIndex(0)} />}</div>
-      {current && <div className="action-row"><button onClick={() => act('pass')} disabled={busy} className="pass-action" aria-label="Pass"><X /></button><button className="undo-action" aria-label="Undo" disabled><RotateCcw /></button><button onClick={() => act('like')} disabled={busy} className="like-action" aria-label="Like"><Heart fill="currentColor" /></button></div>}
-      <div className="keyboard-hint"><span><kbd>←</kbd> Pass</span><span><kbd>→</kbd> Like</span><span><kbd>Space</kbd> View details</span></div>
+      {current && <div className="action-row"><button onClick={() => act('pass')} disabled={busy} className="pass-action" aria-label="Pass"><X /></button><button onClick={undo} disabled={busy || index === 0} className="undo-action" aria-label="Undo last swipe" title="Rewind last swipe"><RotateCcw /></button><button onClick={() => act('like', true)} disabled={busy} className="superlike-action" aria-label="Super Like" title="Super Like — a stronger signal"><Star fill="currentColor" /></button><button onClick={() => act('like')} disabled={busy} className="like-action" aria-label="Like"><Heart fill="currentColor" /></button></div>}
+      <div className="keyboard-hint"><span><kbd>←</kbd> Pass</span><span><kbd>★</kbd> Super</span><span><kbd>→</kbd> Like</span></div>
     </section><aside className="insight-panel"><div className="daily-card"><div><span>Today’s activity</span><strong>{data.likesRemaining}</strong><small>likes remaining</small></div><div className="ring" style={{ '--progress': `${data.likesRemaining * 2}%` } as React.CSSProperties}><Heart size={18} /></div></div><div className="tip-card"><div className="tip-icon"><Zap size={17} /></div><strong>{role === 'candidate' ? 'Complete your preferences' : 'Calibrate your search'}</strong><p>{role === 'candidate' ? 'Add your preferred team size to improve recommendations by up to 18%.' : 'Review five profiles to help JobsMatchNow learn what great looks like for this role.'}</p><button>{role === 'candidate' ? 'Update preferences' : 'View calibration'} <ArrowRight size={14} /></button></div><div className="quality-card"><div className="quality-head"><span>Match quality</span><strong>Excellent</strong></div><div className="quality-bar"><i /></div><p>Your recommendations use 12 verified profile signals.</p></div></aside></div>
     <AnimatePresence>{match && <MatchModal match={match} viewer={data.viewer} onClose={() => setMatch(null)} onMessage={() => { setMatch(null); navigate('messages'); }} />}</AnimatePresence>
     <AnimatePresence>{resumeFor && <ResumeViewerModal person={resumeFor} viewerId={data.viewer.id} onClose={() => setResumeFor(null)} />}</AnimatePresence>
     <AnimatePresence>{jobDetail && <JobDetailModal job={jobDetail} onClose={() => setJobDetail(null)} />}</AnimatePresence>
-    <AnimatePresence>{screeningFor && <ScreeningModal job={screeningFor} onCancel={() => setScreeningFor(null)} onSubmit={(answers) => { const target = screeningFor; setScreeningFor(null); void commitSwipe('like', target, answers); }} />}</AnimatePresence></div>;
+    <AnimatePresence>{screeningFor && <ScreeningModal job={screeningFor} onCancel={() => setScreeningFor(null)} onSubmit={(answers) => { const target = screeningFor; setScreeningFor(null); void commitSwipe('like', target, { answers }); }} />}</AnimatePresence></div>;
 }
 
 function SwipeCard({ item, role, onSwipe, onOpenResume, resumeUnlocked, onOpenJob, gapViewer, onSkillAdded }: { item: Job | Person; role: Role; onSwipe: (direction: 'like' | 'pass') => void; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean; onOpenJob?: (job: Job) => void; gapViewer?: Person; onSkillAdded?: () => void }) {
@@ -259,6 +271,7 @@ function SwipeCard({ item, role, onSwipe, onOpenResume, resumeUnlocked, onOpenJo
   const x = useMotionValue(0); const rotate = useTransform(x, [-220, 220], [-8, 8]); const likeOpacity = useTransform(x, [20, 120], [0, 1]); const passOpacity = useTransform(x, [-120, -20], [1, 0]);
   return <motion.article className="swipe-card" style={{ x, rotate }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.85} onDragEnd={(_, info) => { if (info.offset.x > 110) onSwipe('like'); else if (info.offset.x < -110) onSwipe('pass'); }}>
     <motion.div className="swipe-stamp like-stamp" style={{ opacity: likeOpacity }}>INTERESTED</motion.div><motion.div className="swipe-stamp pass-stamp" style={{ opacity: passOpacity }}>PASS</motion.div>
+    {item.superLikedYou && <div className="superlike-ribbon"><Star size={12} fill="currentColor" /> Super Liked you</div>}
     <div className={flipped ? 'card-flip flipped' : 'card-flip'}>
       <div className="card-face card-front">
         <CardSummary item={item} role={role} detailed onOpenResume={onOpenResume} resumeUnlocked={resumeUnlocked} onOpenJob={onOpenJob} gapViewer={gapViewer} onSkillAdded={onSkillAdded} />

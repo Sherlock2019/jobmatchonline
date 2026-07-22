@@ -23,7 +23,7 @@ export function createSeed() {
       { id: 'j-6', employerId: 'hh-1', demo: true, title: 'Head of Product Design (confidential client)', company: 'TalentBridge · client brief', logo: 'T', accent: '#f59e0b', location: 'Ho Chi Minh City · On-site', distanceKm: 6, workMode: 'On-site', salary: '$130k–$170k', type: 'Full-time', experienceLevel: 'lead', requiredSkills: ['Leadership', 'Product strategy', 'Design systems'], requiredLanguages: ['English', 'Vietnamese'], description: 'Our client, a fast-scaling fintech, is hiring its first Head of Product Design to build a 10-person team across two hubs.', mission: 'Placed by TalentBridge on behalf of a confidential client.', culture: ['Ambitious', 'Ownership', 'Bilingual team'], responseTime: '< 3 days', applicants: 22, status: 'Active', hiringRadiusKm: 25, salaryRange: { min: 130000, max: 170000, currency: 'USD' }, requiredSkillsDetail: [{ name: 'Leadership', weight: 3 }, { name: 'Product strategy', weight: 2 }, { name: 'Design systems', weight: 2 }] }
     ],
     swipes: [
-      { id: 's-seed-1', actorId: 'employer-demo', targetType: 'candidate', targetId: 'candidate-demo', direction: 'like', createdAt: now - 3600000 }
+      { id: 's-seed-1', actorId: 'employer-demo', targetType: 'candidate', targetId: 'candidate-demo', direction: 'like', superLike: true, createdAt: now - 3600000 }
     ],
     matches: [
       { id: 'm-candidate', candidateId: 'candidate-demo', employerId: 'e-3', jobId: 'j-3', stage: 'Matched', createdAt: now - 86400000 * 3 },

@@ -710,6 +710,10 @@ app.get('/api/bootstrap', async (req, res, next) => {
     // Mutual salary reveal: exact ranges are hidden until both sides matched.
     const matchedJobIds = new Set(db.matches.filter((match) => match.candidateId === viewer.id).map((match) => match.jobId));
     const matchedCandidateIds = new Set(db.matches.filter((match) => match.employerId === viewer.id).map((match) => match.candidateId));
+    // Incoming super-likes: who signalled strong interest in the viewer already?
+    const employerIdsWhoSuperLikedMe = new Set(db.swipes.filter((s) => s.superLike && s.targetType === 'candidate' && s.targetId === viewer.id).map((s) => s.actorId));
+    const viewerJobIds = new Set(db.jobs.filter((job) => job.employerId === viewer.id).map((job) => job.id));
+    const candidatesWhoSuperLikedMyJobs = new Set(db.swipes.filter((s) => s.superLike && s.targetType === 'job' && viewerJobIds.has(s.targetId)).map((s) => s.actorId));
     const scoredJobs = db.jobs.map((job) => {
       const withDistance = { ...job, distanceKm: job.distanceKm ?? demoDistances[job.id] };
       const match = scoreCandidateForJob(viewer, withDistance);
@@ -717,7 +721,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
         delete withDistance.salary; delete withDistance.salaryRange;
         withDistance.salaryHidden = true;
       }
-      return { ...withDistance, match };
+      return { ...withDistance, match, superLikedYou: employerIdsWhoSuperLikedMe.has(job.employerId) };
     });
     // Score candidates against this recruiter's own (first active) job when possible.
     const referenceJob = db.jobs.find((job) => job.employerId === viewer.id && String(job.status).toLowerCase() === 'active')
@@ -730,7 +734,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
         withDistance.preferences = { ...withDistance.preferences, salary: undefined };
         withDistance.salaryHidden = true;
       }
-      return { ...withDistance, match };
+      return { ...withDistance, match, superLikedYou: candidatesWhoSuperLikedMyJobs.has(candidate.id) };
     });
     const matches = db.matches.filter((match) => role === 'candidate' ? match.candidateId === viewer.id : match.employerId === viewer.id).map((match) => ({
       ...match,
@@ -749,6 +753,7 @@ app.post('/api/swipes', async (req, res, next) => {
     const targetId = reqString(req.body, 'targetId', { max: 128 });
     const targetType = oneOf(req.body, 'targetType', ['job', 'candidate']);
     const direction = oneOf(req.body, 'direction', ['like', 'pass']);
+    const superLike = req.body.superLike === true; // Tinder-style stronger interest signal
     // Item 11: candidate answers to the job's screening questions ride on the like-swipe.
     const answers = Array.isArray(req.body.answers)
       ? req.body.answers.map((item) => ({ question: String(item?.question || '').slice(0, 300), answer: String(item?.answer || '').slice(0, 600) })).filter((item) => item.question && item.answer).slice(0, 5)
@@ -762,7 +767,7 @@ app.post('/api/swipes', async (req, res, next) => {
       }
       const existing = db.swipes.find((swipe) => swipe.actorId === actorId && swipe.targetType === targetType && swipe.targetId === targetId);
       if (existing) return { swipe: existing, match: null, duplicate: true };
-      const swipe = { id: crypto.randomUUID(), actorId, targetId, targetType, direction, createdAt: Date.now(), ...(answers ? { answers } : {}) };
+      const swipe = { id: crypto.randomUUID(), actorId, targetId, targetType, direction, createdAt: Date.now(), ...(superLike && direction === 'like' ? { superLike: true } : {}), ...(answers ? { answers } : {}) };
       const mutual = detectMutualMatch(swipe, db);
       db.swipes.push(swipe);
       let match = null;
@@ -775,6 +780,27 @@ app.post('/api/swipes', async (req, res, next) => {
       return { swipe, match, duplicate: false, likesRemaining: likesRemainingToday(db.swipes, actorId) };
     });
     res.status(201).json(result);
+  } catch (error) { next(error); }
+});
+
+// Rewind/Undo: remove the actor's most recent swipe, and any match it created.
+app.post('/api/swipes/undo', async (req, res, next) => {
+  try {
+    const actorId = resolveActor(req, reqString(req.body, 'actorId', { max: 128 }));
+    const result = await store.transaction((db) => {
+      assertDemoActor(req, db, actorId);
+      const mine = db.swipes.filter((swipe) => swipe.actorId === actorId).sort((a, b) => b.createdAt - a.createdAt);
+      const last = mine[0];
+      if (!last) return { undone: null };
+      db.swipes = db.swipes.filter((swipe) => swipe.id !== last.id);
+      // Drop any match this swipe completed (and its messages), so undo is clean.
+      const removedMatches = db.matches.filter((m) => (last.targetType === 'job' ? m.candidateId === actorId && m.jobId === last.targetId : m.employerId === actorId && m.candidateId === last.targetId));
+      const removedIds = new Set(removedMatches.map((m) => m.id));
+      db.matches = db.matches.filter((m) => !removedIds.has(m.id));
+      db.messages = db.messages.filter((msg) => !removedIds.has(msg.matchId));
+      return { undone: { targetId: last.targetId, targetType: last.targetType, direction: last.direction }, likesRemaining: likesRemainingToday(db.swipes, actorId) };
+    });
+    res.json(result);
   } catch (error) { next(error); }
 });
 
