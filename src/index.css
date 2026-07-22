@@ -12,7 +12,11 @@ a { color:inherit; text-decoration:none; }
 button { cursor:pointer; }
 .brand { display:flex; align-items:center; gap:9px; font-family:'Manrope'; font-weight:800; font-size:19px; letter-spacing:-.8px; white-space:nowrap; }
 .brand-heart-mark { width:43px; height:43px; flex:none; display:block; background:url('/brand-heart.svg') center/contain no-repeat; filter:drop-shadow(0 7px 8px rgba(24,74,170,.2)); transition:transform .24s cubic-bezier(.2,.8,.2,1); }
-.brand-wordmark { display:inline-flex; letter-spacing:-.8px; }.brand-wordmark b { font:inherit; }.brand-wordmark b:first-child { color:#0b102b; }.brand-wordmark b:nth-child(2) { color:#1762e8; }.brand-wordmark b:last-child { color:#ed103c; }
+.brand-wordmark { display:inline-flex; align-items:center; letter-spacing:-.04em; }.brand-wordmark b { font:inherit; }
+.brand-wordmark b:first-child { color:#0b102b; }
+.brand-wordmark b:nth-child(2) { color:#0A66C2; }
+.brand-wordmark b:last-child { color:white; background:linear-gradient(135deg,#fd267a,#ff5a3c); border-radius:.26em; padding:0 .22em; margin-left:.12em; box-shadow:0 .12em .3em rgba(253,38,122,.32); }
+.brand-heart-mark { filter:drop-shadow(0 9px 14px rgba(10,102,194,.28)); }
 .brand:hover .brand-heart-mark { transform:rotate(-5deg) scale(1.08); }
 .primary-button,.secondary-button,.white-button,.ghost-button { border:0; border-radius:999px; min-height:47px; padding:0 22px; display:inline-flex; align-items:center; justify-content:center; gap:9px; font-weight:700; transition:.2s ease; }
 .primary-button { background:var(--brand-gradient); color:white; box-shadow:0 10px 25px rgba(253,38,122,.25); }
@@ -216,12 +220,20 @@ button { cursor:pointer; }
 }
 
 /* ── Colorful landing (Apple palette) + bigger logo & CTAs ── */
-/* Logo ~5× more prominent in the landing nav */
-.landing-nav { height:auto; min-height:120px; padding-top:18px; padding-bottom:18px; }
-.landing-nav .brand { font-size:42px; gap:16px; letter-spacing:-1.4px; }
-.landing-nav .brand-heart-mark { width:94px; height:94px; }
+/* Logo ~5× more prominent; nav links moved to a row under the logo */
+.landing-nav { height:auto; padding-top:22px; padding-bottom:6px; justify-content:flex-start; }
+.landing-nav .brand { font-size:44px; gap:18px; letter-spacing:-1.4px; }
+.landing-nav .brand-heart-mark { width:98px; height:98px; }
+.preview-shell .landing-nav { padding-block:14px; }
 .preview-shell .landing-nav .brand { font-size:26px; }
 .preview-shell .landing-nav .brand-heart-mark { width:56px; height:56px; }
+.landing-subnav { max-width:1260px; margin:0 auto; padding:0 32px 18px; display:flex; align-items:center; gap:28px; font-size:14px; font-weight:600; }
+.landing-subnav a { color:#4a5560; transition:.15s; }
+.landing-subnav a:hover { color:var(--green); }
+.landing-subnav .mobile-toggle { margin-left:auto; }
+/* Long-form hero eyebrow reads as a sentence, not a shouty label */
+.hero-copy .eyebrow { text-transform:none; letter-spacing:-.005em; font-size:15px; line-height:1.45; max-width:560px; align-items:flex-start; }
+.hero-copy .eyebrow svg { margin-top:3px; flex:none; }
 
 /* Hero Register / Log in ~2× bigger and bolder */
 .hero-actions { gap:16px; margin-top:40px; }
@@ -274,6 +286,7 @@ button { cursor:pointer; }
 .app-shell { min-height:100vh; display:flex; background:#f7f8f5; }
 .sidebar { position:fixed; inset:0 auto 0 0; width:232px; background:linear-gradient(180deg,#0d1939,#142650 60%,#162d5d); color:#e5ecfa; padding:calc(24px + env(safe-area-inset-top)) 15px calc(16px + env(safe-area-inset-bottom)); z-index:30; display:flex; flex-direction:column; }
 .sidebar .brand { padding:0 7px 22px; color:white; font-size:15px; }
+.sidebar .brand-wordmark b:first-child, .sidebar .brand-wordmark b:nth-child(2) { color:white; }
 .sidebar .brand-heart-mark { width:38px; height:38px; }
 .sidebar-head { display:flex; justify-content:space-between; }
 .mobile-close { display:none; }

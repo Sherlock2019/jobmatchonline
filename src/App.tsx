@@ -96,11 +96,14 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   </div>;
 
   return <main className="landing">
-    <nav className="landing-nav"><Brand /><div className="landing-links"><a href="#how">How it works</a><a href="#compare">Why JobsMatchNow</a><a href="#trust">Trust & fairness</a><button className="mobile-toggle" onClick={() => setMobilePreview(true)} aria-pressed="false"><Smartphone size={15} /> Mobile view</button><button className="text-button" onClick={openLogin}>Log in</button><button className="primary-button small" onClick={openRegister}>Register free <ArrowRight size={16} /></button></div></nav>
+    <header className="landing-header">
+      <nav className="landing-nav"><Brand /></nav>
+      <nav className="landing-subnav"><a href="#how">How it works</a><a href="#compare">Why JobsMatchNow</a><a href="#trust">Trust &amp; fairness</a><button className="mobile-toggle" onClick={() => setMobilePreview(true)} aria-pressed="false"><Smartphone size={15} /> Mobile view</button></nav>
+    </header>
     {linkedinState && <div className="integration-notice">{linkedinState === 'connected' ? 'LinkedIn connected. Your professional identity is ready to use.' : 'Add LinkedIn app credentials to enable live account connection. The demo remains available.'}<button onClick={() => history.replaceState({}, '', '/')}>×</button></div>}
     <section className="hero">
       <div className="hero-copy">
-        <div className="eyebrow"><Sparkles size={14} /> Mutual intent. Better hiring.</div>
+        <div className="eyebrow"><Sparkles size={14} /> Find jobs you’ll love — and the people who’ll love the role and your company.</div>
         <h1>Stop chasing jobs and candidates.<br /><span>Let the perfect match chase you.</span></h1>
         <p>Job seekers, let the perfect role find you. Hiring teams, let the right candidates come to you. A connection opens only when both sides choose.</p>
         <div className="location-pitch-app"><MapPin size={18} /><span><small>Geolocation of Opportunities</small><strong>Match nearby. Meet for a cup of coffee in your city.</strong></span></div>
