@@ -27,6 +27,7 @@ export interface Person {
   links?: { github?: string; portfolio?: string; website?: string; linkedin?: string };
   preferences?: CandidatePreferences; documents?: { resume?: ResumeMeta; coverLetter?: string }; privacy?: PrivacySettings;
   // Recruiter profile model (item 5)
+  geo?: { lat: number; lng: number };
   companyLogo?: string; website?: string; industry?: string; companySize?: string; headquarters?: string;
   officeLocations?: string[]; foundedYear?: number; about?: string; benefits?: string[]; techStack?: string[];
   linkedinUrl?: string; specializations?: string[]; regions?: string[]; clients?: string[];
@@ -41,7 +42,7 @@ export interface Job {
   responseTime: string; applicants: number; status: string; match: MatchEvidence;
   // Item 7 structured fields
   department?: string; seniority?: Seniority; requiredSkillsDetail?: WeightedSkill[]; niceToHaves?: string[];
-  remoteScope?: 'country' | 'worldwide'; country?: string;
+  remoteScope?: 'country' | 'worldwide'; country?: string; geo?: { lat: number; lng: number };
   hiringRadiusKm?: number; salaryRange?: SalaryRange; responsibilities?: string[]; interviewProcess?: string[];
   startDate?: string; externalUrl?: string; createdAt?: number;
   /** true when the exact range is withheld pre-match (mutual salary reveal) */

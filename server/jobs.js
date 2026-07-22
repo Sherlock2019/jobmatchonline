@@ -53,6 +53,10 @@ export function applyJob(job, body, { strict = false } = {}) {
   }
   set('country', str(body.country, 80));
   set('location', str(body.location, 120));
+  if (body.geo && typeof body.geo === 'object') {
+    const lat = num(body.geo.lat, -90, 90); const lng = num(body.geo.lng, -180, 180);
+    if (lat !== undefined && lng !== undefined) job.geo = { lat, lng };
+  }
   set('hiringRadiusKm', num(body.hiringRadiusKm, 5, 500));
   if (body.salaryRange !== undefined) {
     const min = num(body.salaryRange?.min, 0, 100000000);

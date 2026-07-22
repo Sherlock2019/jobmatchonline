@@ -10,6 +10,14 @@ const str = (value, max = 500) => (typeof value === 'string' && value.trim() && 
 const num = (value, min, max) => (typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max ? value : undefined);
 const strArray = (value, maxItems = 40, maxLen = 120) => (Array.isArray(value) ? [...new Set(value.filter((item) => typeof item === 'string' && item.trim() && item.length <= maxLen).map((item) => item.trim()))].slice(0, maxItems) : undefined);
 
+/** Store a {lat,lng} coordinate if valid. Shared by candidate + recruiter. */
+export function setGeo(target, geo) {
+  if (!geo || typeof geo !== 'object') return;
+  const lat = num(geo.lat, -90, 90);
+  const lng = num(geo.lng, -180, 180);
+  if (lat !== undefined && lng !== undefined) target.geo = { lat, lng };
+}
+
 function objArray(value, shape, maxItems = 20) {
   if (!Array.isArray(value)) return undefined;
   return value.slice(0, maxItems).map((item) => {
@@ -38,6 +46,7 @@ export function applyCandidateProfile(user, body) {
   set('city', str(body.city, 80));
   set('country', str(body.country, 80));
   set('distanceRangeKm', num(body.distanceRangeKm, 5, 100));
+  setGeo(user, body.geo);
   set('title', str(body.title, 120));
   set('yearsExperience', num(body.yearsExperience, 0, 60));
   if (body.seniority !== undefined) {
@@ -117,6 +126,7 @@ export function applyRecruiterProfile(user, body) {
   if (body.companySize !== undefined) set('companySize', str(body.companySize, 30));
   set('headquarters', str(body.headquarters, 120));
   set('officeLocations', strArray(body.officeLocations, 15, 80));
+  setGeo(user, body.geo);
   set('foundedYear', num(body.foundedYear, 1800, 2100));
   set('about', str(body.about, 2000));
   set('benefits', strArray(body.benefits, 20, 60));

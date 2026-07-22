@@ -35,7 +35,7 @@ export function CandidateProfilePage({ viewer, onEdit }: { viewer: Person; onEdi
           <div><dt>Email</dt><dd>{p.email || '—'}</dd></div>
           <div><dt>Phone</dt><dd>{p.phone ? `${p.phone} · hidden until match` : 'Not added'}</dd></div>
           <div><dt><MapPin size={13} /> Location</dt><dd>{p.city ? `${p.city}, ${p.country || ''}` : '—'}</dd></div>
-          <div><dt>Match radius</dt><dd>{p.distanceRangeKm ?? 25} km (private)</dd></div>
+          <div><dt>Distance range</dt><dd>{p.distanceRangeKm ?? 25} km{p.geo ? ' · location set' : ''}</dd></div>
           <div><dt><Languages size={13} /> Languages</dt><dd>{p.languageDetail?.length ? p.languageDetail.map((language) => `${language.name} (${language.level})`).join(' · ') : (p.languages || []).join(' · ') || '—'}</dd></div>
         </dl>
       </Section>

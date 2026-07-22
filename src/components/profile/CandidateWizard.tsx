@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, FileText, Loader2, Sparkles, Upload } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, FileText, Loader2, MapPin, Sparkles, Upload } from 'lucide-react';
 import { api } from '../../api';
 import { Chips, Field, LevelTagInput, Repeat, Segmented, TagInput, TextInput, Toggle } from './fields';
 import type { Education, LanguageTag, Person, ResumeMeta, Seniority, SkillTag, WorkExperience } from '../../types';
@@ -17,7 +17,7 @@ export const CANDIDATE_STEPS = ['Identity', 'Professional', 'Preferences', 'Docu
 
 type Form = {
   name: string; photo: string; headline: string; email: string; phone: string; city: string; country: string;
-  distanceRangeKm: number; languageDetail: LanguageTag[];
+  distanceRangeKm: number; geo?: { lat: number; lng: number }; languageDetail: LanguageTag[];
   title: string; yearsExperience: string; seniority?: Seniority; skillsDetail: SkillTag[]; industries: string[];
   workExperience: WorkExperience[]; education: Education[]; certifications: string[];
   links: { github?: string; portfolio?: string; website?: string; linkedin?: string };
@@ -31,7 +31,7 @@ function fromPerson(p: Person): Form {
   return {
     name: p.name || '', photo: p.photo || '', headline: p.headline || '', email: p.email || '', phone: p.phone || '',
     city: p.city || (p.location ? p.location.split('·')[0].trim() : ''), country: p.country || '',
-    distanceRangeKm: p.distanceRangeKm ?? 25,
+    distanceRangeKm: p.distanceRangeKm ?? 25, geo: p.geo,
     languageDetail: p.languageDetail || (p.languages || []).map((name) => ({ name, level: 'Fluent' })),
     title: p.title === 'New member' ? '' : p.title || '', yearsExperience: p.yearsExperience !== undefined ? String(p.yearsExperience) : '',
     seniority: p.seniority || (['junior', 'mid', 'senior', 'lead', 'exec'].includes(p.experienceLevel) ? p.experienceLevel as Seniority : undefined),
@@ -54,7 +54,7 @@ function fromPerson(p: Person): Form {
 function stepPayload(step: number, form: Form, finishing: boolean) {
   if (step === 0) return {
     name: form.name, photo: form.photo || undefined, headline: form.headline, email: form.email, phone: form.phone || undefined,
-    city: form.city, country: form.country, distanceRangeKm: form.distanceRangeKm, languageDetail: form.languageDetail,
+    city: form.city, country: form.country, distanceRangeKm: form.distanceRangeKm, geo: form.geo, languageDetail: form.languageDetail,
   };
   if (step === 1) return {
     title: form.title, yearsExperience: Number(form.yearsExperience), seniority: form.seniority, skillsDetail: form.skillsDetail,
@@ -114,7 +114,14 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
   const [uploading, setUploading] = useState(false);
   const [autofilling, setAutofilling] = useState(false);
   const [autofillNote, setAutofillNote] = useState('');
+  const [geoBusy, setGeoBusy] = useState(false);
   const [error, setError] = useState('');
+  const captureLocation = async () => {
+    setGeoBusy(true); setError('');
+    try { const { getBrowserLocation } = await import('../../lib/geo'); patch({ geo: await getBrowserLocation() }); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Could not get your location'); }
+    finally { setGeoBusy(false); }
+  };
   const patch = (changes: Partial<Form>) => setForm((current) => ({ ...current, ...changes }));
   const errors = useMemo(() => stepErrors(step, form), [step, form]);
   const finishing = step === CANDIDATE_STEPS.length - 1;
@@ -207,7 +214,12 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
           <Field label="City" required><TextInput value={form.city} onChange={(e) => patch({ city: e.target.value })} /></Field>
           <Field label="Country" required><TextInput value={form.country} onChange={(e) => patch({ country: e.target.value })} /></Field>
         </div>
-        <Field label={`Private distance range: ${form.distanceRangeKm} km`} required hint="Only used for matching. Your exact location is never shown.">
+        <Field label="Location for distance matching" hint="Enables real distance to roles. Your exact coordinates are never shown to anyone.">
+          <button type="button" className={form.geo ? 'wz-geo-btn set' : 'wz-geo-btn'} onClick={captureLocation} disabled={geoBusy}>
+            {geoBusy ? <><Loader2 size={15} className="spin" /> Locating…</> : form.geo ? <><MapPin size={15} /> Location set ✓ — tap to update</> : <><MapPin size={15} /> Use my current location</>}
+          </button>
+        </Field>
+        <Field label={`Distance range: ${form.distanceRangeKm} km`} required hint="How far you'll match for on-site/hybrid roles. Shown on your profile; exact location stays private.">
           <input className="wz-slider" type="range" min={5} max={100} step={5} value={form.distanceRangeKm} onChange={(e) => patch({ distanceRangeKm: Number(e.target.value) })} />
         </Field>
         <Field label="Languages">

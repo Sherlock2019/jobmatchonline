@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Building2, Check, Loader2, UserSearch } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, Check, Loader2, MapPin, UserSearch } from 'lucide-react';
 import { api } from '../../api';
 import { Field, Segmented, TagInput, TextInput } from './fields';
 import type { EmployerKind, Person } from '../../types';
@@ -14,6 +14,7 @@ type Form = {
   benefits: string[]; techStack: string[]; linkedinUrl: string;
   name: string; photo: string; title: string; specializations: string[]; regions: string[]; clients: string[];
   contactName: string; contactEmail: string; phone: string; calendarLink: string;
+  geo?: { lat: number; lng: number };
 };
 
 function fromPerson(p: Person): Form {
@@ -26,6 +27,7 @@ function fromPerson(p: Person): Form {
     name: p.name || '', photo: p.photo || '', title: p.title === 'Recruiter' ? '' : p.title || '',
     specializations: p.specializations || [], regions: p.regions || [], clients: p.clients || [],
     contactName: p.contactName || p.name || '', contactEmail: p.contactEmail || p.email || '', phone: p.phone || '', calendarLink: p.calendarLink || '',
+    geo: p.geo,
   };
 }
 
@@ -56,7 +58,7 @@ function stepErrors(step: number, form: Form): string[] {
 
 function stepPayload(step: number, form: Form, finishing: boolean): Partial<Person> & { onboarding?: boolean } {
   if (step === 0) {
-    const base = { kind: form.kind, company: form.company, linkedinUrl: form.linkedinUrl || undefined };
+    const base = { kind: form.kind, company: form.company, linkedinUrl: form.linkedinUrl || undefined, geo: form.geo };
     if (form.kind === 'company') return {
       ...base, companyLogo: form.companyLogo || undefined, website: form.website, industry: form.industry,
       companySize: form.companySize, headquarters: form.headquarters, officeLocations: form.officeLocations,
@@ -77,9 +79,16 @@ export function RecruiterWizard({ viewer, initialStep = 0, onDone, onCancel }: {
   const [attempted, setAttempted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [geoBusy, setGeoBusy] = useState(false);
   const patch = (changes: Partial<Form>) => setForm((current) => ({ ...current, ...changes }));
   const errors = useMemo(() => stepErrors(step, form), [step, form]);
   const finishing = step === RECRUITER_STEPS.length - 1;
+  const captureLocation = async () => {
+    setGeoBusy(true); setError('');
+    try { const { getBrowserLocation } = await import('../../lib/geo'); patch({ geo: await getBrowserLocation() }); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Could not get your location'); }
+    finally { setGeoBusy(false); }
+  };
 
   const next = async () => {
     setAttempted(true);
@@ -107,6 +116,11 @@ export function RecruiterWizard({ viewer, initialStep = 0, onDone, onCancel }: {
             <button type="button" className={form.kind === 'company' ? 'role-option active' : 'role-option'} aria-pressed={form.kind === 'company'} onClick={() => patch({ kind: 'company' })}><Building2 size={17} /><strong>Company</strong><small>In-house HR / hiring team</small></button>
             <button type="button" className={form.kind === 'headhunter' ? 'role-option active' : 'role-option'} aria-pressed={form.kind === 'headhunter'} onClick={() => patch({ kind: 'headhunter' })}><UserSearch size={17} /><strong>Headhunter / agency</strong><small>Recruiting on behalf of clients</small></button>
           </div>
+        </Field>
+        <Field label="Office location for distance matching" hint="New job postings inherit this so candidates see real distances. Exact coordinates stay private.">
+          <button type="button" className={form.geo ? 'wz-geo-btn set' : 'wz-geo-btn'} onClick={captureLocation} disabled={geoBusy}>
+            {geoBusy ? <><Loader2 size={15} className="spin" /> Locating…</> : form.geo ? <><MapPin size={15} /> Location set ✓ — tap to update</> : <><MapPin size={15} /> Use my current location</>}
+          </button>
         </Field>
 
         {form.kind === 'company' ? <>

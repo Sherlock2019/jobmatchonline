@@ -53,6 +53,7 @@ export function RecruiterProfilePage({ viewer, onEdit }: { viewer: Person; onEdi
         <dl className="pf-dl">
           <div><dt>Contact person</dt><dd>{p.contactName || p.name}</dd></div>
           <div><dt>Email</dt><dd>{p.contactEmail || p.email || '—'}</dd></div>
+          <div><dt><MapPin size={13} /> Distance matching</dt><dd>{p.geo ? 'Location set — postings match by real distance' : 'Not set (add it in your profile)'}</dd></div>
           <div><dt><Phone size={13} /> Phone</dt><dd>{p.phone ? `${p.phone} · hidden until match` : 'Not added'}</dd></div>
           <div><dt><CalendarClock size={13} /> Calendar</dt><dd>{p.calendarLink ? <a href={/^https?:/.test(p.calendarLink) ? p.calendarLink : `https://${p.calendarLink}`} target="_blank" rel="noreferrer">{p.calendarLink}</a> : 'Not added'}</dd></div>
         </dl>

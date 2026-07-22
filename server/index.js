@@ -40,6 +40,17 @@ await store.transaction((db) => {
 });
 console.log(`JobMatch store: ${process.env.DATABASE_URL ? 'postgresql (RDS)' : 'json file'}`);
 const demoDistances = { 'j-1': 7, 'j-2': 18, 'j-3': 42, 'j-4': 75, 'c-1': 5, 'c-2': 26, 'c-3': 12, 'c-4': 65 };
+
+/** Great-circle distance in km between two {lat,lng} points. */
+function haversineKm(a, b) {
+  if (!a || !b) return undefined;
+  const R = 6371;
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLng = (b.lng - a.lng) * Math.PI / 180;
+  const la1 = a.lat * Math.PI / 180, la2 = b.lat * Math.PI / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)));
+}
 const sessionSecret = process.env.SESSION_SECRET || 'jobmatch-local-development-only-secret';
 if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) throw new Error('SESSION_SECRET is required in production');
 
@@ -624,6 +635,8 @@ app.post('/api/jobs', async (req, res, next) => {
       }, req.body, { strict: true });
       // Item 11: suggest screening questions from the required skills.
       if (!created.screeningQuestions?.length) created.screeningQuestions = suggestScreeningQuestions(created);
+      // Inherit the recruiter's location so distance matching works out of the box.
+      if (!created.geo && employer.geo) created.geo = employer.geo;
       db.jobs.push(created);
       return created;
     });
@@ -752,7 +765,9 @@ app.get('/api/bootstrap', async (req, res, next) => {
     const viewerJobIds = new Set(db.jobs.filter((job) => job.employerId === viewer.id).map((job) => job.id));
     const candidatesWhoSuperLikedMyJobs = new Set(db.swipes.filter((s) => s.superLike && s.targetType === 'job' && viewerJobIds.has(s.targetId)).map((s) => s.actorId));
     const scoredJobs = db.jobs.map((job) => {
-      const withDistance = { ...job, distanceKm: job.distanceKm ?? demoDistances[job.id] };
+      // Real haversine distance when both sides have coordinates; else demo fallback.
+      const realDist = haversineKm(viewer.geo, job.geo);
+      const withDistance = { ...job, distanceKm: realDist ?? job.distanceKm ?? demoDistances[job.id] };
       const match = scoreCandidateForJob(viewer, withDistance);
       if (role === 'candidate' && !matchedJobIds.has(job.id)) {
         delete withDistance.salary; delete withDistance.salaryRange;
@@ -764,8 +779,10 @@ app.get('/api/bootstrap', async (req, res, next) => {
     const referenceJob = db.jobs.find((job) => job.employerId === viewer.id && String(job.status).toLowerCase() === 'active')
       || db.jobs.find((job) => job.employerId === viewer.id) || db.jobs[0];
     // Deck candidates: contact details and exact salary stay hidden until a mutual match.
+    const jobGeo = referenceJob?.geo || viewer.geo;
     const scoredCandidates = candidates.filter((candidate) => candidate.id !== viewer.id).map(({ email, phone, ...candidate }) => {
-      const withDistance = { ...candidate, distanceKm: candidate.distanceKm ?? demoDistances[candidate.id] };
+      const realDist = haversineKm(jobGeo, candidate.geo);
+      const withDistance = { ...candidate, distanceKm: realDist ?? candidate.distanceKm ?? demoDistances[candidate.id] };
       const match = scoreCandidateForJob(withDistance, { ...referenceJob, distanceKm: withDistance.distanceKm });
       if (!matchedCandidateIds.has(candidate.id) && withDistance.preferences?.salary) {
         withDistance.preferences = { ...withDistance.preferences, salary: undefined };
