@@ -56,10 +56,11 @@ const WORK_MODE_SCORES = {
 };
 
 /**
- * Fit score 0–100 with a per-factor breakdown.
- * Factors: weighted skill overlap 38% (synonym-aware, + nice-to-have bonus),
- * seniority 15%, salary overlap 15%, languages 8%, distance 8%,
- * work-mode compatibility 8%, employment type 8%.
+ * Fit score 0–100 with a per-factor breakdown. Seniority is deliberately not scored.
+ * Factors: weighted skill overlap 42% (synonym-aware, + nice-to-have bonus),
+ * distance-to-work 15% (candidate max commute is the dominant constraint for
+ * on-site/hybrid), salary overlap 15%, work-mode compatibility 12%,
+ * languages 8%, employment type 8%.
  */
 export function scoreCandidateForJob(candidate, job) {
   const candidateHas = normalizedHas(candidate.skills || []);
@@ -75,14 +76,10 @@ export function scoreCandidateForJob(candidate, job) {
   const niceBonus = Math.min(0.12, matchedNice.length * 0.04);
   const skillScore = Math.min(1, (totalWeight ? matchedWeight / totalWeight : 0) + niceBonus);
 
-  // Seniority — asymmetric: being slightly overqualified is better than underqualified.
+  // Seniority is intentionally excluded from the fit score. We still surface
+  // whether experience is in the same ballpark, for the profile badge only.
   const ci = EXPERIENCE_ORDER.indexOf(candidate.seniority || candidate.experienceLevel);
   const ji = EXPERIENCE_ORDER.indexOf(job.seniority || job.experienceLevel);
-  let seniorityScore = 0.5;
-  if (ci >= 0 && ji >= 0) {
-    const diff = ci - ji; // >0 = candidate more senior than the role
-    seniorityScore = diff === 0 ? 1 : diff === 1 ? 0.75 : diff === -1 ? 0.55 : diff === 2 ? 0.4 : diff === -2 ? 0.2 : diff > 0 ? 0.3 : 0.08;
-  }
   const experienceFit = ci >= 0 && ji >= 0 && Math.abs(ci - ji) <= 1;
 
   // Languages: coverage of the job's required languages.
@@ -114,15 +111,28 @@ export function scoreCandidateForJob(candidate, job) {
       distanceScore = 1; distanceEvidence = 'Fully remote — work from anywhere.';
     }
   } else {
+    // On-site / hybrid / flexible: the candidate's max commute distance is the
+    // dominant constraint — someone who won't travel that far won't take the job.
     const distanceKm = job.distanceKm ?? candidate.distanceKm;
     if (distanceKm !== undefined) {
-      const withinCandidate = candidate.distanceRangeKm !== undefined ? distanceKm <= candidate.distanceRangeKm : undefined;
-      const withinJob = job.hiringRadiusKm !== undefined ? distanceKm <= job.hiringRadiusKm : undefined;
-      const known = [withinCandidate, withinJob].filter((value) => value !== undefined);
-      if (known.length === 0) { distanceScore = 0.7; }
-      else if (known.every(Boolean)) { distanceScore = 1; distanceEvidence = `${distanceKm} km apart — inside both distance limits.`; }
-      else if (known.some(Boolean)) { distanceScore = 0.4; distanceEvidence = `${distanceKm} km apart — inside one side's limit.`; }
-      else { distanceScore = 0; distanceEvidence = `${distanceKm} km apart — outside both distance limits.`; }
+      const maxCommute = candidate.distanceRangeKm; // candidate's max distance to work
+      const jobRadius = job.hiringRadiusKm;
+      const withinCommute = maxCommute !== undefined ? distanceKm <= maxCommute : undefined;
+      const withinRadius = jobRadius !== undefined ? distanceKm <= jobRadius : undefined;
+      if (withinCommute === false) {
+        distanceScore = 0.1; distanceEvidence = `${distanceKm} km — beyond your ${maxCommute} km max commute.`;
+      } else if (withinCommute === true) {
+        distanceScore = withinRadius === false ? 0.6 : 1;
+        distanceEvidence = withinRadius === false
+          ? `${distanceKm} km — within your ${maxCommute} km commute, but outside the employer's radius.`
+          : `${distanceKm} km — within your ${maxCommute} km max commute.`;
+      } else if (withinRadius === true) {
+        distanceScore = 0.85; distanceEvidence = `${distanceKm} km — inside the hiring radius (set your max commute to refine).`;
+      } else if (withinRadius === false) {
+        distanceScore = 0.2; distanceEvidence = `${distanceKm} km — outside the employer's hiring radius.`;
+      } else {
+        distanceScore = 0.7; distanceEvidence = `${distanceKm} km apart — set a max commute distance to score this.`;
+      }
     }
   }
 
@@ -138,12 +148,11 @@ export function scoreCandidateForJob(candidate, job) {
   const typeScore = types?.length ? (types.includes(job.type) ? 1 : 0.2) : 0.7;
 
   const breakdown = [
-    { factor: 'skills', label: 'Skill overlap', weight: 0.38, score: skillScore, evidence: matchedSkills.length ? `${matchedSkills.length} of ${requiredDetail.length} required skills matched${matchedNice.length ? `, plus ${matchedNice.length} nice-to-have${matchedNice.length > 1 ? 's' : ''}` : ''}.` : 'No required skills matched yet.' },
-    { factor: 'seniority', label: 'Seniority', weight: 0.15, score: seniorityScore, evidence: seniorityScore === 1 ? 'Seniority level matches exactly.' : ci > ji ? 'A step more senior than the role.' : seniorityScore >= 0.55 ? 'One level below — close fit.' : 'Seniority levels are far apart.' },
+    { factor: 'skills', label: 'Skill overlap', weight: 0.42, score: skillScore, evidence: matchedSkills.length ? `${matchedSkills.length} of ${requiredDetail.length} required skills matched${matchedNice.length ? `, plus ${matchedNice.length} nice-to-have${matchedNice.length > 1 ? 's' : ''}` : ''}.` : 'No required skills matched yet.' },
+    { factor: 'distance', label: 'Distance to work', weight: 0.15, score: distanceScore, evidence: distanceEvidence },
     { factor: 'salary', label: 'Salary overlap', weight: 0.15, score: salary.score, evidence: salary.evidence },
+    { factor: 'workMode', label: 'Work mode', weight: 0.12, score: workModeScore, evidence: workModeEvidence },
     { factor: 'languages', label: 'Languages', weight: 0.08, score: languageScore, evidence: languageEvidence },
-    { factor: 'distance', label: 'Distance', weight: 0.08, score: distanceScore, evidence: distanceEvidence },
-    { factor: 'workMode', label: 'Work mode', weight: 0.08, score: workModeScore, evidence: workModeEvidence },
     { factor: 'employmentType', label: 'Employment type', weight: 0.08, score: typeScore, evidence: types?.length ? (typeScore === 1 ? `${job.type} is one of the preferred employment types.` : `${job.type} is not among the preferred types.`) : 'Employment-type preference not set yet.' },
   ];
 

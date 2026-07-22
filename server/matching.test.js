@@ -2,16 +2,34 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { detectMutualMatch, likesRemainingToday, salaryCompatibility, scoreCandidateForJob } from './matching.js';
 
-test('scores a candidate fit with a seven-factor breakdown', () => {
+test('scores a candidate fit with a six-factor breakdown and no seniority factor', () => {
   const result = scoreCandidateForJob(
     { skills: ['Figma', 'Research'], languages: ['English'], experienceLevel: 'senior' },
     { requiredSkills: ['Figma', 'Research', 'Leadership'], requiredLanguages: ['English'], experienceLevel: 'senior' }
   );
-  // skills 2/3 * .38 + seniority 1 * .15 + languages 1 * .08 + neutral salary/distance/mode/type
-  assert.equal(result.score, 73);
+  // skills 2/3 * .42 + languages 1 * .08 + neutral salary/distance/mode/type
+  assert.equal(result.score, 68);
   assert.deepEqual(result.matchedSkills, ['Figma', 'Research']);
   assert.equal(result.experienceFit, true);
-  assert.equal(result.breakdown.length, 7);
+  assert.equal(result.breakdown.length, 6);
+  assert.ok(!result.breakdown.some((f) => f.factor === 'seniority'));
+});
+
+test('seniority no longer moves the score', () => {
+  const job = { requiredSkills: ['React'], experienceLevel: 'mid' };
+  const senior = scoreCandidateForJob({ skills: ['React'], languages: [], experienceLevel: 'senior' }, job);
+  const junior = scoreCandidateForJob({ skills: ['React'], languages: [], experienceLevel: 'junior' }, job);
+  assert.equal(senior.score, junior.score);
+});
+
+test('on-site distance is gated by the candidate max commute', () => {
+  const job = { requiredSkills: ['React'], workMode: 'On-site', distanceKm: 40, hiringRadiusKm: 100 };
+  const willing = scoreCandidateForJob({ skills: ['React'], languages: [], distanceRangeKm: 50 }, job);
+  const unwilling = scoreCandidateForJob({ skills: ['React'], languages: [], distanceRangeKm: 20 }, job);
+  const distOf = (r) => r.breakdown.find((f) => f.factor === 'distance').score;
+  assert.equal(distOf(willing), 1); // 40 km within a 50 km commute
+  assert.ok(distOf(unwilling) <= 0.1); // 40 km beyond a 20 km commute
+  assert.ok(willing.score > unwilling.score);
 });
 
 test('skill synonyms and spelling variants still match', () => {
@@ -29,12 +47,6 @@ test('nice-to-haves add a capped bonus', () => {
   assert.ok(withNice.breakdown[0].score >= without.breakdown[0].score);
 });
 
-test('overqualified beats underqualified by the same distance', () => {
-  const job = { requiredSkills: ['React'], experienceLevel: 'mid' };
-  const over = scoreCandidateForJob({ skills: ['React'], languages: [], experienceLevel: 'senior' }, job);
-  const under = scoreCandidateForJob({ skills: ['React'], languages: [], experienceLevel: 'junior' }, job);
-  assert.ok(over.score > under.score);
-});
 
 test('weighted skills move the score toward priority skills', () => {
   const job = {
