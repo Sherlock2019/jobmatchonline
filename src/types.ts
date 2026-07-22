@@ -5,15 +5,24 @@ export type ProviderId = 'linkedin' | 'google' | 'email' | 'demo';
 
 export interface FitFactor { factor: string; label: string; weight: number; score: number; evidence: string }
 export type SalaryStatus = 'within' | 'below' | 'above' | 'unknown';
-export interface MatchEvidence { score: number; matchedSkills: string[]; matchedLanguages: string[]; experienceFit: boolean; breakdown?: FitFactor[]; salaryStatus?: SalaryStatus }
+export interface MatchEvidence { score: number; matchedSkills: string[]; missingSkills?: string[]; extraSkills?: string[]; matchedLanguages: string[]; experienceFit: boolean; breakdown?: FitFactor[]; salaryStatus?: SalaryStatus }
+
+export type ContactChannelType = 'whatsapp' | 'telegram' | 'phone' | 'signal' | 'wechat' | 'zalo' | 'email' | 'other';
+export interface ContactChannel { type: ContactChannelType; value: string }
+export type AgePrivacy = 'public' | 'after-match' | 'private';
+export interface RecommendationRatings { technical?: number; communication?: number; reliability?: number; collaboration?: number; leadership?: number }
+export interface Recommendation {
+  recruiterName: string; company?: string; role?: string; text: string; date?: string; photo?: string;
+  relationship?: string; wouldWorkAgain?: boolean; verified?: boolean; ratings?: RecommendationRatings; candidateResponse?: string;
+}
 
 export type Seniority = 'junior' | 'mid' | 'senior' | 'lead' | 'exec';
-export interface SkillTag { name: string; level: number }
+export interface SkillTag { name: string; level: number; years?: number; lastUsed?: string }
 export interface LanguageTag { name: string; level: string }
 export interface WorkExperience { title?: string; company?: string; from?: string; to?: string; description?: string }
 export interface Education { school?: string; degree?: string; from?: string; to?: string }
 export interface ResumeMeta { id: string; originalName: string; storedName?: string; ext?: string; size: number; mime: string; uploadedAt: number; url: string; thumbnailUrl?: string; previewUrl?: string; needsClientThumbnail?: boolean; pdfName?: string; htmlName?: string; textName?: string; thumbName?: string }
-export interface CandidatePreferences { desiredRoles?: string[]; employmentTypes?: string[]; workMode?: { mode: 'remote' | 'hybrid' | 'onsite'; hybridDays?: number }; salary?: { min?: number; max?: number; currency?: string }; availability?: string; relocate?: { open: boolean; locations?: string[] }; companySize?: string; workStyle?: string[] }
+export interface CandidatePreferences { desiredRoles?: string[]; employmentTypes?: string[]; workMode?: { mode: 'remote' | 'hybrid' | 'onsite'; hybridDays?: number }; salary?: { min?: number; max?: number; currency?: string; period?: string; negotiable?: boolean }; availability?: string; noticePeriod?: string; travel?: string; relocate?: { open: boolean; locations?: string[] }; companySize?: string; industries?: string[]; workStyle?: string[] }
 export interface PrivacySettings { visibility?: 'all' | 'after-swipe' | 'paused'; blockedCompanies?: string[]; openToWork?: boolean }
 
 export interface Person {
@@ -22,9 +31,13 @@ export interface Person {
   experienceLevel: string; completeness?: number; availability?: string; match?: MatchEvidence; onboarding?: boolean; salaryHidden?: boolean; demo?: boolean; superLikedYou?: boolean; verified?: boolean;
   // Candidate profile model (item 4)
   headline?: string; phone?: string; city?: string; country?: string; distanceRangeKm?: number;
+  birthdate?: string; discloseAge?: boolean; agePrivacy?: AgePrivacy; nationality?: string; contactChannels?: ContactChannel[];
+  workAuthorization?: string; visaSponsorship?: boolean; pronouns?: string;
   languageDetail?: LanguageTag[]; yearsExperience?: number; seniority?: Seniority; skillsDetail?: SkillTag[];
   industries?: string[]; workExperience?: WorkExperience[]; education?: Education[]; certifications?: string[];
   links?: { github?: string; portfolio?: string; website?: string; linkedin?: string };
+  presentation?: string; mindset?: string[]; humanSkills?: string[]; workingPrefer?: string[]; workingAvoid?: string[];
+  interests?: string[]; motto?: string; favoriteSong?: string; recommendations?: Recommendation[];
   preferences?: CandidatePreferences; documents?: { resume?: ResumeMeta; coverLetter?: string }; privacy?: PrivacySettings;
   // Recruiter profile model (item 5)
   geo?: { lat: number; lng: number };

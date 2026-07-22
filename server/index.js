@@ -1020,7 +1020,8 @@ app.get('/api/bootstrap', async (req, res, next) => {
       || db.jobs.find((job) => job.employerId === viewer.id) || db.jobs[0];
     // Deck candidates: contact details and exact salary stay hidden until a mutual match.
     const jobGeo = referenceJob?.geo || viewer.geo;
-    const scoredCandidates = candidates.filter((candidate) => candidate.id !== viewer.id).map(({ email, phone, ...candidate }) => {
+    const scoredCandidates = candidates.filter((candidate) => candidate.id !== viewer.id).map(({ email, phone, contactChannels, ...candidate }) => {
+      if (candidate.agePrivacy !== 'public' && !candidate.discloseAge) delete candidate.birthdate; // age shown in deck only if public
       const realDist = haversineKm(jobGeo, candidate.geo);
       const withDistance = { ...candidate, distanceKm: realDist ?? candidate.distanceKm ?? demoDistances[candidate.id] };
       const match = scoreCandidateForJob(withDistance, { ...referenceJob, distanceKm: withDistance.distanceKm });

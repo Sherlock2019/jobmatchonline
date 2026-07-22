@@ -34,6 +34,8 @@ function objArray(value, shape, maxItems = 20) {
 const SENIORITIES = ['junior', 'mid', 'senior', 'lead', 'exec'];
 const VISIBILITIES = ['all', 'after-swipe', 'paused'];
 const WORK_MODES = ['remote', 'hybrid', 'onsite'];
+const CONTACT_TYPES = ['whatsapp', 'telegram', 'phone', 'signal', 'wechat', 'zalo', 'email', 'other'];
+const AGE_PRIVACY = ['public', 'after-match', 'private'];
 
 /** Whitelist-merge a candidate profile update onto a user. Throws ValidationError on bad shapes. */
 export function applyCandidateProfile(user, body) {
@@ -45,6 +47,19 @@ export function applyCandidateProfile(user, body) {
   set('phone', str(body.phone, 40));
   set('city', str(body.city, 80));
   set('country', str(body.country, 80));
+  set('nationality', str(body.nationality, 60));
+  set('birthdate', str(body.birthdate, 10)); // ISO YYYY-MM-DD
+  if (body.agePrivacy !== undefined && AGE_PRIVACY.includes(body.agePrivacy)) user.agePrivacy = body.agePrivacy;
+  if (body.discloseAge !== undefined) user.discloseAge = Boolean(body.discloseAge);
+  set('workAuthorization', str(body.workAuthorization, 120));
+  if (body.visaSponsorship !== undefined) user.visaSponsorship = Boolean(body.visaSponsorship);
+  set('pronouns', str(body.pronouns, 40));
+  if (body.contactChannels !== undefined) {
+    user.contactChannels = objArray(body.contactChannels, {
+      type: (v) => (CONTACT_TYPES.includes(v) ? v : undefined),
+      value: (v) => str(v, 120),
+    }, 6)?.filter((channel) => channel.type && channel.value) || [];
+  }
   set('distanceRangeKm', num(body.distanceRangeKm, 5, 100));
   setGeo(user, body.geo);
   set('title', str(body.title, 120));
@@ -55,7 +70,7 @@ export function applyCandidateProfile(user, body) {
     user.experienceLevel = body.seniority; // keeps the fit-score input in sync
   }
   if (body.skillsDetail !== undefined) {
-    const skills = objArray(body.skillsDetail, { name: (v) => str(v, 60), level: (v) => num(v, 1, 5) }, 30) || [];
+    const skills = objArray(body.skillsDetail, { name: (v) => str(v, 60), level: (v) => num(v, 1, 5), years: (v) => num(v, 0, 60), lastUsed: (v) => str(v, 20) }, 30) || [];
     user.skillsDetail = skills.filter((skill) => skill.name);
     user.skills = user.skillsDetail.map((skill) => skill.name); // matching still reads names
   }
@@ -68,6 +83,34 @@ export function applyCandidateProfile(user, body) {
   if (body.workExperience !== undefined) user.workExperience = objArray(body.workExperience, { title: (v) => str(v, 120), company: (v) => str(v, 120), from: (v) => str(v, 20), to: (v) => str(v, 20), description: (v) => str(v, 1000) });
   if (body.education !== undefined) user.education = objArray(body.education, { school: (v) => str(v, 140), degree: (v) => str(v, 140), from: (v) => str(v, 20), to: (v) => str(v, 20) });
   set('certifications', strArray(body.certifications));
+  // Human stack (card 4) — how the candidate presents as a person.
+  set('presentation', str(body.presentation, 2000));
+  set('mindset', strArray(body.mindset, 8, 40));
+  set('humanSkills', strArray(body.humanSkills, 8, 40));
+  set('workingPrefer', strArray(body.workingPrefer, 8, 80));
+  set('workingAvoid', strArray(body.workingAvoid, 8, 80));
+  set('interests', strArray(body.interests, 10, 40));
+  set('motto', str(body.motto, 160));
+  set('favoriteSong', str(body.favoriteSong, 400));
+  // Recruiter recommendations (card 5) — the candidate chooses what to display.
+  if (body.recommendations !== undefined) {
+    const ratingsOf = (r) => {
+      if (!r || typeof r !== 'object') return undefined;
+      const clean = {};
+      for (const key of ['technical', 'communication', 'reliability', 'collaboration', 'leadership']) {
+        const n = num(r[key], 0, 5); if (n !== undefined) clean[key] = n;
+      }
+      return Object.keys(clean).length ? clean : undefined;
+    };
+    user.recommendations = objArray(body.recommendations, {
+      recruiterName: (v) => str(v, 120), company: (v) => str(v, 120), role: (v) => str(v, 120),
+      text: (v) => str(v, 1200), date: (v) => str(v, 20), photo: (v) => str(v, 600),
+      relationship: (v) => str(v, 60), candidateResponse: (v) => str(v, 600),
+      wouldWorkAgain: (v) => (typeof v === 'boolean' ? v : undefined),
+      verified: (v) => (typeof v === 'boolean' ? v : undefined),
+      ratings: ratingsOf,
+    }, 12)?.filter((rec) => rec.recruiterName && rec.text) || [];
+  }
   if (body.links !== undefined && typeof body.links === 'object' && body.links !== null) {
     user.links = Object.fromEntries(['github', 'portfolio', 'website', 'linkedin'].map((key) => [key, str(body.links[key], 300)]).filter(([, value]) => value));
   }
@@ -83,12 +126,15 @@ export function applyCandidateProfile(user, body) {
     if (p.salary !== undefined && typeof p.salary === 'object' && p.salary !== null) {
       const min = num(p.salary.min, 0, 10000000); const max = num(p.salary.max, 0, 10000000);
       if (min !== undefined && max !== undefined && min > max) throw new ValidationError('salary', 'salary.min cannot exceed salary.max');
-      prefs.salary = { min, max, currency: str(p.salary.currency, 8) || 'USD' };
+      prefs.salary = { min, max, currency: str(p.salary.currency, 8) || 'USD', period: str(p.salary.period, 12) || 'year', negotiable: Boolean(p.salary.negotiable) };
     }
     if (p.availability !== undefined) prefs.availability = str(p.availability, 40);
+    if (p.noticePeriod !== undefined) prefs.noticePeriod = str(p.noticePeriod, 40);
+    if (p.travel !== undefined) prefs.travel = str(p.travel, 40);
     if (p.relocate !== undefined && typeof p.relocate === 'object' && p.relocate !== null) prefs.relocate = { open: Boolean(p.relocate.open), locations: strArray(p.relocate.locations, 12, 80) || [] };
     if (p.companySize !== undefined) prefs.companySize = str(p.companySize, 30);
-    if (p.workStyle !== undefined) prefs.workStyle = strArray(p.workStyle, 15, 40) || [];
+    if (p.industries !== undefined) prefs.industries = strArray(p.industries, 12, 40) || [];
+    if (p.workStyle !== undefined) prefs.workStyle = strArray(p.workStyle, 6, 40) || [];
     user.preferences = prefs;
   }
   if (body.coverLetter !== undefined) { user.documents = { ...(user.documents || {}) }; user.documents.coverLetter = str(body.coverLetter, 4000) ?? ''; }
@@ -158,6 +204,8 @@ export function candidateCompleteness(user) {
     (user.certifications || []).length, user.links && Object.keys(user.links).length,
     user.preferences?.relocate, user.preferences?.companySize, (user.preferences?.workStyle || []).length,
     user.documents?.coverLetter, (user.privacy?.blockedCompanies || []).length,
+    user.nationality, (user.contactChannels || []).length, user.presentation,
+    (user.mindset || []).length, user.favoriteSong, (user.recommendations || []).length,
   ];
   const requiredScore = required.filter((value) => has(value) || value === true).length / required.length;
   const optionalScore = optional.filter((value) => has(value) || value === true || (typeof value === 'number' && value > 0)).length / optional.length;

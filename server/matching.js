@@ -71,8 +71,13 @@ export function scoreCandidateForJob(candidate, job) {
   const matchedRequired = requiredDetail.filter((skill) => candidateHas(skill.name));
   const matchedSkills = matchedRequired.map((skill) => skill.name);
   const matchedWeight = matchedRequired.reduce((sum, skill) => sum + (skill.weight || 2), 0);
+  // Skills the job requires that the candidate is missing, for the profile split.
+  const missingSkills = requiredDetail.filter((skill) => !candidateHas(skill.name)).map((skill) => skill.name);
   // Bonus: candidate also has some of the job's nice-to-haves (capped).
   const matchedNice = (job.niceToHaves || []).filter((skill) => candidateHas(skill));
+  // Extra skills the candidate brings beyond what this job asked for.
+  const jobSkillSet = new Set([...requiredDetail.map((s) => normalizeSkill(s.name)), ...(job.niceToHaves || []).map(normalizeSkill)]);
+  const extraSkills = (candidate.skills || []).filter((skill) => !jobSkillSet.has(normalizeSkill(skill)));
   const niceBonus = Math.min(0.12, matchedNice.length * 0.04);
   const skillScore = Math.min(1, (totalWeight ? matchedWeight / totalWeight : 0) + niceBonus);
 
@@ -157,7 +162,7 @@ export function scoreCandidateForJob(candidate, job) {
   ];
 
   const score = Math.round(100 * breakdown.reduce((sum, factor) => sum + factor.weight * factor.score, 0));
-  return { score, matchedSkills, matchedLanguages, experienceFit, breakdown, salaryStatus: salary.status };
+  return { score, matchedSkills, missingSkills, extraSkills, matchedLanguages, experienceFit, breakdown, salaryStatus: salary.status };
 }
 
 /** Start of the current UTC day, as a timestamp. */

@@ -2,28 +2,41 @@ import { useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, FileText, Loader2, MapPin, Sparkles, Upload } from 'lucide-react';
 import { api } from '../../api';
 import { Chips, Field, LevelTagInput, Repeat, Segmented, TagInput, TextInput, Toggle } from './fields';
-import type { Education, LanguageTag, Person, ResumeMeta, Seniority, SkillTag, WorkExperience } from '../../types';
+import type { AgePrivacy, ContactChannel, ContactChannelType, Education, LanguageTag, Person, Recommendation, ResumeMeta, Seniority, SkillTag, WorkExperience } from '../../types';
 
 const SENIORITY_LABELS = { junior: 'Junior', mid: 'Mid', senior: 'Senior', lead: 'Lead', exec: 'Exec' };
 const EMPLOYMENT_TYPES = ['Full-time', 'Part-time', 'Contract', 'Freelance', 'Internship'] as const;
 const AVAILABILITIES = ['Now', '2 weeks', '1 month', '3 months'] as const;
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'VND', 'SGD', 'AUD'] as const;
+const SALARY_PERIODS = ['year', 'month', 'day', 'hour'] as const;
 const COMPANY_SIZES = ['1-10', '11-50', '51-200', '201-1000', '1000+'] as const;
-const LANGUAGE_LEVELS = ['Basic', 'Conversational', 'Fluent', 'Native'] as const;
+const LANGUAGE_LEVELS = ['Basic', 'Intermediate/B1', 'Professional/B2', 'Advanced/C1', 'Fluent/C2', 'Native'] as const;
 const SKILL_SUGGESTIONS = ['Figma', 'Design systems', 'Research', 'Product strategy', 'React', 'TypeScript', 'Prototyping', 'Analytics'] as const;
 const WORK_STYLES = ['Autonomous', 'Collaborative', 'Fast-paced', 'Structured', 'Async-first', 'Mentorship'] as const;
+const CONTACT_TYPES: readonly ContactChannelType[] = ['whatsapp', 'telegram', 'phone', 'signal', 'wechat', 'zalo', 'other'];
+const AGE_PRIVACY_LABELS = { public: 'Show publicly', 'after-match': 'Only after matching', private: 'Keep private' } as const;
+const WORK_AUTH_OPTIONS = ['Citizen', 'Permanent resident', 'Work visa held', 'Needs sponsorship', 'Working-holiday visa'] as const;
+const MINDSET_SUGGESTIONS = ['Curious', 'Accountable', 'Resilient', 'Empathetic', 'Pragmatic', 'Driven', 'Calm under pressure', 'Growth-minded'] as const;
+const HUMAN_SKILLS = ['Leadership', 'Communication', 'Collaboration', 'Creativity', 'Problem solving', 'Adaptability', 'Mentoring', 'Ownership', 'Strategic thinking', 'Attention to detail'] as const;
+const INTEREST_SUGGESTIONS = ['Coffee', 'Cycling', 'Music', 'AI projects', 'Travel', 'Gaming', 'Reading', 'Cooking', 'Photography'] as const;
 
-export const CANDIDATE_STEPS = ['Identity', 'Professional', 'Preferences', 'Documents & privacy'] as const;
+// The five wizard steps mirror the five profile cards recruiters swipe through.
+export const CANDIDATE_STEPS = ['Snapshot', 'Technical stack', 'Preferences', 'Human stack', 'Reviews & visibility'] as const;
 
 type Form = {
   name: string; photo: string; headline: string; email: string; phone: string; city: string; country: string;
+  nationality: string; birthdate: string; agePrivacy: AgePrivacy; workAuthorization: string; visaSponsorship: boolean;
+  pronouns: string; contactChannels: ContactChannel[];
   distanceRangeKm: number; geo?: { lat: number; lng: number }; languageDetail: LanguageTag[];
   title: string; yearsExperience: string; seniority?: Seniority; skillsDetail: SkillTag[]; industries: string[];
   workExperience: WorkExperience[]; education: Education[]; certifications: string[];
   links: { github?: string; portfolio?: string; website?: string; linkedin?: string };
   desiredRoles: string[]; employmentTypes: string[]; workModeChoice?: 'remote' | 'hybrid' | 'onsite'; hybridDays: number;
-  salaryMin: string; salaryMax: string; currency: string; availability?: string;
-  relocateOpen: boolean; relocateLocations: string[]; companySize: string; workStyle: string[];
+  salaryMin: string; salaryMax: string; currency: string; salaryPeriod: string; salaryNegotiable: boolean;
+  availability?: string; noticePeriod: string; travel: string;
+  relocateOpen: boolean; relocateLocations: string[]; companySize: string; prefIndustries: string[]; workStyle: string[];
+  presentation: string; mindset: string[]; humanSkills: string[]; workingPrefer: string[]; workingAvoid: string[];
+  interests: string[]; motto: string; favoriteSong: string; recommendations: Recommendation[];
   resume?: ResumeMeta; coverLetter: string; visibility?: 'all' | 'after-swipe' | 'paused'; blockedCompanies: string[]; openToWork: boolean;
 };
 
@@ -31,8 +44,11 @@ function fromPerson(p: Person): Form {
   return {
     name: p.name || '', photo: p.photo || '', headline: p.headline || '', email: p.email || '', phone: p.phone || '',
     city: p.city || (p.location ? p.location.split('·')[0].trim() : ''), country: p.country || '',
+    nationality: p.nationality || '', birthdate: p.birthdate || '', agePrivacy: p.agePrivacy || (p.discloseAge ? 'public' : 'private'),
+    workAuthorization: p.workAuthorization || '', visaSponsorship: p.visaSponsorship ?? false, pronouns: p.pronouns || '',
+    contactChannels: p.contactChannels || (p.phone ? [{ type: 'phone', value: p.phone }] : []),
     distanceRangeKm: p.distanceRangeKm ?? 25, geo: p.geo,
-    languageDetail: p.languageDetail || (p.languages || []).map((name) => ({ name, level: 'Fluent' })),
+    languageDetail: p.languageDetail || (p.languages || []).map((name) => ({ name, level: 'Fluent/C2' })),
     title: p.title === 'New member' ? '' : p.title || '', yearsExperience: p.yearsExperience !== undefined ? String(p.yearsExperience) : '',
     seniority: p.seniority || (['junior', 'mid', 'senior', 'lead', 'exec'].includes(p.experienceLevel) ? p.experienceLevel as Seniority : undefined),
     skillsDetail: p.skillsDetail || (p.skills || []).map((name) => ({ name, level: 3 })),
@@ -42,9 +58,13 @@ function fromPerson(p: Person): Form {
     workModeChoice: p.preferences?.workMode?.mode, hybridDays: p.preferences?.workMode?.hybridDays ?? 2,
     salaryMin: p.preferences?.salary?.min !== undefined ? String(p.preferences.salary.min) : '',
     salaryMax: p.preferences?.salary?.max !== undefined ? String(p.preferences.salary.max) : '',
-    currency: p.preferences?.salary?.currency || 'USD', availability: p.preferences?.availability,
+    currency: p.preferences?.salary?.currency || 'USD', salaryPeriod: p.preferences?.salary?.period || 'year', salaryNegotiable: p.preferences?.salary?.negotiable ?? false,
+    availability: p.preferences?.availability, noticePeriod: p.preferences?.noticePeriod || '', travel: p.preferences?.travel || '',
     relocateOpen: p.preferences?.relocate?.open ?? false, relocateLocations: p.preferences?.relocate?.locations || [],
-    companySize: p.preferences?.companySize || '', workStyle: p.preferences?.workStyle || [],
+    companySize: p.preferences?.companySize || '', prefIndustries: p.preferences?.industries || [], workStyle: p.preferences?.workStyle || [],
+    presentation: p.presentation || '', mindset: p.mindset || [], humanSkills: p.humanSkills || [],
+    workingPrefer: p.workingPrefer || [], workingAvoid: p.workingAvoid || [], interests: p.interests || [],
+    motto: p.motto || '', favoriteSong: p.favoriteSong || '', recommendations: p.recommendations || [],
     resume: p.documents?.resume, coverLetter: p.documents?.coverLetter || '',
     visibility: p.privacy?.visibility, blockedCompanies: p.privacy?.blockedCompanies || [],
     openToWork: p.privacy?.openToWork ?? true,
@@ -53,25 +73,37 @@ function fromPerson(p: Person): Form {
 
 function stepPayload(step: number, form: Form, finishing: boolean) {
   if (step === 0) return {
-    name: form.name, photo: form.photo || undefined, headline: form.headline, email: form.email, phone: form.phone || undefined,
-    city: form.city, country: form.country, distanceRangeKm: form.distanceRangeKm, geo: form.geo, languageDetail: form.languageDetail,
+    name: form.name, photo: form.photo || undefined, headline: form.headline, email: form.email,
+    phone: form.contactChannels.find((c) => c.type === 'phone' || c.type === 'whatsapp')?.value || form.phone || undefined,
+    city: form.city, country: form.country, nationality: form.nationality || undefined,
+    birthdate: form.birthdate || undefined, agePrivacy: form.agePrivacy,
+    workAuthorization: form.workAuthorization || undefined, visaSponsorship: form.visaSponsorship, pronouns: form.pronouns || undefined,
+    contactChannels: form.contactChannels.filter((c) => c.value.trim()),
+    distanceRangeKm: form.distanceRangeKm, geo: form.geo, languageDetail: form.languageDetail,
   };
   if (step === 1) return {
     title: form.title, yearsExperience: Number(form.yearsExperience), seniority: form.seniority, skillsDetail: form.skillsDetail,
     industries: form.industries, workExperience: form.workExperience, education: form.education, certifications: form.certifications, links: form.links,
+    coverLetter: form.coverLetter,
   };
   if (step === 2) return {
     availability: form.availability,
     preferences: {
       desiredRoles: form.desiredRoles, employmentTypes: form.employmentTypes,
       workMode: form.workModeChoice ? { mode: form.workModeChoice, hybridDays: form.workModeChoice === 'hybrid' ? form.hybridDays : undefined } : undefined,
-      salary: { min: Number(form.salaryMin), max: Number(form.salaryMax), currency: form.currency },
-      availability: form.availability, relocate: { open: form.relocateOpen, locations: form.relocateLocations },
-      companySize: form.companySize || undefined, workStyle: form.workStyle,
+      salary: { min: Number(form.salaryMin), max: Number(form.salaryMax), currency: form.currency, period: form.salaryPeriod, negotiable: form.salaryNegotiable },
+      availability: form.availability, noticePeriod: form.noticePeriod || undefined, travel: form.travel || undefined,
+      relocate: { open: form.relocateOpen, locations: form.relocateLocations },
+      companySize: form.companySize || undefined, industries: form.prefIndustries, workStyle: form.workStyle,
     },
   };
+  if (step === 3) return {
+    presentation: form.presentation || undefined, mindset: form.mindset, humanSkills: form.humanSkills,
+    workingPrefer: form.workingPrefer, workingAvoid: form.workingAvoid, interests: form.interests,
+    motto: form.motto || undefined, favoriteSong: form.favoriteSong || undefined,
+  };
   return {
-    coverLetter: form.coverLetter,
+    recommendations: form.recommendations,
     privacy: { visibility: form.visibility, blockedCompanies: form.blockedCompanies, openToWork: form.openToWork },
     ...(finishing ? { onboarding: false } : {}),
   };
@@ -90,6 +122,7 @@ function stepErrors(step: number, form: Form): string[] {
     if (form.yearsExperience === '' || Number.isNaN(Number(form.yearsExperience))) errors.push('Years of experience is required');
     if (!form.seniority) errors.push('Pick a seniority level');
     if (form.skillsDetail.length < 3) errors.push('Add at least 3 skills');
+    if (!form.resume) errors.push('Upload your resume (PDF or DOCX)');
   }
   if (step === 2) {
     if (!form.desiredRoles.length) errors.push('Add at least one desired role');
@@ -98,9 +131,12 @@ function stepErrors(step: number, form: Form): string[] {
     if (form.salaryMin === '' || form.salaryMax === '') errors.push('Salary expectation range is required');
     else if (Number(form.salaryMin) > Number(form.salaryMax)) errors.push('Salary minimum cannot exceed maximum');
     if (!form.availability) errors.push('Pick your availability');
+    if (form.workStyle.length < 3) errors.push('Pick at least 3 work-style tags');
   }
   if (step === 3) {
-    if (!form.resume) errors.push('Upload your resume (PDF or DOCX)');
+    if (!form.presentation.trim()) errors.push('A short personal introduction is required');
+  }
+  if (step === 4) {
     if (!form.visibility) errors.push('Choose who can see your profile');
   }
   return errors;
@@ -207,12 +243,21 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
           <Field label="Photo URL" hint="Pre-filled from your provider when you signed in with LinkedIn or Google.">
             <div className="wz-photo-row">{form.photo && <img src={form.photo} alt="" />}<TextInput value={form.photo} onChange={(e) => patch({ photo: e.target.value })} placeholder="https://…" /></div>
           </Field>
-          <Field label="Phone" hint="Hidden until you match with a company."><TextInput value={form.phone} onChange={(e) => patch({ phone: e.target.value })} autoComplete="tel" placeholder="+84 …" /></Field>
+          <Field label="Pronouns (optional)"><TextInput value={form.pronouns} onChange={(e) => patch({ pronouns: e.target.value })} placeholder="e.g. she/her, they/them" /></Field>
         </div>
         <Field label="Headline" required hint="One line that sells your craft."><TextInput value={form.headline} onChange={(e) => patch({ headline: e.target.value })} placeholder="e.g. Product designer who ships design systems" /></Field>
         <div className="wz-row">
           <Field label="City" required><TextInput value={form.city} onChange={(e) => patch({ city: e.target.value })} /></Field>
           <Field label="Country" required><TextInput value={form.country} onChange={(e) => patch({ country: e.target.value })} /></Field>
+        </div>
+        <div className="wz-row">
+          <Field label="Nationality (optional)" hint="Never affects your match score."><TextInput value={form.nationality} onChange={(e) => patch({ nationality: e.target.value })} /></Field>
+          <Field label="Date of birth (optional)"><TextInput type="date" value={form.birthdate} onChange={(e) => patch({ birthdate: e.target.value })} /></Field>
+        </div>
+        {form.birthdate && <Field label="Who can see your age" hint="Age never affects matching."><Segmented options={['public', 'after-match', 'private'] as const} value={form.agePrivacy} onChange={(agePrivacy) => patch({ agePrivacy })} labels={AGE_PRIVACY_LABELS} /></Field>}
+        <div className="wz-row">
+          <Field label="Work authorization" hint="Shown as a status, never a document."><select className="wz-input wz-select" value={form.workAuthorization} onChange={(e) => patch({ workAuthorization: e.target.value })}><option value="">Prefer not to say</option>{WORK_AUTH_OPTIONS.map((o) => <option key={o}>{o}</option>)}</select></Field>
+          <Field label="Visa sponsorship"><Toggle checked={form.visaSponsorship} onChange={(visaSponsorship) => patch({ visaSponsorship })} label={form.visaSponsorship ? 'I need sponsorship' : 'No sponsorship needed'} /></Field>
         </div>
         <Field label="Location for distance matching" hint="Enables real distance to roles. Your exact coordinates are never shown to anyone.">
           <button type="button" className={form.geo ? 'wz-geo-btn set' : 'wz-geo-btn'} onClick={captureLocation} disabled={geoBusy}>
@@ -232,7 +277,14 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
               <button type="button" className="wz-tag-remove" aria-label={`Remove ${language.name}`} onClick={() => patch({ languageDetail: form.languageDetail.filter((item) => item.name !== language.name) })}>×</button>
             </span>)}
           </div>
-          <TagInput value={[]} onChange={(tags) => tags[0] && !form.languageDetail.some((item) => item.name === tags[0]) && patch({ languageDetail: [...form.languageDetail, { name: tags[0], level: 'Fluent' }] })} placeholder="Add a language, press Enter" />
+          <TagInput value={[]} onChange={(tags) => tags[0] && !form.languageDetail.some((item) => item.name === tags[0]) && patch({ languageDetail: [...form.languageDetail, { name: tags[0], level: 'Fluent/C2' }] })} placeholder="Add a language, press Enter" />
+        </Field>
+        <Field label="Contact channels" hint="Email and these stay hidden until you and a company mutually match.">
+          <Repeat items={form.contactChannels} onChange={(contactChannels) => patch({ contactChannels })} blank={() => ({ type: 'whatsapp' as ContactChannelType, value: '' })} addLabel="Add a contact channel"
+            render={(item, update) => <div className="wz-contact-row">
+              <select className="wz-input wz-select" value={item.type} onChange={(e) => update({ type: e.target.value as ContactChannelType })}>{CONTACT_TYPES.map((t) => <option key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</option>)}</select>
+              <TextInput placeholder="Number or username" value={item.value} onChange={(e) => update({ value: e.target.value })} />
+            </div>} />
         </Field>
       </div>}
 
@@ -275,6 +327,13 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
           <Field label="Website"><TextInput value={form.links.website || ''} onChange={(e) => patch({ links: { ...form.links, website: e.target.value } })} /></Field>
           <Field label="LinkedIn"><TextInput value={form.links.linkedin || ''} onChange={(e) => patch({ links: { ...form.links, linkedin: e.target.value } })} placeholder="linkedin.com/in/…" /></Field>
         </div>
+        <Field label="Resume" required hint="PDF or DOCX, up to 10MB. Recruiters read it in-app and can download the PDF.">
+          <label className={form.resume ? 'wz-upload has-file' : 'wz-upload'}>
+            <input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => e.target.files?.[0] && uploadResume(e.target.files[0])} />
+            {uploading ? <><Loader2 size={17} className="spin" /> Uploading…</> : form.resume ? <><FileText size={17} /> {form.resume.originalName} <em>Replace</em></> : <><Upload size={17} /> Upload resume</>}
+          </label>
+        </Field>
+        <Field label="Cover letter (optional)"><textarea className="wz-input wz-textarea" rows={4} value={form.coverLetter} onChange={(e) => patch({ coverLetter: e.target.value })} placeholder="A short default note recruiters see with your profile." /></Field>
       </div>}
 
       {step === 2 && <div className="wz-body">
@@ -290,27 +349,55 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
             <span>–</span>
             <TextInput type="number" min={0} placeholder="Max" value={form.salaryMax} onChange={(e) => patch({ salaryMax: e.target.value })} aria-label="Salary maximum" />
             <select className="wz-input wz-select" value={form.currency} onChange={(e) => patch({ currency: e.target.value })} aria-label="Currency">{CURRENCIES.map((currency) => <option key={currency}>{currency}</option>)}</select>
+            <span>/</span>
+            <select className="wz-input wz-select" value={form.salaryPeriod} onChange={(e) => patch({ salaryPeriod: e.target.value })} aria-label="Pay period">{SALARY_PERIODS.map((period) => <option key={period}>{period}</option>)}</select>
           </div>
+          <div className="wz-inline"><Toggle checked={form.salaryNegotiable} onChange={(salaryNegotiable) => patch({ salaryNegotiable })} label="Negotiable" /></div>
         </Field>
         <div className="wz-row">
           <Field label="Availability" required><Segmented options={AVAILABILITIES} value={form.availability as typeof AVAILABILITIES[number] | undefined} onChange={(availability) => patch({ availability })} /></Field>
-          <Field label="Preferred company size"><select className="wz-input wz-select" value={form.companySize} onChange={(e) => patch({ companySize: e.target.value })}><option value="">No preference</option>{COMPANY_SIZES.map((size) => <option key={size}>{size}</option>)}</select></Field>
+          <Field label="Notice period"><TextInput value={form.noticePeriod} onChange={(e) => patch({ noticePeriod: e.target.value })} placeholder="e.g. 30 days" /></Field>
         </div>
+        <div className="wz-row">
+          <Field label="Preferred company size"><select className="wz-input wz-select" value={form.companySize} onChange={(e) => patch({ companySize: e.target.value })}><option value="">No preference</option>{COMPANY_SIZES.map((size) => <option key={size}>{size}</option>)}</select></Field>
+          <Field label="Travel willingness"><TextInput value={form.travel} onChange={(e) => patch({ travel: e.target.value })} placeholder="e.g. Up to 25%" /></Field>
+        </div>
+        <Field label="Preferred industries"><TagInput value={form.prefIndustries} onChange={(prefIndustries) => patch({ prefIndustries })} suggestions={['SaaS', 'Fintech', 'Health', 'AI', 'E-commerce', 'Telecom']} /></Field>
         <Field label="Open to relocating">
           <Toggle checked={form.relocateOpen} onChange={(relocateOpen) => patch({ relocateOpen })} label={form.relocateOpen ? 'Yes — I would relocate for the right role' : 'No — match me near my city'} />
           {form.relocateOpen && <TagInput value={form.relocateLocations} onChange={(relocateLocations) => patch({ relocateLocations })} placeholder="Cities or countries you'd move to" />}
         </Field>
-        <Field label="Work-style tags"><Chips options={WORK_STYLES} value={form.workStyle} onToggle={(option) => patch({ workStyle: form.workStyle.includes(option) ? form.workStyle.filter((item) => item !== option) : [...form.workStyle, option] })} /></Field>
+        <Field label="Work-style tags" required hint="Pick 3–6 that describe how you work best."><Chips options={WORK_STYLES} value={form.workStyle} onToggle={(option) => patch({ workStyle: form.workStyle.includes(option) ? form.workStyle.filter((item) => item !== option) : form.workStyle.length < 6 ? [...form.workStyle, option] : form.workStyle })} /></Field>
       </div>}
 
       {step === 3 && <div className="wz-body">
-        <Field label="Resume" required hint="PDF or DOCX, up to 10MB. Recruiters see an anonymized preview until you match.">
-          <label className={form.resume ? 'wz-upload has-file' : 'wz-upload'}>
-            <input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => e.target.files?.[0] && uploadResume(e.target.files[0])} />
-            {uploading ? <><Loader2 size={17} className="spin" /> Uploading…</> : form.resume ? <><FileText size={17} /> {form.resume.originalName} <em>Replace</em></> : <><Upload size={17} /> Upload resume</>}
-          </label>
+        <Field label="Personal introduction" required hint="A few sentences on who you are beyond the CV — how you work and what you value.">
+          <textarea className="wz-input wz-textarea" rows={4} value={form.presentation} onChange={(e) => patch({ presentation: e.target.value })} placeholder="I enjoy turning hard problems into simple systems teams can operate confidently. I work best with transparent leaders and practical teams…" />
         </Field>
-        <Field label="Cover letter (optional)"><textarea className="wz-input wz-textarea" rows={4} value={form.coverLetter} onChange={(e) => patch({ coverLetter: e.target.value })} placeholder="A short default note recruiters see with your profile." /></Field>
+        <Field label="Mindset" hint="Pick a few traits that describe you."><Chips options={MINDSET_SUGGESTIONS} value={form.mindset} onToggle={(option) => patch({ mindset: form.mindset.includes(option) ? form.mindset.filter((item) => item !== option) : form.mindset.length < 5 ? [...form.mindset, option] : form.mindset })} /></Field>
+        <Field label="Human capabilities" hint="Up to 8."><Chips options={HUMAN_SKILLS} value={form.humanSkills} onToggle={(option) => patch({ humanSkills: form.humanSkills.includes(option) ? form.humanSkills.filter((item) => item !== option) : form.humanSkills.length < 8 ? [...form.humanSkills, option] : form.humanSkills })} /></Field>
+        <div className="wz-row">
+          <Field label="I thrive with"><TagInput value={form.workingPrefer} onChange={(workingPrefer) => patch({ workingPrefer })} placeholder="e.g. Clear objectives — press Enter" /></Field>
+          <Field label="I avoid"><TagInput value={form.workingAvoid} onChange={(workingAvoid) => patch({ workingAvoid })} placeholder="e.g. Constant meetings — press Enter" /></Field>
+        </div>
+        <Field label="Interests" hint="Optional conversation starters."><TagInput value={form.interests} onChange={(interests) => patch({ interests })} suggestions={INTEREST_SUGGESTIONS} /></Field>
+        <div className="wz-row">
+          <Field label="Personal motto (optional)"><TextInput value={form.motto} onChange={(e) => patch({ motto: e.target.value })} placeholder="Optional one-liner" /></Field>
+          <Field label="Favorite song (optional)" hint="Spotify or YouTube link — opens externally, never autoplays."><TextInput value={form.favoriteSong} onChange={(e) => patch({ favoriteSong: e.target.value })} placeholder="https://…" /></Field>
+        </div>
+      </div>}
+
+      {step === 4 && <div className="wz-body">
+        <Field label="Recommendations (optional)" hint="Add recommendations former recruiters or managers have given you. Only ones you approve appear on your profile.">
+          <Repeat items={form.recommendations} onChange={(recommendations) => patch({ recommendations })} blank={() => ({ recruiterName: '', role: '', company: '', relationship: '', text: '' })} addLabel="Add a recommendation"
+            render={(item, update) => <div className="wz-repeat-grid">
+              <TextInput placeholder="Their name" value={item.recruiterName || ''} onChange={(e) => update({ recruiterName: e.target.value })} />
+              <TextInput placeholder="Their role" value={item.role || ''} onChange={(e) => update({ role: e.target.value })} />
+              <TextInput placeholder="Company" value={item.company || ''} onChange={(e) => update({ company: e.target.value })} />
+              <TextInput placeholder="Relationship (e.g. Former manager)" value={item.relationship || ''} onChange={(e) => update({ relationship: e.target.value })} />
+              <textarea className="wz-input wz-textarea" placeholder="What they said about working with you" value={item.text || ''} onChange={(e) => update({ text: e.target.value })} />
+            </div>} />
+        </Field>
         <Field label="Who can see your profile" required>
           <Segmented options={['all', 'after-swipe', 'paused'] as const} value={form.visibility} onChange={(visibility) => patch({ visibility })} labels={{ all: 'All recruiters', 'after-swipe': 'Only after I swipe', paused: 'Paused' }} />
         </Field>
