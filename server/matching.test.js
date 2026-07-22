@@ -2,16 +2,38 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { detectMutualMatch, likesRemainingToday, salaryCompatibility, scoreCandidateForJob } from './matching.js';
 
-test('scores a candidate fit with a six-factor breakdown', () => {
+test('scores a candidate fit with a seven-factor breakdown', () => {
   const result = scoreCandidateForJob(
     { skills: ['Figma', 'Research'], languages: ['English'], experienceLevel: 'senior' },
     { requiredSkills: ['Figma', 'Research', 'Leadership'], requiredLanguages: ['English'], experienceLevel: 'senior' }
   );
-  // skills 2/3 * .4 + seniority 1 * .15 + neutral salary/.15, distance/.1, mode/.1, type/.1
-  assert.equal(result.score, 70);
+  // skills 2/3 * .38 + seniority 1 * .15 + languages 1 * .08 + neutral salary/distance/mode/type
+  assert.equal(result.score, 73);
   assert.deepEqual(result.matchedSkills, ['Figma', 'Research']);
   assert.equal(result.experienceFit, true);
-  assert.equal(result.breakdown.length, 6);
+  assert.equal(result.breakdown.length, 7);
+});
+
+test('skill synonyms and spelling variants still match', () => {
+  const result = scoreCandidateForJob(
+    { skills: ['React.js', 'Node', 'JS'], languages: [], experienceLevel: 'mid' },
+    { requiredSkills: ['React', 'Node.js', 'JavaScript'], experienceLevel: 'mid' }
+  );
+  assert.equal(result.breakdown[0].score, 1); // all three treated as matches
+});
+
+test('nice-to-haves add a capped bonus', () => {
+  const job = { requiredSkills: ['React'], niceToHaves: ['GraphQL', 'Docker'], experienceLevel: 'mid' };
+  const withNice = scoreCandidateForJob({ skills: ['React', 'GraphQL'], languages: [], experienceLevel: 'mid' }, job);
+  const without = scoreCandidateForJob({ skills: ['React'], languages: [], experienceLevel: 'mid' }, job);
+  assert.ok(withNice.breakdown[0].score >= without.breakdown[0].score);
+});
+
+test('overqualified beats underqualified by the same distance', () => {
+  const job = { requiredSkills: ['React'], experienceLevel: 'mid' };
+  const over = scoreCandidateForJob({ skills: ['React'], languages: [], experienceLevel: 'senior' }, job);
+  const under = scoreCandidateForJob({ skills: ['React'], languages: [], experienceLevel: 'junior' }, job);
+  assert.ok(over.score > under.score);
 });
 
 test('weighted skills move the score toward priority skills', () => {
@@ -28,11 +50,11 @@ test('weighted skills move the score toward priority skills', () => {
 test('full-fit candidate scores 100 and salary status is tracked', () => {
   const result = scoreCandidateForJob(
     {
-      skills: ['React'], languages: [], experienceLevel: 'senior', distanceRangeKm: 30,
+      skills: ['React'], languages: ['English'], experienceLevel: 'senior', distanceRangeKm: 30,
       preferences: { salary: { min: 80000, max: 110000, currency: 'USD' }, workMode: { mode: 'hybrid' }, employmentTypes: ['Full-time'] },
     },
     {
-      requiredSkills: ['React'], experienceLevel: 'senior', distanceKm: 10, hiringRadiusKm: 40,
+      requiredSkills: ['React'], requiredLanguages: ['English'], experienceLevel: 'senior', distanceKm: 10, hiringRadiusKm: 40,
       salaryRange: { min: 80000, max: 110000, currency: 'USD' }, workMode: 'Hybrid', type: 'Full-time',
     }
   );

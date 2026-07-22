@@ -11,6 +11,26 @@ function overlap(a = [], b = []) {
   return a.filter((s) => setB.has(s.toLowerCase()));
 }
 
+// Common skill spellings that mean the same thing, so real matches aren't missed.
+const SKILL_ALIASES = {
+  'react.js': 'react', reactjs: 'react', 'node.js': 'node', nodejs: 'node',
+  js: 'javascript', ts: 'typescript', postgres: 'postgresql', psql: 'postgresql',
+  k8s: 'kubernetes', ml: 'machine learning', 'a/b testing': 'ab testing',
+  'ci/cd': 'cicd', 'design system': 'design systems', 'ux research': 'user research',
+  'gcp': 'google cloud', 'google cloud platform': 'google cloud', golang: 'go',
+};
+/** Normalize a skill for comparison: lowercase, alias, strip .js/punctuation. */
+function normalizeSkill(value) {
+  let s = String(value || '').trim().toLowerCase();
+  if (SKILL_ALIASES[s]) return SKILL_ALIASES[s];
+  s = s.replace(/\.js$/, '').replace(/[^a-z0-9+#. ]/g, ' ').replace(/\s+/g, ' ').trim();
+  return SKILL_ALIASES[s] || s;
+}
+function normalizedHas(candidateSkills = []) {
+  const set = new Set(candidateSkills.map(normalizeSkill));
+  return (skill) => set.has(normalizeSkill(skill));
+}
+
 /**
  * Salary compatibility between a candidate's expectation and a job's range.
  * Returns { score: 0-1, status: 'within'|'below'|'above'|'unknown', evidence }.
@@ -37,27 +57,41 @@ const WORK_MODE_SCORES = {
 
 /**
  * Fit score 0–100 with a per-factor breakdown.
- * Factors: weighted skill overlap 40%, seniority 15%, salary overlap 15%,
- * distance vs both radii 10%, work-mode compatibility 10%, employment type 10%.
+ * Factors: weighted skill overlap 38% (synonym-aware, + nice-to-have bonus),
+ * seniority 15%, salary overlap 15%, languages 8%, distance 8%,
+ * work-mode compatibility 8%, employment type 8%.
  */
 export function scoreCandidateForJob(candidate, job) {
-  // Skills: weighted by the job's per-skill weight (1-3; default 2).
-  const weights = new Map((job.requiredSkillsDetail || (job.requiredSkills || []).map((name) => ({ name, weight: 2 })))
-    .map((skill) => [skill.name.toLowerCase(), skill.weight || 2]));
-  const matchedSkills = overlap(candidate.skills, job.requiredSkills);
-  const totalWeight = [...weights.values()].reduce((sum, weight) => sum + weight, 0);
-  const matchedWeight = matchedSkills.reduce((sum, name) => sum + (weights.get(name.toLowerCase()) || 2), 0);
-  const skillScore = totalWeight ? matchedWeight / totalWeight : 0;
+  const candidateHas = normalizedHas(candidate.skills || []);
 
-  // Seniority
+  // Skills: weighted by the job's per-skill weight (1-3; default 2), synonym-aware.
+  const requiredDetail = job.requiredSkillsDetail || (job.requiredSkills || []).map((name) => ({ name, weight: 2 }));
+  const totalWeight = requiredDetail.reduce((sum, skill) => sum + (skill.weight || 2), 0);
+  const matchedRequired = requiredDetail.filter((skill) => candidateHas(skill.name));
+  const matchedSkills = matchedRequired.map((skill) => skill.name);
+  const matchedWeight = matchedRequired.reduce((sum, skill) => sum + (skill.weight || 2), 0);
+  // Bonus: candidate also has some of the job's nice-to-haves (capped).
+  const matchedNice = (job.niceToHaves || []).filter((skill) => candidateHas(skill));
+  const niceBonus = Math.min(0.12, matchedNice.length * 0.04);
+  const skillScore = Math.min(1, (totalWeight ? matchedWeight / totalWeight : 0) + niceBonus);
+
+  // Seniority — asymmetric: being slightly overqualified is better than underqualified.
   const ci = EXPERIENCE_ORDER.indexOf(candidate.seniority || candidate.experienceLevel);
   const ji = EXPERIENCE_ORDER.indexOf(job.seniority || job.experienceLevel);
   let seniorityScore = 0.5;
   if (ci >= 0 && ji >= 0) {
-    const dist = Math.abs(ci - ji);
-    seniorityScore = dist === 0 ? 1 : dist === 1 ? 0.6 : dist === 2 ? 0.25 : 0;
+    const diff = ci - ji; // >0 = candidate more senior than the role
+    seniorityScore = diff === 0 ? 1 : diff === 1 ? 0.75 : diff === -1 ? 0.55 : diff === 2 ? 0.4 : diff === -2 ? 0.2 : diff > 0 ? 0.3 : 0.08;
   }
   const experienceFit = ci >= 0 && ji >= 0 && Math.abs(ci - ji) <= 1;
+
+  // Languages: coverage of the job's required languages.
+  const requiredLanguages = job.requiredLanguages || [];
+  const matchedLanguages = overlap(candidate.languages, requiredLanguages);
+  const languageScore = requiredLanguages.length ? matchedLanguages.length / requiredLanguages.length : 0.85;
+  const languageEvidence = !requiredLanguages.length ? 'No specific language requirement.'
+    : languageScore >= 1 ? `Speaks all ${requiredLanguages.length} required language${requiredLanguages.length > 1 ? 's' : ''}.`
+      : `Speaks ${matchedLanguages.length} of ${requiredLanguages.length} required languages.`;
 
   // Salary
   const salary = salaryCompatibility(candidate.preferences?.salary, job.salaryRange);
@@ -104,16 +138,16 @@ export function scoreCandidateForJob(candidate, job) {
   const typeScore = types?.length ? (types.includes(job.type) ? 1 : 0.2) : 0.7;
 
   const breakdown = [
-    { factor: 'skills', label: 'Skill overlap', weight: 0.4, score: skillScore, evidence: matchedSkills.length ? `${matchedSkills.length} of ${weights.size} required skills matched${matchedWeight ? ', weighted toward the priority skills' : ''}.` : 'No required skills matched yet.' },
-    { factor: 'seniority', label: 'Seniority', weight: 0.15, score: seniorityScore, evidence: seniorityScore === 1 ? 'Seniority level matches exactly.' : seniorityScore >= 0.6 ? 'One level apart — close fit.' : 'Seniority levels are far apart.' },
+    { factor: 'skills', label: 'Skill overlap', weight: 0.38, score: skillScore, evidence: matchedSkills.length ? `${matchedSkills.length} of ${requiredDetail.length} required skills matched${matchedNice.length ? `, plus ${matchedNice.length} nice-to-have${matchedNice.length > 1 ? 's' : ''}` : ''}.` : 'No required skills matched yet.' },
+    { factor: 'seniority', label: 'Seniority', weight: 0.15, score: seniorityScore, evidence: seniorityScore === 1 ? 'Seniority level matches exactly.' : ci > ji ? 'A step more senior than the role.' : seniorityScore >= 0.55 ? 'One level below — close fit.' : 'Seniority levels are far apart.' },
     { factor: 'salary', label: 'Salary overlap', weight: 0.15, score: salary.score, evidence: salary.evidence },
-    { factor: 'distance', label: 'Distance', weight: 0.1, score: distanceScore, evidence: distanceEvidence },
-    { factor: 'workMode', label: 'Work mode', weight: 0.1, score: workModeScore, evidence: workModeEvidence },
-    { factor: 'employmentType', label: 'Employment type', weight: 0.1, score: typeScore, evidence: types?.length ? (typeScore === 1 ? `${job.type} is one of the preferred employment types.` : `${job.type} is not among the preferred types.`) : 'Employment-type preference not set yet.' },
+    { factor: 'languages', label: 'Languages', weight: 0.08, score: languageScore, evidence: languageEvidence },
+    { factor: 'distance', label: 'Distance', weight: 0.08, score: distanceScore, evidence: distanceEvidence },
+    { factor: 'workMode', label: 'Work mode', weight: 0.08, score: workModeScore, evidence: workModeEvidence },
+    { factor: 'employmentType', label: 'Employment type', weight: 0.08, score: typeScore, evidence: types?.length ? (typeScore === 1 ? `${job.type} is one of the preferred employment types.` : `${job.type} is not among the preferred types.`) : 'Employment-type preference not set yet.' },
   ];
 
   const score = Math.round(100 * breakdown.reduce((sum, factor) => sum + factor.weight * factor.score, 0));
-  const matchedLanguages = overlap(candidate.languages, job.requiredLanguages);
   return { score, matchedSkills, matchedLanguages, experienceFit, breakdown, salaryStatus: salary.status };
 }
 
