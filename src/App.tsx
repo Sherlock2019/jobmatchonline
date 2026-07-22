@@ -1,14 +1,13 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { PhoneMockup } from './components/PhoneMockup';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
-import { Activity, ArrowRight, BadgeCheck, BarChart3, Bell, BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, MapPin, Menu, MessageCircle, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowRight, BadgeCheck, BarChart3, Bell, BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, MapPin, Menu, MessageCircle, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
 import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { App as NativeApp } from '@capacitor/app';
 import { LoginModal, RegisterModal, ResetPasswordModal, SettingsModal } from './components/AuthModals';
-import { MobileLanding } from './components/MobileLanding';
 import { FeedbackSection, JourneyPipeline, LatestShowcase } from './components/LandingSections';
 import { CandidateWizard } from './components/profile/CandidateWizard';
 import { CandidateProfilePage } from './components/profile/CandidateProfilePage';
@@ -30,18 +29,6 @@ const candidateNav: { view: View; label: string; icon: typeof Compass }[] = [
 const employerNav: { view: View; label: string; icon: typeof Compass }[] = [
   { view: 'discover', label: 'Talent', icon: Compass }, { view: 'pipeline', label: 'Pipeline', icon: Layers3 }, { view: 'messages', label: 'Messages', icon: MessageCircle }, { view: 'jobs', label: 'Jobs', icon: BriefcaseBusiness }, { view: 'analytics', label: 'Insights', icon: BarChart3 }, { view: 'profile', label: 'My profile', icon: Users },
 ];
-
-/** Matches the mobile-landing breakpoint (<768px). */
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
-  useEffect(() => {
-    const query = window.matchMedia('(max-width: 767px)');
-    const onChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
-    query.addEventListener('change', onChange);
-    return () => query.removeEventListener('change', onChange);
-  }, []);
-  return isMobile;
-}
 
 async function connectLinkedIn() {
   const url = `${apiBase}/api/auth/linkedin${Capacitor.isNativePlatform() ? '?platform=native' : ''}`;
@@ -85,8 +72,6 @@ export default function App() {
 function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const linkedinState = new URLSearchParams(window.location.search).get('linkedin');
   const [authModal, setAuthModal] = useState<'login' | 'register' | null>(null);
-  const isMobile = useIsMobile();
-  const [mobilePreview, setMobilePreview] = useState(false);
   const openLogin = () => setAuthModal('login');
   const openRegister = () => setAuthModal('register');
   const complete = (user: SessionUser) => { setAuthModal(null); onLogin(user); };
@@ -95,18 +80,12 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     {authModal === 'register' && <RegisterModal onClose={() => setAuthModal(null)} onComplete={complete} />}
   </AnimatePresence>;
 
-  if (isMobile) return <>{<MobileLanding onRegister={openRegister} onLogin={openLogin} />}{modals}</>;
-
-  if (mobilePreview) return <div className="preview-shell">
-    <nav className="landing-nav"><Brand /><div className="landing-links"><button className="mobile-toggle active" onClick={() => setMobilePreview(false)} aria-pressed="true"><Smartphone size={15} /> Mobile view</button></div></nav>
-    <div className="device-stage"><div className="device-frame"><div className="device-screen"><MobileLanding onRegister={openRegister} onLogin={openLogin} /></div></div></div>
-    {modals}
-  </div>;
-
+  // One responsive landing for every screen size — mobile gets the same hero,
+  // stacked for phone width (no separate mobile layout).
   return <main className="landing">
     <header className="landing-header">
       <nav className="landing-nav"><Brand /></nav>
-      <nav className="landing-subnav"><a href="#how">How it works</a><a href="#compare">Why JobsMatchNow</a><a href="#trust">Trust &amp; fairness</a><button className="mobile-toggle" onClick={() => setMobilePreview(true)} aria-pressed="false"><Smartphone size={15} /> Mobile view</button></nav>
+      <nav className="landing-subnav"><a href="#how">How it works</a><a href="#compare">Why JobsMatchNow</a><a href="#trust">Trust &amp; fairness</a></nav>
     </header>
     {linkedinState && <div className="integration-notice">{linkedinState === 'connected' ? 'LinkedIn connected. Your professional identity is ready to use.' : 'Add LinkedIn app credentials to enable live account connection. The demo remains available.'}<button onClick={() => history.replaceState({}, '', '/')}>×</button></div>}
     <section className="hero">

@@ -305,6 +305,19 @@ button { cursor:pointer; }
 .m-nav .brand { font-size:22px; }
 .m-nav .brand-heart-mark { width:46px; height:46px; }
 
+/* Unified responsive landing — desktop hero, scaled for phones */
+@media (max-width:760px) {
+  .landing-nav { padding:16px 18px 2px; }
+  .landing-nav .brand { font-size:26px; gap:11px; letter-spacing:-.9px; }
+  .landing-nav .brand-heart-mark { width:56px; height:56px; }
+  .landing-subnav { max-width:none; padding:6px 18px 12px; gap:18px; font-size:12px; overflow-x:auto; white-space:nowrap; -webkit-overflow-scrolling:touch; }
+  .hero { padding:34px 20px 56px; }
+  .hero-copy .eyebrow { font-size:13px; }
+  .hero-actions { flex-direction:column; gap:12px; width:100%; max-width:360px; }
+  .hero-actions .primary-button, .hero-actions .secondary-button { width:100%; min-height:58px; font-size:17px; padding:0 24px; }
+  .proof-row { justify-content:flex-start; }
+}
+
 /* App shell */
 .app-shell { min-height:100vh; display:flex; background:#f7f8f5; }
 .sidebar { position:fixed; inset:0 auto 0 0; width:232px; background:linear-gradient(180deg,#0d1939,#142650 60%,#162d5d); color:#e5ecfa; padding:calc(24px + env(safe-area-inset-top)) 15px calc(16px + env(safe-area-inset-bottom)); z-index:30; display:flex; flex-direction:column; }
