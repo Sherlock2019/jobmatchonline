@@ -1,92 +1,193 @@
-# JobMatch 3
+<div align="center">
 
-JobMatch is a two-sided, mutual-intent hiring product for candidates and recruiting teams. It combines a swipeable discovery experience with explainable fit scores, recruiter pipelines, messaging, hiring analytics, and a LinkedIn-ready integration layer.
+<img src="public/logo.png" alt="JobsMatchNow" width="96" />
 
-## Product surfaces
+# JobsMatchNow
 
-- Candidate workspace: explainable job recommendations, touch/drag matching, mutual matches, messages, preferences, and privacy controls.
-- Recruiter workspace: ranked talent discovery, pipeline stages, jobs, response-quality metrics, and candidate conversations.
-- Web and desktop: responsive PWA that can be installed from supported browsers.
-- Mobile: Capacitor projects are included in `ios/` and `android/` and share the production web codebase.
-- LinkedIn: OpenID Connect sign-in and basic profile import are implemented server-side. A disabled-by-default Talent Solutions adapter maps jobs for partner sync.
+### Stop chasing jobs and candidates. Let the perfect match chase you.
 
-## Local development
+**A two-sided, mutual-intent hiring platform — swipe-to-match discovery, explainable fit scores, and salary-up-front transparency, so a conversation only opens when _both_ sides choose.**
 
-Requirements: Node.js 20+.
+[![Live](https://img.shields.io/badge/Live-jobsmatchnow.com-fd267a?style=for-the-badge)](https://jobsmatchnow.com)
+[![Web app](https://img.shields.io/badge/Web_app-/app-007AFF?style=for-the-badge)](https://jobsmatchnow.com/app/)
+
+![React 19](https://img.shields.io/badge/React-19-32ADE6?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-007AFF?logo=typescript&logoColor=white)
+![Node + Express](https://img.shields.io/badge/Node%20%2B%20Express-API-34C759?logo=node.js&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-prod-30B0C7?logo=postgresql&logoColor=white)
+![Capacitor](https://img.shields.io/badge/iOS%20%2B%20Android-Capacitor-5856D6?logo=capacitor&logoColor=white)
+
+<br />
+
+<img src="public/hero-phone.png" alt="It's a Match — JobsMatchNow product preview" width="320" />
+
+</div>
+
+---
+
+## 💡 Why JobsMatchNow
+
+Hiring today creates **activity**, not **alignment**. Candidates fire off dozens of applications into the void; recruiters drown in unqualified inbound. Everyone loses time and signal.
+
+JobsMatchNow flips it. Modeled on the mutual-intent mechanics that made dating apps work, **a connection only opens when both sides swipe right** — so every conversation is one both people actually want.
+
+| Old hiring | JobsMatchNow | What changes |
+|---|---|---|
+| Search boxes & job-board scrolling | A personalized card deck ranked by skills, goals, location & work style | **Less noise** |
+| CV keyword filters & recruiter guesswork | A transparent **0–100 fit score** with matched-skill evidence | **Better decisions** |
+| Repeated forms, cover letters, re-uploads | One complete profile + a single intentional swipe | **Minutes, not hours** |
+| One-way applications & cold outreach | A chat opens **only after both sides choose** | **Mutual intent** |
+| Personal details copied across portals | Candidate-controlled visibility; contact hidden until a match | **Consent first** |
+| Salary discovered late (or never) | **Salary is up front** — revealed to both sides on match | **No games** |
+
+> _Illustrative product targets from the demo experience: **3.2×** more qualified conversations · **48h** median time to first response · **42%** fewer screening steps._
+
+---
+
+## 🧭 The journey — register to signed contract
+
+```
+① Register free → ② Build profile → ③ Get matched → ④ Mutual interest
+      → ⑤ Start chatting → ⑥ Interview → ⑦ Offer → ⑧ Sign the contract
+```
+
+Everything from a first swipe to a signed offer lives in **one** respectful, intelligent experience — with coaching built into every step.
+
+---
+
+## ✨ Features
+
+### For candidates
+- 🔥 **Swipeable role deck** with drag gestures, Super Like, and Rewind
+- 🎯 **Explainable fit score** — a flip card breaks down skills, seniority, salary overlap, distance, and work-mode fit with evidence lines
+- 📄 **Resume upload → auto-fill** — drop a PDF/DOCX and your profile fills itself in
+- 💰 **Salary sanity badges** pre-match ("within your range" / "below your minimum"); exact ranges revealed to both sides on match
+- 📍 **Geolocation of opportunities** — real distance matching; meet for coffee in your city, exact location never exposed
+- 🧑‍🏫 **Interview prep** per role, and a **fit-gap coach** that recalculates your score live when you add a skill
+
+### For recruiters & headhunters
+- 🃏 **Talent discovery deck** with full-bleed candidate cards
+- 📋 **Job posting builder** with weighted required skills, work-mode options (remote worldwide / within-country / hybrid radius), mandatory salary, and cover images
+- 🤖 **Import a job** by pasting a URL/text or uploading a description file — parsed into structured fields
+- 📥 **Screening questions** answered by candidates on right-swipe, shown on the pipeline card
+- 🗂️ **Hiring pipeline** (kanban) with idle-match nudges and auto-generated **interview kits**
+- 📊 **Insights** on match quality, response rate, and funnel
+
+### Shared
+- ❤️ **Mutual match → chat → interview scheduling**, with confetti on the "It's a Match" moment
+- 🔐 **Real auth**: email + password, plus **Google & LinkedIn SSO** (OpenID Connect), with signed HttpOnly sessions
+- ✅ **Verified badges**, "Looking for" intent pills, and a colorful Apple-system-color card design
+- 🌐 Responsive web + installable PWA + **iOS & Android** (Capacitor)
+
+---
+
+## 🏗️ Tech overview
+
+**Frontend** — React 19 + TypeScript + Vite, [`motion`](https://motion.dev) for gestures/animation, `lucide-react` icons, `pdfjs-dist` for the in-app resume viewer. Zero UI framework — hand-built, theme-aware CSS.
+
+**Backend** — Node.js + Express REST API. Pure, unit-tested matching & validation logic. Auth uses `node:crypto` scrypt password hashing and HMAC-signed session cookies — **no external auth dependency**.
+
+**Data** — a zero-dependency JSON file store for local dev, swapped for **PostgreSQL** in production behind a single `DATABASE_URL` env var (same interface, durable storage).
+
+**AI-optional** — resume/job parsing and interview coaching use the Claude API when `ANTHROPIC_API_KEY` is set, and fall back to a solid heuristic/template engine otherwise. **The whole demo runs with no external network calls.**
+
+**Mobile** — Capacitor packages the web app for iOS/Android; an Expo QR launcher gives instant phone previews.
+
+```mermaid
+flowchart LR
+  U([User / Browser]) --> W[React + Vite PWA]
+  M([iOS / Android]) --> C[Capacitor shell] --> W
+  W -->|REST + cookie session| A[Express API]
+  A --> S{{Store}}
+  S -->|dev| J[(JSON file)]
+  S -->|prod| P[(PostgreSQL)]
+  A -.optional.-> AI[Claude API]
+  A --> O[Google / LinkedIn OIDC]
+```
+
+### The matching engine
+A candidate↔job **fit score (0–100)** is a weighted blend, stored with a per-factor breakdown so the UI can explain every match:
+
+| Factor | Weight |
+|---|--:|
+| Weighted skill overlap | 40% |
+| Seniority match | 15% |
+| Salary-range overlap | 15% |
+| Distance vs. both radii | 10% |
+| Work-mode compatibility | 10% |
+| Employment-type match | 10% |
+
+---
+
+## 🚀 Getting started
 
 ```bash
+# install
 npm install
+
+# run the full stack (API on :3001 + Vite web on :3000)
 npm run dev
+#   → open http://localhost:3000
+
+# or use the guided launcher (desktop / mobile / production)
+./startdemo.sh
 ```
 
-The web app runs at `http://localhost:3000` and the API at `http://localhost:3001`. The demo database is created at `data/db.json` on first start.
-
-### Test immediately on a phone
-
-Put the phone and computer on the same Wi-Fi, then run:
+The app seeds itself with demo candidates, recruiters, and jobs on first run — **no config or credentials required**. Log in instantly by picking a demo profile, or register a real account.
 
 ```bash
-npm run mobile
+npm run lint     # typecheck (tsc)
+npm test         # server unit tests (matching, auth)
+npm run build    # production web build
 ```
 
-The launcher starts the complete app, finds the computer's local-network address, and prints a QR code to scan. Keep the launcher open while testing. On Windows, double-click `launch-jobmatch-mobile.cmd`; it requests one administrator confirmation, opens a temporary private-Wi-Fi route into WSL, and automatically removes that firewall rule and route when the launcher closes. On Linux/WSL with directly reachable networking, use `./launch-mobile.sh`.
+**Optional integrations** (set as env vars — everything degrades gracefully without them):
 
-If the phone cannot connect, allow Node.js through the computer firewall for private networks. You can override address detection with `MOBILE_HOST=192.168.x.x npm run mobile`.
+| Variable | Enables |
+|---|---|
+| `DATABASE_URL` | PostgreSQL storage instead of the JSON file |
+| `SESSION_SECRET` | Signed session cookies (required in production) |
+| `GOOGLE_CLIENT_ID` / `_SECRET` / `_REDIRECT_URI` | Real Google SSO |
+| `LINKEDIN_CLIENT_ID` / `_SECRET` / `_REDIRECT_URI` | Real LinkedIn SSO |
+| `ANTHROPIC_API_KEY` | Claude-powered parsing & coaching |
+| `DEMO_AUTH` | Keep demo logins alongside real accounts |
 
-Validation:
+---
 
-```bash
-npm test
-npm run lint
-npm run build
+## 📁 Project structure
+
+```
+src/                 React web app (landing + candidate/recruiter workspace)
+  components/          swipe cards, wizards, coaching, auth, landing sections
+  lib/                auth, geolocation, colors, pdf rendering
+server/              Express API
+  matching.js         pure fit-score + mutual-match logic (unit-tested)
+  auth.js             scrypt hashing + rate limiting
+  profile.js jobs.js  profile & job models
+  resume*.js coaching.js  parsing + coaching (Claude-optional)
+  integrations/       Google/LinkedIn OIDC adapters
+marketing/           standalone marketing site (jobsmatchnow.com)
+mobile-expo/         Expo QR preview launcher
+deploy/              AWS + EC2 deployment scripts
 ```
 
-## LinkedIn configuration
+---
 
-1. Create an application in the LinkedIn Developer Portal and add the “Sign In with LinkedIn using OpenID Connect” product.
-2. Copy `.env.example` to `.env` and configure `SESSION_SECRET`, `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, and the exact HTTPS `LINKEDIN_REDIRECT_URI` registered in LinkedIn.
-3. Keep the client secret server-side. The included OAuth flow uses `state`, short-lived signed cookies, least-privilege `openid profile email` scopes, a server-side code exchange, and an HttpOnly login session.
+## ☁️ Deployment
 
-OpenID Connect provides basic member identity data; it must not be marketed as identity verification. LinkedIn job posting and recruiting APIs are restricted partner products. `LINKEDIN_TALENT_SYNC_ENABLED` must remain `false` until LinkedIn provisions the application and an agreement is in place.
+Two tiers, same codebase, no rebuild:
 
-Official references:
+- **Cheap MVP tier** — everything on a single EC2 (nginx + systemd API + local PostgreSQL + daily backups). ~$10/mo.
+- **Managed production tier** — CloudFront + S3 web, ECS Fargate API, RDS PostgreSQL, Secrets Manager. Scripts in `deploy/aws/`.
 
-- [LinkedIn authorization code flow](https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow)
-- [Sign In with LinkedIn using OpenID Connect](https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/sign-in-with-linkedin-v2)
-- [LinkedIn Job Posting API access](https://learn.microsoft.com/en-us/linkedin/talent/job-postings/api/overview)
+Live at **[jobsmatchnow.com](https://jobsmatchnow.com)** · web app at **[/app](https://jobsmatchnow.com/app/)**.
 
-## iOS and Android
+---
 
-Set `VITE_API_BASE_URL` to the public HTTPS API before producing a native build, then sync the web bundle:
+<div align="center">
 
-```bash
-npm run mobile:sync
-npm run mobile:android
-npm run mobile:ios
-```
+**Perfect matches should feel human.**
 
-Android Studio is required for Android signing and release bundles. Xcode on macOS with an Apple Developer account is required for iOS signing, associated domains, and App Store delivery. The `jobmatch://auth/linkedin` callback is registered in both native projects; use verified universal/app links before public release to reduce custom-scheme interception risk.
+Built with React, Express, and mutual intent.
 
-## Production hardening checklist
-
-The repository is a production-oriented product foundation, not a claim that infrastructure and partner credentials already exist. Before public launch:
-
-- Replace the JSON demo store with PostgreSQL and transactions; move sessions and OAuth state to Redis or another shared encrypted store.
-- Add your identity provider, MFA options for recruiters, organization membership, RBAC, audit events, account deletion, and recovery flows.
-- Encrypt provider tokens with a managed KMS and never return them to the browser.
-- Add object storage and malware scanning for resumes and employer assets.
-- Run matching asynchronously, version scoring models, add bias/fairness evaluation, and give people a recommendation appeal/control surface.
-- Add consent records, retention policies, privacy export/deletion, regional data controls, accessibility audits, observability, backups, incident response, and legal review.
-- Add API rate limiting at the edge, CSP and security headers, bot protection, structured logs, metrics, traces, and alerting.
-- Add unit, API integration, end-to-end, accessibility, mobile-device, and load test suites to CI.
-- Complete Apple/Google signing, privacy manifests, store metadata, deep links, push notifications, and release-channel automation.
-
-## Architecture
-
-- `src/`: React/Vite responsive client and installable PWA.
-- `server/`: Express API, matching rules, validation, OAuth, integrations, and demo persistence.
-- `server/matching.js`: deterministic and unit-tested scoring, daily allowance, and reciprocal-match detection.
-- `server/integrations/linkedin.js`: LinkedIn OAuth and job payload adapter.
-- `ios/`, `android/`: generated Capacitor native shells.
-
-The matching engine intentionally returns the evidence behind each score. Mutual matches are created by the API only after reciprocal intent, and duplicate swipes are idempotent.
+</div>
