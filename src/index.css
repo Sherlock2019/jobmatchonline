@@ -158,6 +158,29 @@ button { cursor:pointer; }
 .showcase-person .showcase-skills span { color:var(--accent); border-color:color-mix(in srgb, var(--accent) 35%, white); background:color-mix(in srgb, var(--accent) 8%, white); }
 .showcase-person .showcase-meta .avail { color:var(--accent); font-weight:700; }
 .showcase-job:hover, .showcase-person:hover { transform:translateY(-4px); box-shadow:0 20px 44px rgba(29,53,37,.12); }
+.showcase-job.clickable, .showcase-person.clickable { cursor:pointer; }
+.showcase-job.clickable:focus-visible, .showcase-person.clickable:focus-visible { outline:2px solid var(--green); outline-offset:3px; }
+
+/* Showcase role/person detail modal */
+.showcase-modal { width:min(560px,100%); max-height:calc(100vh - 40px); background:white; border-radius:22px; overflow:hidden auto; position:relative; box-shadow:0 35px 100px rgba(0,0,0,.35); }
+.showcase-modal-close { position:absolute; top:14px; right:14px; z-index:3; background:rgba(255,255,255,.92); }
+.showcase-modal-hero { position:relative; height:190px; background-size:cover; background-position:center; color:white; display:flex; align-items:flex-end; }
+.showcase-modal-hero .showcase-job-logo { position:absolute; inset:0; display:grid; place-items:center; font:800 82px 'Manrope'; color:rgba(255,255,255,.9); }
+.showcase-modal-cap { position:relative; z-index:2; padding:18px 22px; }
+.showcase-modal-cap span { font-size:12px; font-weight:700; opacity:.95; text-shadow:0 1px 8px rgba(0,0,0,.5); }
+.showcase-modal-cap h2 { font:800 26px/1.1 'Manrope'; letter-spacing:-.03em; margin:4px 0 0; text-shadow:0 2px 12px rgba(0,0,0,.5); }
+.showcase-modal-body { padding:20px 24px 24px; }
+.showcase-meta.big { gap:9px; font-size:11px; margin-bottom:14px; }
+.showcase-meta.big .showcase-salary { color:var(--ink); font-weight:800; }
+.showcase-modal-desc { color:#4a5560; font-size:13px; line-height:1.65; margin:0 0 14px; }
+.showcase-modal-list { margin:6px 0 14px; padding-left:20px; display:flex; flex-direction:column; gap:5px; color:#404a54; font-size:12px; line-height:1.55; }
+.showcase-skills.modal { margin:6px 0 4px; }
+.showcase-cta { margin-top:20px; padding:18px; border:1px solid #ffd7e5; background:linear-gradient(135deg,#fff0f5,#f2f8ff); border-radius:16px; }
+.showcase-cta-copy { display:flex; align-items:flex-start; gap:9px; color:#69404f; font-size:12px; line-height:1.5; font-weight:600; margin-bottom:14px; }
+.showcase-cta-copy svg { color:var(--green); flex:none; margin-top:1px; }
+.showcase-cta-actions { display:flex; gap:10px; }
+.showcase-cta-actions .primary-button { flex:1; }
+@media (max-width:520px) { .showcase-cta-actions { flex-direction:column; } }
 .showcase-job-hero, .showcase-person-photo { position:relative; height:150px; background-size:cover; background-position:center; color:white; display:flex; align-items:flex-end; }
 .showcase-job-logo { position:absolute; inset:0; display:grid; place-items:center; font:800 56px 'Manrope'; color:rgba(255,255,255,.9); }
 .showcase-job-cap, .showcase-person-cap { position:relative; z-index:2; padding:14px 16px; }

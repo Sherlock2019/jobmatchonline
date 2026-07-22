@@ -152,7 +152,7 @@ app.get('/api/showcase', async (_req, res, next) => {
     const jobs = db.jobs
       .filter((job) => job.demo || String(job.status).toLowerCase() === 'active')
       .slice(-10).reverse()
-      .map((job) => ({ id: job.id, title: job.title, company: job.company, logo: job.logo, accent: job.accent, location: job.location, workMode: job.workMode, remoteScope: job.remoteScope, country: job.country, salary: job.salary, type: job.type, requiredSkills: (job.requiredSkills || []).slice(0, 4), coverImage: job.coverImage }));
+      .map((job) => ({ id: job.id, title: job.title, company: job.company, logo: job.logo, accent: job.accent, location: job.location, workMode: job.workMode, remoteScope: job.remoteScope, country: job.country, salary: job.salary, type: job.type, department: job.department, requiredSkills: (job.requiredSkills || []).slice(0, 8), description: job.description, responsibilities: (job.responsibilities || []).slice(0, 5), coverImage: job.coverImage }));
     const candidates = db.users
       .filter((user) => user.role === 'candidate' && user.demo)
       .slice(0, 10)

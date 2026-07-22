@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, BriefcaseBusiness, Check, FileText, Heart, Loader2, MapPin, MessageCircle, PenLine, Send, Sparkles, Star, UserPlus } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { ArrowRight, BriefcaseBusiness, Check, FileText, Heart, Loader2, LogIn, MapPin, MessageCircle, PenLine, Send, Sparkles, Star, UserPlus, X } from 'lucide-react';
 import { api, apiBase } from '../api';
 import { appleColor, appleGradient } from '../lib/colors';
 import type { Job, Person, Review } from '../types';
@@ -38,10 +39,11 @@ function workModeShort(job: Job) {
   return job.workMode;
 }
 
-export function LatestShowcase() {
+export function LatestShowcase({ onRegister, onLogin }: { onRegister?: () => void; onLogin?: () => void }) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [candidates, setCandidates] = useState<Person[]>([]);
   const [tab, setTab] = useState<'jobs' | 'people'>('jobs');
+  const [detail, setDetail] = useState<{ kind: 'job'; job: Job } | { kind: 'person'; person: Person } | null>(null);
   useEffect(() => { api.showcase().then((data) => { setJobs(data.jobs); setCandidates(data.candidates); }).catch(() => undefined); }, []);
   if (!jobs.length && !candidates.length) return null;
   return <section className="section showcase-section" id="latest">
@@ -49,19 +51,19 @@ export function LatestShowcase() {
       <div className="showcase-tabs"><button className={tab === 'jobs' ? 'active' : ''} onClick={() => setTab('jobs')}>Latest roles</button><button className={tab === 'people' ? 'active' : ''} onClick={() => setTab('people')}>People matching</button></div>
     </div>
     {tab === 'jobs' ? <div className="showcase-grid">
-      {jobs.map((job) => <article className="showcase-job" key={job.id}>
+      {jobs.map((job) => <article className="showcase-job clickable" key={job.id} role="button" tabIndex={0} onClick={() => setDetail({ kind: 'job', job })} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetail({ kind: 'job', job }); } }}>
         <div className="showcase-job-hero" style={job.coverImage ? { backgroundImage: `linear-gradient(transparent 45%, rgba(0,0,0,.8)), url(${apiBase}${job.coverImage})` } : { background: appleGradient(job.id) }}>
           {!job.coverImage && <span className="showcase-job-logo">{job.logo}</span>}
           <div className="showcase-job-cap"><strong>{job.title}</strong><span>{job.company}</span></div>
         </div>
         <div className="showcase-job-body">
           <div className="showcase-meta"><span><MapPin size={13} />{job.location}</span><span className="mode-badge">{workModeShort(job)}</span></div>
-          <div className="showcase-skills">{job.requiredSkills.map((skill) => <span key={skill}>{skill}</span>)}</div>
+          <div className="showcase-skills">{job.requiredSkills.slice(0, 4).map((skill) => <span key={skill}>{skill}</span>)}</div>
           <div className="showcase-job-foot"><b>{job.salary}</b><em>{job.type}</em></div>
         </div>
       </article>)}
     </div> : <div className="showcase-grid people">
-      {candidates.map((person) => <article className="showcase-person" key={person.id} style={{ ['--accent' as string]: appleColor(person.id) }}>
+      {candidates.map((person) => <article className="showcase-person clickable" key={person.id} role="button" tabIndex={0} style={{ ['--accent' as string]: appleColor(person.id) }} onClick={() => setDetail({ kind: 'person', person })} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetail({ kind: 'person', person }); } }}>
         <div className="showcase-person-photo" style={{ backgroundImage: `linear-gradient(transparent 50%, rgba(0,0,0,.78)), url(${person.photo})` }}>
           <div className="showcase-person-cap"><strong>{person.name}</strong><span>{person.title}</span></div>
         </div>
@@ -71,7 +73,46 @@ export function LatestShowcase() {
         </div>
       </article>)}
     </div>}
+    <AnimatePresence>{detail && <ShowcaseDetailModal detail={detail} onClose={() => setDetail(null)} onRegister={onRegister} onLogin={onLogin} />}</AnimatePresence>
   </section>;
+}
+
+function ShowcaseDetailModal({ detail, onClose, onRegister, onLogin }: { detail: { kind: 'job'; job: Job } | { kind: 'person'; person: Person }; onClose: () => void; onRegister?: () => void; onLogin?: () => void }) {
+  const isJob = detail.kind === 'job';
+  const job = isJob ? detail.job : undefined;
+  const person = !isJob ? detail.person : undefined;
+  const heroStyle = isJob
+    ? (job!.coverImage ? { backgroundImage: `linear-gradient(transparent 40%, rgba(0,0,0,.85)), url(${apiBase}${job!.coverImage})` } : { background: appleGradient(job!.id) })
+    : { backgroundImage: `linear-gradient(transparent 42%, rgba(0,0,0,.85)), url(${person!.photo})` };
+  const cta = () => { onClose(); (onRegister || (() => undefined))(); };
+  return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+    <motion.div className="showcase-modal" initial={{ y: 26, scale: .97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 18, scale: .97 }} onClick={(e) => e.stopPropagation()}>
+      <button className="modal-close showcase-modal-close" onClick={onClose} aria-label="Close"><X /></button>
+      <div className="showcase-modal-hero" style={heroStyle}>
+        {isJob && !job!.coverImage && <span className="showcase-job-logo">{job!.logo}</span>}
+        <div className="showcase-modal-cap"><span>{isJob ? job!.company : person!.title}</span><h2>{isJob ? job!.title : person!.name}</h2></div>
+      </div>
+      <div className="showcase-modal-body">
+        <div className="showcase-meta big">
+          <span><MapPin size={14} />{isJob ? job!.location : person!.location}</span>
+          {isJob ? <span className="mode-badge">{workModeShort(job!)}</span> : (person!.availability && <span className="avail">Available {person!.availability}</span>)}
+          {isJob ? <span><BriefcaseBusiness size={14} />{job!.type}</span> : <span><BriefcaseBusiness size={14} />{person!.experienceLevel}</span>}
+          {isJob && <span className="showcase-salary">{job!.salary}</span>}
+        </div>
+        {isJob && job!.description && <p className="showcase-modal-desc">{job!.description}</p>}
+        {isJob && job!.responsibilities && job!.responsibilities.length > 0 && <><span className="card-label">What you'll do</span><ul className="showcase-modal-list">{job!.responsibilities.map((r) => <li key={r}>{r}</li>)}</ul></>}
+        <span className="card-label">{isJob ? 'Required skills' : 'Top skills'}</span>
+        <div className="showcase-skills modal">{(isJob ? job!.requiredSkills : (person!.skills || [])).map((skill) => <span key={skill}>{skill}</span>)}</div>
+        <div className="showcase-cta">
+          <div className="showcase-cta-copy"><Heart size={16} /><span>{isJob ? 'Register or log in to apply — and start matching with roles like this.' : 'Register or log in to connect with candidates like this.'}</span></div>
+          <div className="showcase-cta-actions">
+            <button className="primary-button" onClick={cta}>{isJob ? 'Register to apply' : 'Register to connect'} <ArrowRight size={17} /></button>
+            <button className="secondary-button" onClick={() => { onClose(); (onLogin || (() => undefined))(); }}><LogIn size={16} /> Log in</button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  </motion.div>;
 }
 
 function Stars({ value, onChange }: { value: number; onChange?: (value: number) => void }) {

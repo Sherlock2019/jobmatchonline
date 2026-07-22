@@ -117,7 +117,7 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     </section>
     <section className="logo-strip"><span>Built for the way modern teams hire</span><div><b>northstar</b><b>CANVAS</b><b>relay</b><b>ORBIT</b><b>stride</b></div></section>
     <JourneyPipeline />
-    <LatestShowcase />
+    <LatestShowcase onRegister={openRegister} onLogin={openLogin} />
     <section className="comparison-section" id="compare">
       <div className="comparison-intro"><div><span className="section-kicker">The hiring upgrade</span><h2>Old hiring creates activity.<br />JobsMatchNow creates alignment.</h2></div><p>Everything candidates and hiring teams need—from first discovery to a qualified conversation—inside one respectful, intelligent experience.</p></div>
       <div className="comparison-table-wrap">

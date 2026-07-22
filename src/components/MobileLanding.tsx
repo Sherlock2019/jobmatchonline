@@ -73,7 +73,7 @@ export function MobileLanding({ onRegister, onLogin }: { onRegister: () => void;
       </div>}
     </section>
 
-    <div className="m-sections"><JourneyPipeline /><LatestShowcase /><FeedbackSection /></div>
+    <div className="m-sections"><JourneyPipeline /><LatestShowcase onRegister={onRegister} onLogin={onLogin} /><FeedbackSection /></div>
 
     <footer className="m-footer"><Brand /><small>© 2026 JobsMatchNow</small></footer>
   </main>;
