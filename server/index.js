@@ -73,6 +73,16 @@ function resolveActor(req, claimedId) {
   const error = new Error('Sign in to continue'); error.status = 401; throw error;
 }
 
+/**
+ * Coexistence guard: without a session, a claimed identity may only be a
+ * demo-flagged account — real users' accounts always require their session.
+ */
+function assertDemoActor(req, db, actorId) {
+  if (authSession(req)) return;
+  const user = db.users.find((item) => item.id === actorId);
+  if (user && user.demo !== true) { const error = new Error('Sign in to continue as this account'); error.status = 401; throw error; }
+}
+
 /** Guard for endpoints that operate on a specific user's own data. */
 function requireSelf(req, userId) {
   const session = authSession(req);
@@ -341,6 +351,7 @@ app.patch('/api/users/:id', async (req, res, next) => {
     const user = await store.transaction((db) => {
       const item = db.users.find((entry) => entry.id === req.params.id);
       if (!item) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, item.id);
       if (item.role === 'candidate') { applyCandidateProfile(item, req.body); item.completeness = candidateCompleteness(item); }
       else { applyRecruiterProfile(item, req.body); item.completeness = recruiterCompleteness(item); }
       return item;
@@ -413,6 +424,7 @@ app.post('/api/users/:id/resume', uploadLimiter, express.raw({ type: () => true,
     const user = await store.transaction((db) => {
       const item = db.users.find((entry) => entry.id === req.params.id);
       if (!item) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, item.id);
       item.documents = { ...(item.documents || {}), resume: meta };
       if (item.role === 'candidate') item.completeness = candidateCompleteness(item);
       return item;
@@ -428,6 +440,7 @@ app.post('/api/users/:id/resume/thumbnail', uploadLimiter, express.raw({ type: '
     const resume = await store.transaction((db) => {
       const item = db.users.find((entry) => entry.id === req.params.id);
       if (!item?.documents?.resume) { const error = new Error('No resume on file'); error.status = 404; throw error; }
+      assertDemoActor(req, db, item.id);
       item.documents.resume.thumbName = `${req.params.id}-${item.documents.resume.id}-thumb.png`;
       delete item.documents.resume.needsClientThumbnail;
       return item.documents.resume;
@@ -484,9 +497,14 @@ async function loadResume(req) {
   const user = db.users.find((entry) => entry.id === req.params.id);
   const resume = user?.documents?.resume;
   if (!resume) { const error = new Error('No resume on file'); error.status = 404; throw error; }
-  // Session identity wins; the query param only counts in demo mode.
+  // Session identity wins; the query param only counts in demo mode, and even
+  // then only for demo-flagged viewers (real identities need their session).
   const session = authSession(req);
-  const viewerId = session ? session.sub : (demoAuth && typeof req.query.viewerId === 'string' ? req.query.viewerId : '');
+  let viewerId = session ? session.sub : (demoAuth && typeof req.query.viewerId === 'string' ? req.query.viewerId : '');
+  if (!session && viewerId) {
+    const claimed = db.users.find((item) => item.id === viewerId);
+    if (claimed && claimed.demo !== true) viewerId = '';
+  }
   return { db, user, resume, viewerId };
 }
 
@@ -572,6 +590,7 @@ app.post('/api/jobs', async (req, res, next) => {
     const job = await store.transaction((db) => {
       const employer = db.users.find((user) => user.id === employerId && user.role === 'employer');
       if (!employer) throw new ValidationError('employerId', 'Unknown recruiter account');
+      assertDemoActor(req, db, employerId);
       const created = applyJob({
         id: `j-${crypto.randomUUID().slice(0, 8)}`, employerId,
         company: employer.company || employer.name,
@@ -597,6 +616,7 @@ app.patch('/api/jobs/:id', async (req, res, next) => {
       const item = db.jobs.find((entry) => entry.id === req.params.id);
       if (!item) { const error = new Error('Job not found'); error.status = 404; throw error; }
       if (session && item.employerId !== session.sub) { const error = new Error('You can only edit your own postings'); error.status = 403; throw error; }
+      assertDemoActor(req, db, item.employerId); // a real user's posting needs their session
       return applyJob(item, req.body);
     });
     res.json({ job });
@@ -677,6 +697,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
     const fallbackRole = req.query.role === 'employer' ? 'employer' : 'candidate';
     const viewer = db.users.find((user) => user.id === requestedId) || (demoAuth ? db.users.find((user) => user.id === `${fallbackRole}-demo`) : undefined);
     if (!viewer) { const error = new Error('Sign in to continue'); error.status = 401; throw error; }
+    assertDemoActor(req, db, viewer.id);
     const role = viewer.role === 'employer' ? 'employer' : 'candidate';
     const candidates = db.users.filter((user) => user.role === 'candidate');
     // Mutual salary reveal: exact ranges are hidden until both sides matched.
@@ -727,7 +748,8 @@ app.post('/api/swipes', async (req, res, next) => {
       : undefined;
     const result = await store.transaction((db) => {
       const actor = db.users.find((user) => user.id === actorId);
-      if (!actor) throw new ValidationError('actorId', 'Unknown demo user');
+      if (!actor) throw new ValidationError('actorId', 'Unknown user');
+      assertDemoActor(req, db, actorId);
       if (direction === 'like' && likesRemainingToday(db.swipes, actorId) <= 0) {
         const error = new Error('Daily like limit reached'); error.status = 429; throw error;
       }
@@ -758,6 +780,7 @@ app.patch('/api/matches/:id', async (req, res, next) => {
       const item = db.matches.find((entry) => entry.id === req.params.id);
       if (!item) { const error = new Error('Match not found'); error.status = 404; throw error; }
       if (session && item.candidateId !== session.sub && item.employerId !== session.sub) { const error = new Error('Only the matched parties can update this match'); error.status = 403; throw error; }
+      assertDemoActor(req, db, item.employerId); // matches involving a real account need a party session
       item.stage = stage;
       item.stageChangedAt = Date.now(); // idle-time tracking for pipeline nudges
       return item;
@@ -774,6 +797,7 @@ app.post('/api/messages', async (req, res, next) => {
     const message = await store.transaction((db) => {
       const match = db.matches.find((item) => item.id === matchId);
       if (!match) { const error = new Error('Match not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, senderId);
       if (authSession(req) && senderId !== match.candidateId && senderId !== match.employerId) {
         const error = new Error('Only the matched parties can message this thread'); error.status = 403; throw error;
       }
