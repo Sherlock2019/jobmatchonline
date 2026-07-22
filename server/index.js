@@ -41,6 +41,11 @@ await store.transaction((db) => {
 console.log(`JobMatch store: ${process.env.DATABASE_URL ? 'postgresql (RDS)' : 'json file'}`);
 const demoDistances = { 'j-1': 7, 'j-2': 18, 'j-3': 42, 'j-4': 75, 'c-1': 5, 'c-2': 26, 'c-3': 12, 'c-4': 65 };
 
+/** A profile counts as verified once it's SSO-authenticated or well filled in. */
+function verifiedUser(user) {
+  return Boolean(user && (user.authProvider || user.provider === 'google' || user.provider === 'linkedin' || (user.completeness ?? 0) >= 80));
+}
+
 /** Great-circle distance in km between two {lat,lng} points. */
 function haversineKm(a, b) {
   if (!a || !b) return undefined;
@@ -773,7 +778,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
         delete withDistance.salary; delete withDistance.salaryRange;
         withDistance.salaryHidden = true;
       }
-      return { ...withDistance, match, superLikedYou: employerIdsWhoSuperLikedMe.has(job.employerId) };
+      return { ...withDistance, match, superLikedYou: employerIdsWhoSuperLikedMe.has(job.employerId), verified: verifiedUser(db.users.find((u) => u.id === job.employerId)) };
     });
     // Score candidates against this recruiter's own (first active) job when possible.
     const referenceJob = db.jobs.find((job) => job.employerId === viewer.id && String(job.status).toLowerCase() === 'active')
@@ -788,7 +793,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
         withDistance.preferences = { ...withDistance.preferences, salary: undefined };
         withDistance.salaryHidden = true;
       }
-      return { ...withDistance, match, superLikedYou: candidatesWhoSuperLikedMyJobs.has(candidate.id) };
+      return { ...withDistance, match, superLikedYou: candidatesWhoSuperLikedMyJobs.has(candidate.id), verified: verifiedUser(candidate) };
     });
     const matches = db.matches.filter((match) => role === 'candidate' ? match.candidateId === viewer.id : match.employerId === viewer.id).map((match) => ({
       ...match,

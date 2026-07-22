@@ -18,7 +18,7 @@ export function CandidateProfilePage({ viewer, onEdit }: { viewer: Person; onEdi
       <img src={p.photo} alt="" />
       <div>
         <span className="overline">Your candidate profile</span>
-        <h1>{p.name}</h1>
+        <h1>{p.name}{((p.completeness ?? 0) >= 80 || p.provider === 'google' || p.provider === 'linkedin') && <BadgeCheck size={22} className="verified-mark" />}</h1>
         <p>{p.headline || p.title}{p.city ? ` · ${p.city}${p.country ? `, ${p.country}` : ''}` : ''}</p>
         <div className="skill-list">{(p.skillsDetail?.map((skill) => skill.name) || p.skills || []).slice(0, 6).map((skill) => <span key={skill}>{skill}</span>)}</div>
       </div>

@@ -1,4 +1,4 @@
-import { Building2, CalendarClock, Globe, Linkedin, MapPin, Pencil, Phone, UserSearch } from 'lucide-react';
+import { BadgeCheck, Building2, CalendarClock, Globe, Linkedin, MapPin, Pencil, Phone, UserSearch } from 'lucide-react';
 import type { Person } from '../../types';
 
 function Section({ title, step, onEdit, children }: { title: string; step: number; onEdit: (step: number) => void; children: React.ReactNode }) {
@@ -16,7 +16,7 @@ export function RecruiterProfilePage({ viewer, onEdit }: { viewer: Person; onEdi
       <img src={headhunter ? p.photo : (p.companyLogo || p.photo)} alt="" />
       <div>
         <span className="overline">{headhunter ? 'Headhunter / agency profile' : 'Company profile'}</span>
-        <h1>{headhunter ? p.name : (p.company || p.name)}</h1>
+        <h1>{headhunter ? p.name : (p.company || p.name)}{((p.completeness ?? 0) >= 80 || p.provider === 'google' || p.provider === 'linkedin') && <BadgeCheck size={22} className="verified-mark" />}</h1>
         <p>{headhunter ? `${p.title} · ${p.company}` : `${p.industry || ''}${p.headquarters ? ` · HQ ${p.headquarters}` : ''}`}</p>
         <div className="skill-list">{(headhunter ? p.specializations : p.techStack)?.slice(0, 6).map((tag) => <span key={tag}>{tag}</span>)}</div>
       </div>
