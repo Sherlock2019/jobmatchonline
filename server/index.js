@@ -38,8 +38,14 @@ await store.transaction((db) => {
       else for (const [key, value] of Object.entries(item)) if (existing[key] === undefined) existing[key] = value;
     }
   }
-  // Seed starter reviews the first time (public landing feedback section).
-  if (!Array.isArray(db.feedback) || db.feedback.length === 0) db.feedback = seed.feedback || [];
+  // Merge seed reviews by id and backfill `approved` on them, so the starter
+  // reviews stay visible after the moderation field was introduced.
+  if (!Array.isArray(db.feedback)) db.feedback = [];
+  for (const f of seed.feedback || []) {
+    const existing = db.feedback.find((entry) => entry.id === f.id);
+    if (!existing) db.feedback.push(f);
+    else if (existing.approved === undefined) existing.approved = f.approved;
+  }
 });
 console.log(`JobMatch store: ${process.env.DATABASE_URL ? 'postgresql (RDS)' : 'json file'}`);
 const demoDistances = { 'j-1': 7, 'j-2': 18, 'j-3': 42, 'j-4': 75, 'c-1': 5, 'c-2': 26, 'c-3': 12, 'c-4': 65 };
