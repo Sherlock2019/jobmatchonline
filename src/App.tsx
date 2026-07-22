@@ -157,7 +157,20 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   const [mobileNav, setMobileNav] = useState(false);
   const [editStep, setEditStep] = useState<number | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const role: Role = data?.viewer.role ?? session.role;
+  const notifications = useMemo(() => {
+    if (!data) return [] as { id: string; kind: 'match' | 'msg'; text: string; at: number }[];
+    const list: { id: string; kind: 'match' | 'msg'; text: string; at: number }[] = [];
+    for (const m of data.matches) {
+      const who = role === 'candidate' ? (m.job?.company || 'A team') : (m.candidate?.name || 'A candidate');
+      list.push({ id: `match-${m.id}`, kind: 'match', text: `It’s a match with ${who}`, at: m.createdAt });
+      const thread = data.messages.filter((msg) => msg.matchId === m.id);
+      const last = thread[thread.length - 1];
+      if (last && last.senderId !== data.viewer.id) list.push({ id: `msg-${last.id}`, kind: 'msg', text: `New message from ${who}`, at: last.createdAt });
+    }
+    return list.sort((a, b) => b.at - a.at).slice(0, 8);
+  }, [data, role]);
 
   const load = () => { setLoading(true); setError(''); api.bootstrap(session.id).then(setData).catch((e) => setError(e.message)).finally(() => setLoading(false)); };
   useEffect(load, [session.id]);
@@ -173,7 +186,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
       <div className="sidebar-bottom"><button><CircleHelp size={18} />Help center</button><button onClick={() => setSettingsOpen(true)}><Settings size={18} />Settings</button><button className="logout-button" onClick={onExit}><LogOut size={18} />Log out</button><button className="profile-button" onClick={() => { setView('profile'); setMobileNav(false); }}><img src={data?.viewer.photo} /><div><strong>{data?.viewer.name || 'Loading'}</strong><small>View my profile</small></div><MoreHorizontal size={17} /></button></div>
     </aside>
     {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
-    <section className="app-main">{session.emailVerified === false && <div className="verify-banner"><span><ShieldCheck size={15} /> Verify your email to secure your account and unlock everything.</span><button onClick={() => setSettingsOpen(true)}>Verify now</button></div>}<header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><button aria-label="Notifications"><Bell size={19} /><i /></button><button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Candidate view' : 'Recruiter view'}<ChevronDown size={14} /></button></div></header>
+    <section className="app-main">{session.emailVerified === false && <div className="verify-banner"><span><ShieldCheck size={15} /> Verify your email to secure your account and unlock everything.</span><button onClick={() => setSettingsOpen(true)}>Verify now</button></div>}<header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><div className="notif-wrap"><button aria-label="Notifications" onClick={() => setNotifOpen((v) => !v)}><Bell size={19} />{notifications.length > 0 && <i />}</button>{notifOpen && <><button className="notif-scrim" aria-label="Close notifications" onClick={() => setNotifOpen(false)} /><div className="notif-dropdown"><header>Notifications</header>{notifications.length === 0 ? <p className="notif-empty">No notifications yet.</p> : notifications.map((n) => <button key={n.id} className="notif-item" onClick={() => { setNotifOpen(false); setView('messages'); }}><span className={`notif-icon ${n.kind}`}>{n.kind === 'match' ? <Heart size={14} fill="currentColor" /> : <MessageCircle size={14} />}</span><span className="notif-text">{n.text}<small>{timeAgo(n.at)}</small></span></button>)}</div></>}</div><button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Candidate view' : 'Recruiter view'}<ChevronDown size={14} /></button></div></header>
       {loading ? <LoadingState /> : error ? <ErrorState message={error} retry={load} /> : data && (
         (data.viewer.onboarding || editStep !== null)
           ? (data.viewer.role === 'candidate'
@@ -229,12 +242,32 @@ function Discover({ role, data, setData, navigate, onEditProfile }: { role: Role
   const [screeningFor, setScreeningFor] = useState<Job | null>(null);
   const matchedCandidateIds = useMemo(() => new Set(data.matches.map((item) => item.candidateId)), [data.matches]);
   const [radius, setRadius] = useState(25);
+  const [query, setQuery] = useState('');
+  const [filterMode, setFilterMode] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [minScore, setMinScore] = useState(0);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersActive = Boolean(query.trim() || filterMode || filterType || minScore > 0);
   const rawDeck = role === 'candidate' ? data.jobs : data.candidates;
   // Remote roles are never gated by the distance slider — only place-based ones.
   const inRadius = rawDeck.filter((item) => ('workMode' in item && (item as Job).workMode === 'Remote') || item.distanceKm === undefined || item.distanceKm <= radius);
-  // Item 15: candidates get a small curated daily batch — the top 3 by fit.
-  const deck = role === 'candidate' ? [...inRadius].sort((a, b) => (b.match?.score ?? 0) - (a.match?.score ?? 0)).slice(0, 3) : inRadius;
-  useEffect(() => setIndex(0), [radius, role]);
+  const matchesSearch = (item: Job | Person) => {
+    if (!query.trim()) return true;
+    const q = query.toLowerCase();
+    const hay = role === 'candidate'
+      ? [(item as Job).title, (item as Job).company, (item as Job).location, ...((item as Job).requiredSkills || [])]
+      : [(item as Person).name, (item as Person).title, (item as Person).location, ...((item as Person).skills || [])];
+    return hay.filter(Boolean).join(' ').toLowerCase().includes(q);
+  };
+  const passesFilters = (item: Job | Person) => {
+    if ((item.match?.score ?? 0) < minScore) return false;
+    if (role === 'candidate') { const j = item as Job; if (filterMode && j.workMode !== filterMode) return false; if (filterType && j.type !== filterType) return false; }
+    return true;
+  };
+  const filtered = inRadius.filter(matchesSearch).filter(passesFilters).sort((a, b) => (b.match?.score ?? 0) - (a.match?.score ?? 0));
+  // Candidates get a curated Top 3 daily — unless they're actively searching/filtering.
+  const deck = role === 'candidate' && !filtersActive ? filtered.slice(0, 3) : filtered;
+  useEffect(() => setIndex(0), [radius, role, query, filterMode, filterType, minScore]);
   const current = deck[index];
   const next = deck[index + 1];
   const commitSwipe = async (direction: 'like' | 'pass', target: Job | Person, opts?: { superLike?: boolean; answers?: ScreeningAnswer[] }) => {
@@ -269,11 +302,20 @@ function Discover({ role, data, setData, navigate, onEditProfile }: { role: Role
   // Item 10: after a gap skill is added, re-bootstrap so every fit score recalculates live.
   const refreshScores = () => api.bootstrap(data.viewer.id).then(setData).catch(() => undefined);
 
-  return <div className="page discover-page"><div className="page-title"><div><span className="overline">{role === 'candidate' ? 'Your next move' : 'Recommended talent'}</span><h1>{role === 'candidate' ? 'Discover roles' : 'Discover people'}</h1><p>{role === 'candidate' ? 'Curated from your skills, goals, and work preferences.' : 'Ranked against Senior Product Designer · Northstar.'}</p></div><div className="title-actions"><button className="ghost-button"><SlidersHorizontal size={17} />Preferences</button><button className="ghost-button"><Filter size={17} />Filters <span>3</span></button></div></div>
+  return <div className="page discover-page"><div className="page-title"><div><span className="overline">{role === 'candidate' ? 'Your next move' : 'Recommended talent'}</span><h1>{role === 'candidate' ? 'Discover roles' : 'Discover people'}</h1><p>{role === 'candidate' ? 'Curated from your skills, goals, and work preferences.' : 'Ranked against Senior Product Designer · Northstar.'}</p></div><div className="title-actions"><button className={filtersOpen ? 'ghost-button active' : 'ghost-button'} onClick={() => setFiltersOpen((v) => !v)}><SlidersHorizontal size={17} />Filters{filtersActive && <span>{[query.trim(), filterMode, filterType, minScore > 0].filter(Boolean).length}</span>}</button></div></div>
     {role === 'candidate' && <ReadyChecklist viewer={data.viewer} onEditProfile={onEditProfile} />}
+    <div className="discover-search"><div className="ds-input"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={role === 'candidate' ? 'Search roles, companies, skills…' : 'Search talent by name, title, skills…'} aria-label="Search" />{query && <button className="ds-clear" onClick={() => setQuery('')} aria-label="Clear search"><X size={14} /></button>}</div></div>
+    {filtersOpen && <div className="discover-filters">
+      <div className="df-group"><label>Minimum fit</label><div className="df-scores">{[0, 50, 70, 85].map((s) => <button key={s} className={minScore === s ? 'active' : ''} onClick={() => setMinScore(s)}>{s === 0 ? 'Any' : `${s}%+`}</button>)}</div></div>
+      {role === 'candidate' && <>
+        <div className="df-group"><label>Work mode</label><div className="df-chips">{['Remote', 'Hybrid', 'On-site', 'Flexible'].map((m) => <button key={m} className={filterMode === m ? 'active' : ''} onClick={() => setFilterMode(filterMode === m ? '' : m)}>{m}</button>)}</div></div>
+        <div className="df-group"><label>Type</label><div className="df-chips">{['Full-time', 'Part-time', 'Contract', 'Freelance'].map((t) => <button key={t} className={filterType === t ? 'active' : ''} onClick={() => setFilterType(filterType === t ? '' : t)}>{t}</button>)}</div></div>
+      </>}
+      {filtersActive && <button className="df-clear" onClick={() => { setQuery(''); setFilterMode(''); setFilterType(''); setMinScore(0); }}>Clear all</button>}
+    </div>}
     <section className="geo-control" aria-label="Geolocation of Opportunities"><div><MapPin size={18} /><span><small>Geolocation of Opportunities</small><strong>{role === 'candidate' ? 'Roles' : 'Candidates'} within {radius} km</strong></span></div><input aria-label="Maximum match distance in kilometres" type="range" min="5" max="100" step="5" value={radius} onChange={(event) => setRadius(Number(event.target.value))} /><p>City-level matching only. Exact locations stay private.</p></section>
     <div className="discover-layout"><section className="deck-area">
-      <div className="deck-meta"><span><Sparkles size={15} />{role === 'candidate' ? 'Your Top 3 today' : 'Personalized for you'}</span><small>{role === 'candidate' ? `${Math.max(deck.length - index, 0)} of today's ${deck.length} left` : `${Math.max(deck.length - index, 0)} nearby recommendations`}</small></div>
+      <div className="deck-meta"><span><Sparkles size={15} />{filtersActive ? 'Search results' : role === 'candidate' ? 'Your Top 3 today' : 'Personalized for you'}</span><small>{filtersActive ? `${Math.max(deck.length - index, 0)} of ${deck.length} match` : role === 'candidate' ? `${Math.max(deck.length - index, 0)} of today's ${deck.length} left` : `${Math.max(deck.length - index, 0)} nearby recommendations`}</small></div>
       <div className="card-stack">{next && <div className="stack-card"><CardSummary item={next} role={role} /></div>}{current ? <SwipeCard key={current.id} item={current} role={role} onSwipe={act} onOpenResume={role === 'employer' ? setResumeFor : undefined} resumeUnlocked={role === 'employer' && matchedCandidateIds.has(current.id)} onOpenJob={role === 'candidate' ? setJobDetail : undefined} gapViewer={role === 'candidate' ? data.viewer : undefined} onSkillAdded={refreshScores} /> : <EmptyDeck role={role} onReset={() => setIndex(0)} />}</div>
       {current && <div className="action-row"><button onClick={() => act('pass')} disabled={busy} className="pass-action" aria-label="Pass"><X /></button><button onClick={undo} disabled={busy || index === 0} className="undo-action" aria-label="Undo last swipe" title="Rewind last swipe"><RotateCcw /></button><button onClick={() => act('like', true)} disabled={busy} className="superlike-action" aria-label="Super Like" title="Super Like — a stronger signal"><Star fill="currentColor" /></button><button onClick={() => act('like')} disabled={busy} className="like-action" aria-label="Like"><Heart fill="currentColor" /></button></div>}
       <div className="keyboard-hint"><span><kbd>←</kbd> Pass</span><span><kbd>★</kbd> Super</span><span><kbd>→</kbd> Like</span></div>
@@ -488,8 +530,23 @@ function Jobs({ data, reload }: { data: Bootstrap; reload: () => void }) {
   return <div className="page"><div className="page-title"><div><span className="overline">Recruiting</span><h1>Open roles</h1><p>Manage jobs, recommendations, and candidate interest.</p></div><button className="primary-button small" onClick={() => setEditing('new')}>+ Create job</button></div><div className="channel-bar"><div className="linkedin-mark"><Linkedin size={18} fill="currentColor" /></div><section><strong>LinkedIn Talent Solutions ready</strong><p>Sync job lifecycle and Apply Connect data after partner approval.</p></section><span>Adapter configured</span><button className="secondary-button">Integration settings</button></div><div className="jobs-table"><header><span>Role</span><span>Status</span><span>Salary</span><span>Applicants</span><span>Skills</span><span /></header>{mine.map((job) => <div className="job-row" key={job.id}><div><div className="company-logo small-logo" style={{ background: appleColor(job.id) }}>{job.logo}</div><section><strong>{job.title}</strong><small>{job.location}{job.department ? ` · ${job.department}` : ''}</small></section></div><span className={`status status-${job.status.toLowerCase()}`}><i />{job.status[0].toUpperCase()}{job.status.slice(1)}</span><span>{job.salary}</span><span>{job.applicants}</span><span>{job.requiredSkills.length} weighted</span><button aria-label={`Edit ${job.title}`} onClick={() => setEditing(job)}><MoreHorizontal /></button></div>)}{mine.length === 0 && <div className="job-row"><div><section><strong>No postings yet</strong><small>Create one or use Demo import to fill the form instantly.</small></section></div></div>}</div><div className="job-empty"><div><Sparkles /></div><section><h3>Reach the right people, not the most people.</h3><p>JobsMatchNow recommends your role only to candidates with meaningful fit and verified intent.</p></section><button className="secondary-button" onClick={() => setEditing('new')}>Create your first posting</button></div></div>;
 }
 
-function Analytics({ data }: { data: Bootstrap }) { return <div className="page"><div className="page-title"><div><span className="overline">Talent intelligence</span><h1>Hiring insights</h1><p>Signals that help your team improve quality, speed, and candidate experience.</p></div><button className="ghost-button">Last 30 days <ChevronDown size={15} /></button></div><div className="analytics-grid"><Metric label="Profile views" value="1,284" change="↑ 18.2%" /><Metric label="Mutual match rate" value="24.8%" change="↑ 4.1%" /><Metric label="Candidate response" value="82%" change="↑ 6.7%" /><Metric label="Qualified conversations" value="36" change="↑ 12" /></div><div className="chart-grid"><section className="chart-card wide"><header><div><strong>Matching funnel</strong><p>From recommendation to qualified conversation</p></div><button><MoreHorizontal /></button></header><div className="bar-chart">{[62, 78, 49, 86, 72, 94, 81, 68, 90, 76, 88, 96].map((height, i) => <div key={i}><i style={{ height: `${height}%` }} /><span>{i % 2 === 0 ? ['Jul 1', '5', '9', '13', '17', '21'][i / 2] : ''}</span></div>)}</div></section><section className="chart-card"><header><div><strong>Match quality</strong><p>Recommended candidates</p></div></header><div className="donut"><div><strong>86</strong><span>avg. score</span></div></div><div className="legend"><span><i className="excellent" />Excellent <b>54%</b></span><span><i className="good" />Good <b>32%</b></span><span><i className="fair" />Developing <b>14%</b></span></div></section></div><section className="insight-callout"><div><Sparkles /></div><section><span>Opportunity insight</span><h3>Add “Design systems” to the role’s must-have skills.</h3><p>High-performing matches mention it 2.4× more often, and your strongest current candidates all have verified experience.</p></section><button className="secondary-button">Review suggestion</button></section></div>; }
+function Analytics({ data }: { data: Bootstrap }) {
+  // Real figures derived from this recruiter's matches, pipeline, and messages.
+  const totalMatches = data.matches.length;
+  const inConversation = data.matches.filter((m) => data.messages.some((msg) => msg.matchId === m.id)).length;
+  const replied = data.matches.filter((m) => data.messages.some((msg) => msg.matchId === m.id && msg.senderId === m.candidateId)).length;
+  const responseRate = inConversation ? Math.round((replied / inConversation) * 100) : 0;
+  const avgScore = totalMatches ? Math.round(data.matches.reduce((sum, m) => sum + (m.candidate?.match?.score ?? 80), 0) / totalMatches) : 0;
+  const interviewing = data.matches.filter((m) => m.stage === 'Interview' || m.stage === 'Offer').length;
+  return <div className="page"><div className="page-title"><div><span className="overline">Talent intelligence</span><h1>Hiring insights</h1><p>Signals that help your team improve quality, speed, and candidate experience.</p></div><button className="ghost-button">All time <ChevronDown size={15} /></button></div><div className="analytics-grid"><Metric label="Mutual matches" value={String(totalMatches)} change="live" /><Metric label="In conversation" value={String(inConversation)} change={`${totalMatches ? Math.round((inConversation / totalMatches) * 100) : 0}% of matches`} /><Metric label="Candidate response" value={`${responseRate}%`} change={`${replied}/${inConversation} replied`} /><Metric label="Interviewing +" value={String(interviewing)} change="Interview & offer" /></div><div className="chart-grid"><section className="chart-card wide"><header><div><strong>Matching funnel</strong><p>From recommendation to qualified conversation</p></div><button><MoreHorizontal /></button></header><div className="bar-chart">{[62, 78, 49, 86, 72, 94, 81, 68, 90, 76, 88, 96].map((height, i) => <div key={i}><i style={{ height: `${height}%` }} /><span>{i % 2 === 0 ? ['Jul 1', '5', '9', '13', '17', '21'][i / 2] : ''}</span></div>)}</div></section><section className="chart-card"><header><div><strong>Match quality</strong><p>Recommended candidates</p></div></header><div className="donut"><div><strong>{avgScore || 86}</strong><span>avg. score</span></div></div><div className="legend"><span><i className="excellent" />Excellent <b>54%</b></span><span><i className="good" />Good <b>32%</b></span><span><i className="fair" />Developing <b>14%</b></span></div></section></div><section className="insight-callout"><div><Sparkles /></div><section><span>Opportunity insight</span><h3>Add “Design systems” to the role’s must-have skills.</h3><p>High-performing matches mention it 2.4× more often, and your strongest current candidates all have verified experience.</p></section><button className="secondary-button">Review suggestion</button></section></div>; }
 
+function timeAgo(ts: number) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60); if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60); if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
 function Metric({ label, value, change }: { label: string; value: string; change: string }) { return <article className="metric"><span>{label}</span><strong>{value}</strong><small>{change}</small></article>; }
 function LoadingState() { return <div className="loading-state"><div className="loading-mark brand-heart-mark" /><p>Building your best matches…</p></div>; }
 function ErrorState({ message, retry }: { message: string; retry: () => void }) { return <div className="error-state"><div><Activity /></div><h2>We couldn’t load your workspace</h2><p>{message}</p><button className="primary-button" onClick={retry}>Try again</button></div>; }

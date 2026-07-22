@@ -909,6 +909,36 @@ button { cursor:pointer; }
 .resume-lock-note { display:flex; align-items:center; gap:8px; margin-bottom:14px; padding:11px 14px; border:1px solid #f3cfdd; background:#fff1f6; color:#a1355f; border-radius:11px; font-size:11px; font-weight:600; }
 .resume-anon-badge { margin-top:12px; text-align:center; color:var(--muted); font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; }
 
+/* ── Discover search + filters ── */
+.discover-search { max-width:965px; margin:0 auto 12px; }
+.ds-input { display:flex; align-items:center; gap:9px; background:white; border:1px solid var(--line); border-radius:13px; padding:0 14px; min-height:46px; color:#8a958e; }
+.ds-input:focus-within { border-color:var(--green); box-shadow:0 0 0 3px rgba(253,38,122,.1); }
+.ds-input input { flex:1; min-width:0; border:0; outline:0; background:transparent; font-size:13px; color:var(--ink); }
+.ds-clear { border:0; background:#f1f3f0; border-radius:50%; width:24px; height:24px; display:grid; place-items:center; color:#8a958e; flex:none; }
+.title-actions .ghost-button.active { border-color:var(--green); background:#fff0f5; color:var(--green); }
+.discover-filters { max-width:965px; margin:0 auto 14px; padding:14px 16px; border:1px solid var(--line); background:white; border-radius:14px; display:flex; flex-wrap:wrap; align-items:center; gap:18px; }
+.df-group { display:flex; align-items:center; gap:9px; }
+.df-group>label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+.df-scores, .df-chips { display:flex; flex-wrap:wrap; gap:6px; }
+.df-scores button, .df-chips button { min-height:32px; padding:0 12px; border:1px solid var(--line); background:white; border-radius:999px; font-size:11px; font-weight:700; color:var(--muted); }
+.df-scores button.active, .df-chips button.active { border-color:var(--green); background:#fff0f5; color:var(--green); }
+.df-clear { margin-left:auto; border:0; background:none; color:var(--green); font-size:11px; font-weight:800; }
+
+/* ── Notifications dropdown ── */
+.notif-wrap { position:relative; }
+.notif-scrim { position:fixed; inset:0; z-index:40; border:0; background:transparent; }
+.notif-dropdown { position:absolute; z-index:41; top:calc(100% + 8px); right:0; width:300px; max-height:380px; overflow-y:auto; background:white; border:1px solid var(--line); border-radius:14px; box-shadow:0 20px 50px rgba(20,38,80,.18); padding:6px; }
+.notif-dropdown>header { padding:10px 12px 8px; font:800 12px 'Manrope'; }
+.notif-empty { padding:16px 12px; color:var(--muted); font-size:11px; }
+.notif-item { width:100%; display:flex; align-items:flex-start; gap:10px; padding:10px; border:0; background:none; border-radius:10px; text-align:left; }
+.notif-item:hover { background:#f7f8f5; }
+.notif-icon { width:30px; height:30px; flex:none; border-radius:9px; display:grid; place-items:center; }
+.notif-icon.match { background:#fff0f5; color:var(--green); }
+.notif-icon.msg { background:#edf7ff; color:var(--blue); }
+.notif-text { display:flex; flex-direction:column; font-size:11px; font-weight:600; color:var(--ink); }
+.notif-text small { color:var(--muted); font-size:9px; font-weight:600; margin-top:2px; }
+@media (max-width:650px) { .notif-dropdown { position:fixed; top:60px; right:10px; left:10px; width:auto; } .discover-filters { gap:12px; } }
+
 /* ── Verify banner + settings/privacy ── */
 .verify-banner { display:flex; align-items:center; justify-content:center; gap:12px; padding:9px 16px; background:linear-gradient(90deg,#fff7e6,#fff0f5); border-bottom:1px solid #fbe2b8; color:#9a6b12; font-size:11px; font-weight:600; }
 .verify-banner span { display:inline-flex; align-items:center; gap:7px; }
