@@ -22,6 +22,16 @@ $SSH "set -e
     || sudo -u postgres createdb -O jobsmatch jobsmatchnow
   grep -q '^DATABASE_URL=' /etc/jobsmatchnow-api.env 2>/dev/null \
     || echo \"DATABASE_URL=postgresql://jobsmatch:\$PW@localhost:5432/jobsmatchnow\" | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
+  # Real auth needs a stable session secret; demo logins stay on for the showcase;
+  # uploads live outside the release dir so resumes survive deploys.
+  grep -q '^SESSION_SECRET=' /etc/jobsmatchnow-api.env 2>/dev/null \
+    || echo \"SESSION_SECRET=\$(head -c 48 /dev/urandom | base64 | tr -dc A-Za-z0-9 | head -c 40)\" | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
+  grep -q '^DEMO_AUTH=' /etc/jobsmatchnow-api.env 2>/dev/null \
+    || echo 'DEMO_AUTH=true' | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
+  grep -q '^UPLOADS_DIR=' /etc/jobsmatchnow-api.env 2>/dev/null \
+    || echo 'UPLOADS_DIR=/var/lib/jobsmatchnow/uploads' | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
+  sudo mkdir -p /var/lib/jobsmatchnow/uploads/resumes
+  sudo chown -R www-data:www-data /var/lib/jobsmatchnow/uploads
   echo 'postgres ready'"
 
 echo "== 2/6 ship new API release (with the PostgreSQL store) =="
