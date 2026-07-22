@@ -62,18 +62,34 @@ export function scoreCandidateForJob(candidate, job) {
   // Salary
   const salary = salaryCompatibility(candidate.preferences?.salary, job.salaryRange);
 
-  // Distance vs both radii
-  const distanceKm = job.distanceKm ?? candidate.distanceKm;
+  // Distance / location — work-mode aware. Remote-worldwide ignores distance;
+  // remote-within-country checks the country; on-site/hybrid use the radii.
   let distanceScore = 0.7;
   let distanceEvidence = 'Distance not compared yet.';
-  if (distanceKm !== undefined) {
-    const withinCandidate = candidate.distanceRangeKm !== undefined ? distanceKm <= candidate.distanceRangeKm : undefined;
-    const withinJob = job.hiringRadiusKm !== undefined ? distanceKm <= job.hiringRadiusKm : undefined;
-    const known = [withinCandidate, withinJob].filter((value) => value !== undefined);
-    if (known.length === 0) { distanceScore = 0.7; }
-    else if (known.every(Boolean)) { distanceScore = 1; distanceEvidence = `${distanceKm} km apart — inside both distance preferences.`; }
-    else if (known.some(Boolean)) { distanceScore = 0.4; distanceEvidence = `${distanceKm} km apart — inside one side's preferred range.`; }
-    else { distanceScore = 0; distanceEvidence = `${distanceKm} km apart — outside both preferred ranges.`; }
+  if (job.workMode === 'Remote') {
+    if (job.remoteScope === 'country') {
+      const jobCountry = job.country;
+      if (candidate.country && jobCountry) {
+        const same = candidate.country.trim().toLowerCase() === jobCountry.trim().toLowerCase();
+        distanceScore = same ? 1 : 0.2;
+        distanceEvidence = same ? `Remote within ${jobCountry} — you're eligible.` : `Remote, but restricted to ${jobCountry}.`;
+      } else {
+        distanceScore = 0.85; distanceEvidence = jobCountry ? `Remote within ${jobCountry}.` : 'Remote within the hiring country.';
+      }
+    } else {
+      distanceScore = 1; distanceEvidence = 'Fully remote — work from anywhere.';
+    }
+  } else {
+    const distanceKm = job.distanceKm ?? candidate.distanceKm;
+    if (distanceKm !== undefined) {
+      const withinCandidate = candidate.distanceRangeKm !== undefined ? distanceKm <= candidate.distanceRangeKm : undefined;
+      const withinJob = job.hiringRadiusKm !== undefined ? distanceKm <= job.hiringRadiusKm : undefined;
+      const known = [withinCandidate, withinJob].filter((value) => value !== undefined);
+      if (known.length === 0) { distanceScore = 0.7; }
+      else if (known.every(Boolean)) { distanceScore = 1; distanceEvidence = `${distanceKm} km apart — inside both distance limits.`; }
+      else if (known.some(Boolean)) { distanceScore = 0.4; distanceEvidence = `${distanceKm} km apart — inside one side's limit.`; }
+      else { distanceScore = 0; distanceEvidence = `${distanceKm} km apart — outside both distance limits.`; }
+    }
   }
 
   // Work mode

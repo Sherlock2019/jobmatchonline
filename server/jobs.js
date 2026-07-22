@@ -47,6 +47,11 @@ export function applyJob(job, body, { strict = false } = {}) {
     if (!WORK_MODES.includes(body.workMode)) throw new ValidationError('workMode', `workMode must be one of ${WORK_MODES.join(', ')}`);
     job.workMode = body.workMode;
   }
+  if (body.remoteScope !== undefined) {
+    if (!['country', 'worldwide'].includes(body.remoteScope)) throw new ValidationError('remoteScope', 'remoteScope must be country or worldwide');
+    job.remoteScope = body.remoteScope;
+  }
+  set('country', str(body.country, 80));
   set('location', str(body.location, 120));
   set('hiringRadiusKm', num(body.hiringRadiusKm, 5, 500));
   if (body.salaryRange !== undefined) {
@@ -77,7 +82,9 @@ export function applyJob(job, body, { strict = false } = {}) {
     if (!job.type) throw new ValidationError('type', 'Employment type is required');
     if (!job.workMode) throw new ValidationError('workMode', 'Work mode is required');
     if (!job.location) throw new ValidationError('location', 'Location is required');
-    if (job.hiringRadiusKm === undefined) throw new ValidationError('hiringRadiusKm', 'Hiring radius is required');
+    // Radius only matters for on-site/hybrid; remote roles use scope instead.
+    if (job.workMode !== 'Remote' && job.hiringRadiusKm === undefined) throw new ValidationError('hiringRadiusKm', 'Hiring radius is required for on-site or hybrid roles');
+    if (job.workMode === 'Remote' && !job.remoteScope) job.remoteScope = 'worldwide';
     if (!job.salaryRange) throw new ValidationError('salaryRange', 'Salary range is mandatory');
     if (!job.description) throw new ValidationError('description', 'Description is required');
     if (!job.status) job.status = 'draft';

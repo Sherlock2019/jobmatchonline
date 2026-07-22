@@ -41,6 +41,7 @@ export interface Job {
   responseTime: string; applicants: number; status: string; match: MatchEvidence;
   // Item 7 structured fields
   department?: string; seniority?: Seniority; requiredSkillsDetail?: WeightedSkill[]; niceToHaves?: string[];
+  remoteScope?: 'country' | 'worldwide'; country?: string;
   hiringRadiusKm?: number; salaryRange?: SalaryRange; responsibilities?: string[]; interviewProcess?: string[];
   startDate?: string; externalUrl?: string; createdAt?: number;
   /** true when the exact range is withheld pre-match (mutual salary reveal) */

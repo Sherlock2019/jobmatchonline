@@ -15,7 +15,7 @@ const STATUSES = ['draft', 'active', 'paused', 'filled'] as const;
 type Form = {
   title: string; department: string; seniority?: Seniority;
   requiredSkills: { name: string; level: number }[]; // level doubles as weight 1-3
-  niceToHaves: string[]; type?: string; workMode?: string; location: string; hiringRadiusKm: number;
+  niceToHaves: string[]; type?: string; workMode?: string; remoteScope: 'country' | 'worldwide'; country: string; location: string; hiringRadiusKm: number;
   salaryMin: string; salaryMax: string; currency: string; description: string;
   responsibilities: string[]; interviewProcess: string[]; startDate: string; externalUrl: string;
   status: typeof STATUSES[number]; screeningQuestions: string[];
@@ -23,7 +23,7 @@ type Form = {
 
 const emptyForm = (): Form => ({
   title: '', department: '', seniority: undefined, requiredSkills: [], niceToHaves: [], type: undefined,
-  workMode: undefined, location: '', hiringRadiusKm: 40, salaryMin: '', salaryMax: '', currency: 'USD',
+  workMode: undefined, remoteScope: 'worldwide', country: '', location: '', hiringRadiusKm: 40, salaryMin: '', salaryMax: '', currency: 'USD',
   description: '', responsibilities: [], interviewProcess: [], startDate: '', externalUrl: '', status: 'draft', screeningQuestions: [],
 });
 
@@ -32,7 +32,8 @@ function fromJob(job: Job): Form {
     ...emptyForm(),
     title: job.title, department: job.department || '', seniority: job.seniority || (job.experienceLevel as Seniority),
     requiredSkills: (job.requiredSkillsDetail || job.requiredSkills.map((name) => ({ name, weight: 2 }))).map((skill) => ({ name: skill.name, level: skill.weight })),
-    niceToHaves: job.niceToHaves || [], type: job.type, workMode: job.workMode, location: job.location,
+    niceToHaves: job.niceToHaves || [], type: job.type, workMode: job.workMode,
+    remoteScope: job.remoteScope || 'worldwide', country: job.country || '', location: job.location,
     hiringRadiusKm: job.hiringRadiusKm ?? 40,
     salaryMin: job.salaryRange ? String(job.salaryRange.min) : '', salaryMax: job.salaryRange ? String(job.salaryRange.max) : '',
     currency: job.salaryRange?.currency || 'USD', description: job.description,
@@ -51,6 +52,7 @@ function applyDraft(form: Form, draft: JobDraft): Form {
     requiredSkills: draft.requiredSkillsDetail ? draft.requiredSkillsDetail.map((skill) => ({ name: skill.name, level: skill.weight })) : form.requiredSkills,
     niceToHaves: draft.niceToHaves ?? form.niceToHaves,
     type: draft.type ?? form.type, workMode: draft.workMode ?? form.workMode,
+    remoteScope: (draft.remoteScope as 'country' | 'worldwide') ?? form.remoteScope, country: draft.country ?? form.country,
     location: draft.location ?? form.location, hiringRadiusKm: draft.hiringRadiusKm ?? form.hiringRadiusKm,
     salaryMin: draft.salaryRange ? String(draft.salaryRange.min) : form.salaryMin,
     salaryMax: draft.salaryRange ? String(draft.salaryRange.max) : form.salaryMax,
@@ -70,6 +72,7 @@ function formErrors(form: Form): string[] {
   if (!form.type) errors.push('Employment type is required');
   if (!form.workMode) errors.push('Work mode is required');
   if (!form.location.trim()) errors.push('Location is required');
+  if (form.workMode === 'Remote' && form.remoteScope === 'country' && !form.country.trim()) errors.push('Enter the country for a country-restricted remote role');
   if (form.salaryMin === '' || form.salaryMax === '') errors.push('Salary range is mandatory');
   else if (Number(form.salaryMin) > Number(form.salaryMax)) errors.push('Salary min cannot exceed max');
   if (!form.description.trim()) errors.push('Description is required');
@@ -109,7 +112,9 @@ export function JobEditor({ viewer, job, onSaved, onCancel }: { viewer: Person; 
       title: form.title, department: form.department || undefined, seniority: form.seniority,
       requiredSkillsDetail: form.requiredSkills.map((skill) => ({ name: skill.name, weight: Math.min(skill.level, 3) })),
       niceToHaves: form.niceToHaves, type: form.type, workMode: form.workMode, location: form.location,
-      hiringRadiusKm: form.hiringRadiusKm,
+      ...(form.workMode === 'Remote'
+        ? { remoteScope: form.remoteScope, country: form.remoteScope === 'country' ? form.country : undefined }
+        : { hiringRadiusKm: form.hiringRadiusKm }),
       salaryRange: { min: Number(form.salaryMin), max: Number(form.salaryMax), currency: form.currency },
       description: form.description, responsibilities: form.responsibilities, interviewProcess: form.interviewProcess,
       startDate: form.startDate || undefined, externalUrl: form.externalUrl || undefined, status: form.status,
@@ -161,10 +166,18 @@ export function JobEditor({ viewer, job, onSaved, onCancel }: { viewer: Person; 
           <Field label="Employment type" required><Segmented options={EMPLOYMENT_TYPES} value={form.type as typeof EMPLOYMENT_TYPES[number] | undefined} onChange={(type) => patch({ type })} /></Field>
           <Field label="Work mode" required><Segmented options={WORK_MODES} value={form.workMode as typeof WORK_MODES[number] | undefined} onChange={(workMode) => patch({ workMode })} /></Field>
         </div>
-        <div className="wz-row">
+        {form.workMode === 'Remote' ? <>
+          <Field label="Remote scope" required hint="Worldwide matches everyone; within-country limits to candidates in one country.">
+            <Segmented options={['worldwide', 'country'] as const} value={form.remoteScope} onChange={(remoteScope) => patch({ remoteScope })} labels={{ worldwide: 'Worldwide', country: 'Within a country' }} />
+          </Field>
+          <div className="wz-row">
+            <Field label="Location" required><TextInput value={form.location} onChange={(e) => patch({ location: e.target.value })} placeholder="e.g. Remote · Asia" /></Field>
+            {form.remoteScope === 'country' && <Field label="Country" required><TextInput value={form.country} onChange={(e) => patch({ country: e.target.value })} placeholder="e.g. Vietnam" /></Field>}
+          </div>
+        </> : <div className="wz-row">
           <Field label="Location" required><TextInput value={form.location} onChange={(e) => patch({ location: e.target.value })} placeholder="City, country" /></Field>
-          <Field label={`Hiring radius: ${form.hiringRadiusKm} km`} required><input className="wz-slider" type="range" min={5} max={500} step={5} value={form.hiringRadiusKm} onChange={(e) => patch({ hiringRadiusKm: Number(e.target.value) })} /></Field>
-        </div>
+          <Field label={`Max distance: ${form.hiringRadiusKm} km`} required hint="How far you'll consider on-site/hybrid candidates."><input className="wz-slider" type="range" min={5} max={500} step={5} value={form.hiringRadiusKm} onChange={(e) => patch({ hiringRadiusKm: Number(e.target.value) })} /></Field>
+        </div>}
         <Field label="Salary range (mandatory)" required hint="Candidates see a compatibility badge pre-match; exact ranges reveal after a mutual match.">
           <div className="wz-salary">
             <TextInput type="number" min={0} placeholder="Min" value={form.salaryMin} onChange={(e) => patch({ salaryMin: e.target.value })} aria-label="Salary minimum" />

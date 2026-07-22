@@ -27,7 +27,7 @@ export function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void
   return <CoachModalShell onClose={onClose} wide>
     <header className="coach-head">
       <div className="company-logo" style={{ background: job.accent }}>{job.logo}</div>
-      <div><span className="overline">{job.company}</span><h2>{job.title}</h2><p>{job.location} · {job.type} · {job.workMode}</p></div>
+      <div><span className="overline">{job.company}</span><h2>{job.title}</h2><p>{job.location} · {job.type} · {job.workMode === 'Remote' ? (job.remoteScope === 'country' ? `Remote (within ${job.country || 'country'})` : 'Remote (worldwide)') : job.workMode === 'Hybrid' && job.hiringRadiusKm ? `Hybrid (within ${job.hiringRadiusKm} km)` : job.workMode}</p></div>
     </header>
     <div className="coach-tabs" role="tablist">
       <button role="tab" aria-selected={tab === 'overview'} className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><BriefcaseBusiness size={14} /> Overview</button>

@@ -205,6 +205,7 @@ button { cursor:pointer; }
 .job-meta { display:flex; flex-wrap:wrap; gap:15px; color:#526b8a; font-size:10px; font-weight:600; }
 .job-meta span { display:flex; align-items:center; gap:5px; }
 .job-meta .distance-badge { padding:4px 7px; border-radius:99px; color:var(--blue); background:#edf7ff; font-size:8px; font-weight:800; }
+.job-meta .mode-badge { padding:4px 7px; border-radius:99px; color:#0c7a43; background:#e8f8ee; border:1px solid #bfe8cf; font-size:8px; font-weight:800; }
 .description { color:#5d6962; font-size:12px; line-height:1.6; margin:17px 0; }
 .match-reason { padding:14px; border-radius:13px; display:flex; gap:11px; background:#f3f8eb; border:1px solid #e4efcf; }
 .match-reason>div { width:28px; height:28px; border-radius:9px; display:grid; place-items:center; background:white; color:var(--green); flex:none; }
