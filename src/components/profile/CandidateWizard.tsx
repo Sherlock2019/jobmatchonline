@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, FileText, Loader2, Upload } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, FileText, Loader2, Sparkles, Upload } from 'lucide-react';
 import { api } from '../../api';
 import { Chips, Field, LevelTagInput, Repeat, Segmented, TagInput, TextInput, Toggle } from './fields';
 import type { Education, LanguageTag, Person, ResumeMeta, Seniority, SkillTag, WorkExperience } from '../../types';
@@ -112,6 +112,8 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
   const [attempted, setAttempted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [autofilling, setAutofilling] = useState(false);
+  const [autofillNote, setAutofillNote] = useState('');
   const [error, setError] = useState('');
   const patch = (changes: Partial<Form>) => setForm((current) => ({ ...current, ...changes }));
   const errors = useMemo(() => stepErrors(step, form), [step, form]);
@@ -146,6 +148,32 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
     finally { setUploading(false); }
   };
 
+  // Upload a resume and pre-fill the whole wizard from it (review then continue).
+  const autofillFromResume = async (file: File) => {
+    if (file.size > 10 * 1024 * 1024) { setError('Resume must be 10MB or smaller'); return; }
+    setAutofilling(true); setError('');
+    try {
+      await uploadResume(file);
+      const { fields } = await api.resumeAutofill(viewer.id);
+      setForm((current) => ({
+        ...current,
+        headline: fields.headline || current.headline,
+        title: fields.title || current.title,
+        yearsExperience: fields.yearsExperience !== undefined ? String(fields.yearsExperience) : current.yearsExperience,
+        seniority: (fields.seniority as Seniority) || current.seniority,
+        skillsDetail: fields.skills?.length ? fields.skills : current.skillsDetail,
+        languageDetail: fields.languages?.length ? fields.languages : current.languageDetail,
+        industries: fields.industries?.length ? fields.industries : current.industries,
+        workExperience: fields.workExperience?.length ? fields.workExperience : current.workExperience,
+        education: fields.education?.length ? fields.education : current.education,
+        certifications: fields.certifications?.length ? fields.certifications : current.certifications,
+        links: fields.links ? { ...current.links, ...fields.links } : current.links,
+      }));
+      setAutofillNote('Filled from your resume — review each step and edit anything before continuing.');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Auto-fill failed'); }
+    finally { setAutofilling(false); }
+  };
+
   return <div className="wizard-page">
     <div className="wizard-card">
       <header className="wz-head">
@@ -153,6 +181,15 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
         <span className="wz-step-count">Step {step + 1} of {CANDIDATE_STEPS.length}</span>
       </header>
       <div className="wz-progress" role="progressbar" aria-valuenow={step + 1} aria-valuemin={1} aria-valuemax={CANDIDATE_STEPS.length}><i style={{ width: `${((step + 1) / CANDIDATE_STEPS.length) * 100}%` }} /></div>
+
+      {step === 0 && <div className={autofillNote ? 'wz-autofill done' : 'wz-autofill'}>
+        <Sparkles size={17} />
+        <div className="wz-autofill-text"><strong>Have a resume? Skip the typing.</strong><span>{autofillNote || 'Upload it and we’ll fill in your skills, experience, and more — you review before saving.'}</span></div>
+        <label className="secondary-button wz-autofill-btn">
+          <input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => e.target.files?.[0] && autofillFromResume(e.target.files[0])} />
+          {autofilling ? <><Loader2 size={15} className="spin" /> Reading…</> : <><Upload size={15} /> Upload &amp; autofill</>}
+        </label>
+      </div>}
 
       {step === 0 && <div className="wz-body">
         <div className="wz-row">

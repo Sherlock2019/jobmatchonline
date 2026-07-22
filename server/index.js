@@ -9,6 +9,8 @@ import { detectMutualMatch, likesRemainingToday, scoreCandidateForJob, Validatio
 import { applyCandidateProfile, applyRecruiterProfile, candidateCompleteness, recruiterCompleteness } from './profile.js';
 import { anonymizeText, convertDocxToPdf, detectTools, docxToHtml, extractDocxText, extractPdfText, makeSimplePdf, pdfThumbnail } from './resume.js';
 import { applyJob, parseJobText } from './jobs.js';
+import { parseResumeToProfile } from './resume-parse.js';
+import os from 'node:os';
 import { generateIcebreakers, generateInterviewKit, generatePrep, suggestScreeningQuestions } from './coaching.js';
 import { PASSWORD_MIN_LENGTH, hashPassword, rateLimit, validPassword, verifyPassword } from './auth.js';
 import fs from 'node:fs';
@@ -585,6 +587,20 @@ app.get('/api/users/:id/resume/original', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// Auto-fill the candidate profile from the uploaded resume's extracted text.
+// Returns parsed fields for the wizard to pre-fill; never persisted here.
+app.post('/api/users/:id/resume/autofill', async (req, res, next) => {
+  try {
+    requireSelf(req, req.params.id);
+    const db = await store.read();
+    const user = db.users.find((item) => item.id === req.params.id);
+    const resume = user?.documents?.resume;
+    if (!resume?.textName) throw new ValidationError('resume', 'Upload a resume first, then auto-fill');
+    const text = await fs.promises.readFile(path.join(RESUME_DIR, resume.textName), 'utf8');
+    res.json(await parseResumeToProfile(text));
+  } catch (error) { next(error); }
+});
+
 // ---------------------------------------------------------------------------
 // Job postings: create, update, paste-import parsing
 // ---------------------------------------------------------------------------
@@ -635,6 +651,27 @@ app.post('/api/jobs/parse', async (req, res, next) => {
     const text = reqString(req.body, 'text', { min: 40, max: 20000 });
     const url = optString(req.body, 'url', { max: 400 });
     res.json(await parseJobText(text, url));
+  } catch (error) { next(error); }
+});
+
+// Upload a job-description file (PDF / DOCX / TXT) → extract text → parse into a draft.
+app.post('/api/jobs/parse-file', uploadLimiter, express.raw({ type: () => true, limit: '10mb' }), async (req, res, next) => {
+  try {
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) throw new ValidationError('file', 'Empty upload');
+    const contentType = req.headers['content-type'] || '';
+    let text;
+    if (contentType.startsWith('text/')) {
+      text = req.body.toString('utf8');
+    } else {
+      const ext = RESUME_TYPES[contentType];
+      if (!ext) throw new ValidationError('file', 'Upload a PDF, DOCX, or plain-text job description');
+      const tmp = path.join(os.tmpdir(), `jd-${crypto.randomUUID()}.${ext}`);
+      await fs.promises.writeFile(tmp, req.body);
+      try { text = ext === 'docx' ? await extractDocxText(tmp) : await extractPdfText(tmp); }
+      finally { fs.promises.unlink(tmp).catch(() => undefined); }
+    }
+    if (!text || text.trim().length < 40) throw new ValidationError('file', 'Could not read enough text from that file');
+    res.json(await parseJobText(text, undefined));
   } catch (error) { next(error); }
 });
 

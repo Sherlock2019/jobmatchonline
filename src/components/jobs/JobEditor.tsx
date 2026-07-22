@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Check, ClipboardPaste, Download, Loader2, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, ClipboardPaste, Download, Loader2, Sparkles, Upload } from 'lucide-react';
 import { api } from '../../api';
 import { Chips, Field, LevelTagInput, Segmented, TagInput, TextInput } from '../profile/fields';
 import { demoAdapter, pasteAdapter } from '../../lib/jobSources';
@@ -104,6 +104,18 @@ export function JobEditor({ viewer, job, onSaved, onCancel }: { viewer: Person; 
     finally { setImporting(false); }
   };
 
+  const importFromFile = async (file: File) => {
+    if (file.size > 10 * 1024 * 1024) { setError('File must be 10MB or smaller'); return; }
+    setImporting(true); setError('');
+    try {
+      const { parser, parsed } = await api.parseJobFile(file);
+      setForm((current) => applyDraft(current, parsed));
+      setImportNote(`${parser === 'claude' ? 'Parsed with Claude' : 'Parsed from the uploaded file'} — review the fields below, then save.`);
+      setPasteOpen(false);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not read that file'); }
+    finally { setImporting(false); }
+  };
+
   const save = async () => {
     setAttempted(true);
     if (errors.length) return;
@@ -137,6 +149,7 @@ export function JobEditor({ viewer, job, onSaved, onCancel }: { viewer: Person; 
 
       <div className="job-import-bar">
         <button className="secondary-button job-import-btn" onClick={() => setPasteOpen((value) => !value)} disabled={importing}><ClipboardPaste size={15} /> {pasteAdapter.label}</button>
+        <label className="secondary-button job-import-btn"><input type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={(e) => e.target.files?.[0] && importFromFile(e.target.files[0])} />{importing ? <Loader2 size={15} className="spin" /> : <Upload size={15} />} Upload description</label>
         <button className="secondary-button job-import-btn" onClick={() => runImport(demoAdapter)} disabled={importing}>{importing ? <Loader2 size={15} className="spin" /> : <Download size={15} />} {demoAdapter.label}</button>
         {importNote && <span className="job-import-note"><Sparkles size={13} /> {importNote}</span>}
       </div>
