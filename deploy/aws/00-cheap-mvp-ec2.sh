@@ -87,5 +87,5 @@ EOF
 
 echo "== 6/6 verify through the public site =="
 curl -s -m 15 https://jobsmatchnow.com/api/health; echo
-curl -s -m 15 "https://jobsmatchnow.com/api/bootstrap?role=candidate" | head -c 120; echo
+curl -s -m 15 "https://jobsmatchnow.com/api/bootstrap?role=candidate" | head -c 120 || true; echo
 echo "CHEAP_MVP_DONE release=$STAMP"
