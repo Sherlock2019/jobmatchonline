@@ -19,3 +19,7 @@ mobile-expo/.expo/
 android/app/build/
 android/.gradle/
 ios/App/Pods/
+
+# Downloaded OAuth client-secret files — never commit
+oauth/
+*client_secret*.json
