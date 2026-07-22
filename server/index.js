@@ -360,7 +360,11 @@ app.patch('/api/users/:id', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-const RESUME_DIR = path.join(dirname, 'uploads', 'resumes');
+// UPLOADS_DIR keeps user files outside the release directory in production,
+// so resumes survive deploys (e.g. /var/lib/jobsmatchnow/uploads).
+const RESUME_DIR = process.env.UPLOADS_DIR
+  ? path.join(process.env.UPLOADS_DIR, 'resumes')
+  : path.join(dirname, 'uploads', 'resumes');
 await fs.promises.mkdir(RESUME_DIR, { recursive: true });
 const RESUME_TYPES = {
   'application/pdf': 'pdf',
