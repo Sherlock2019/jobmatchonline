@@ -138,8 +138,7 @@ export function FeedbackSection() {
     if (message.trim().length < 3) { setError('Please write a little more'); return; }
     setSending(true); setError('');
     try {
-      const { entry } = await api.submitFeedback({ type: mode, message: message.trim(), name: name.trim() || undefined, role: role.trim() || undefined, rating: mode === 'review' ? rating : undefined });
-      if (mode === 'review') setReviews((current) => [entry, ...current].slice(0, 8));
+      await api.submitFeedback({ type: mode, message: message.trim(), name: name.trim() || undefined, role: role.trim() || undefined, rating: mode === 'review' ? rating : undefined });
       setDone(true); setMessage(''); setName(''); setRole('');
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not send'); }
     finally { setSending(false); }
@@ -157,7 +156,7 @@ export function FeedbackSection() {
       </div>
       <div className="feedback-form-wrap">
         <div className="feedback-toggle"><button className={mode === 'review' ? 'active' : ''} onClick={() => { setMode('review'); setDone(false); }}><Star size={14} /> Leave a review</button><button className={mode === 'suggestion' ? 'active' : ''} onClick={() => { setMode('suggestion'); setDone(false); }}><PenLine size={14} /> Suggest a feature</button></div>
-        {done ? <div className="feedback-done"><div className="feedback-done-mark"><Check size={26} /></div><strong>Thank you!</strong><p>{mode === 'review' ? 'Your review is live below.' : 'Your idea is on our list.'}</p><button className="text-button" onClick={() => setDone(false)}>Send another</button></div>
+        {done ? <div className="feedback-done"><div className="feedback-done-mark"><Check size={26} /></div><strong>Thank you!</strong><p>{mode === 'review' ? 'Your review will appear once it’s approved.' : 'Your idea is on our list.'}</p><button className="text-button" onClick={() => setDone(false)}>Send another</button></div>
           : <form className="feedback-form" onSubmit={submit}>
             {mode === 'review' && <label className="fb-field"><span>Your rating</span><Stars value={rating} onChange={setRating} /></label>}
             <div className="fb-row">

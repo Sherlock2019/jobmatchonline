@@ -7,7 +7,7 @@ import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { App as NativeApp } from '@capacitor/app';
-import { LoginModal, RegisterModal } from './components/AuthModals';
+import { LoginModal, RegisterModal, ResetPasswordModal, SettingsModal } from './components/AuthModals';
 import { MobileLanding } from './components/MobileLanding';
 import { FeedbackSection, JourneyPipeline, LatestShowcase } from './components/LandingSections';
 import { CandidateWizard } from './components/profile/CandidateWizard';
@@ -70,8 +70,15 @@ export default function App() {
     }).then((handle) => { remove = () => handle.remove(); });
     return () => remove?.();
   }, []);
-  if (!session) return <Landing onLogin={signIn} />;
-  return <Workspace key={session.id} session={session} onSwitchUser={signIn} onExit={signOut} />;
+  // Password-reset deep link (?reset=<token>) — shown over whatever's rendered.
+  const [resetToken, setResetToken] = useState(() => new URLSearchParams(window.location.search).get('reset') || '');
+  const clearQuery = (key: string) => { const url = new URL(window.location.href); url.searchParams.delete(key); window.history.replaceState({}, '', url.pathname + url.search); };
+  const finishReset = (user?: SessionUser) => { setResetToken(''); clearQuery('reset'); if (user) signIn(user); };
+
+  return <>
+    {!session ? <Landing onLogin={signIn} /> : <Workspace key={session.id} session={session} onSwitchUser={signIn} onExit={signOut} />}
+    <AnimatePresence>{resetToken && <ResetPasswordModal token={resetToken} onClose={() => finishReset()} onComplete={finishReset} />}</AnimatePresence>
+  </>;
 }
 
 function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
@@ -148,6 +155,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   const [error, setError] = useState('');
   const [mobileNav, setMobileNav] = useState(false);
   const [editStep, setEditStep] = useState<number | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const role: Role = data?.viewer.role ?? session.role;
 
   const load = () => { setLoading(true); setError(''); api.bootstrap(session.id).then(setData).catch((e) => setError(e.message)).finally(() => setLoading(false)); };
@@ -161,10 +169,10 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
     <aside className={mobileNav ? 'sidebar open' : 'sidebar'}><div className="sidebar-head"><Brand /><button className="mobile-close" onClick={() => setMobileNav(false)} aria-label="Close menu"><X /></button></div>
       <div className="workspace-switch"><span>Workspace</span><button onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}><div className="avatar-mini">{initials}</div><div><strong>{data?.viewer.name || session.name}</strong><small>{role === 'candidate' ? 'Candidate' : 'Recruiter'}</small></div><ChevronDown size={15} /></button></div>
       <nav className="sidebar-nav">{nav.map(({ view: itemView, label, icon: Icon }) => <button key={itemView} className={view === itemView ? 'active' : ''} onClick={() => { setView(itemView); setMobileNav(false); }}><Icon size={19} /><span>{label}</span>{label === 'Messages' && <em>2</em>}</button>)}</nav>
-      <div className="sidebar-bottom"><button><CircleHelp size={18} />Help center</button><button><Settings size={18} />Settings</button><button className="logout-button" onClick={onExit}><LogOut size={18} />Log out</button><button className="profile-button" onClick={() => { setView('profile'); setMobileNav(false); }}><img src={data?.viewer.photo} /><div><strong>{data?.viewer.name || 'Loading'}</strong><small>View my profile</small></div><MoreHorizontal size={17} /></button></div>
+      <div className="sidebar-bottom"><button><CircleHelp size={18} />Help center</button><button onClick={() => setSettingsOpen(true)}><Settings size={18} />Settings</button><button className="logout-button" onClick={onExit}><LogOut size={18} />Log out</button><button className="profile-button" onClick={() => { setView('profile'); setMobileNav(false); }}><img src={data?.viewer.photo} /><div><strong>{data?.viewer.name || 'Loading'}</strong><small>View my profile</small></div><MoreHorizontal size={17} /></button></div>
     </aside>
     {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
-    <section className="app-main"><header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><button aria-label="Notifications"><Bell size={19} /><i /></button><button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Candidate view' : 'Recruiter view'}<ChevronDown size={14} /></button></div></header>
+    <section className="app-main">{session.emailVerified === false && <div className="verify-banner"><span><ShieldCheck size={15} /> Verify your email to secure your account and unlock everything.</span><button onClick={() => setSettingsOpen(true)}>Verify now</button></div>}<header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><button aria-label="Notifications"><Bell size={19} /><i /></button><button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Candidate view' : 'Recruiter view'}<ChevronDown size={14} /></button></div></header>
       {loading ? <LoadingState /> : error ? <ErrorState message={error} retry={load} /> : data && (
         (data.viewer.onboarding || editStep !== null)
           ? (data.viewer.role === 'candidate'
@@ -177,6 +185,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
           : <ViewRouter view={view} role={role} data={data} setData={setData} navigate={setView} onEditProfile={setEditStep} reload={load} />
       )}
     </section>
+    <AnimatePresence>{settingsOpen && <SettingsModal user={session} onClose={() => setSettingsOpen(false)} onDeleted={() => { setSettingsOpen(false); onExit(); }} />}</AnimatePresence>
   </div>;
 }
 

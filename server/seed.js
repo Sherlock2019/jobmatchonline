@@ -36,10 +36,10 @@ export function createSeed() {
       { id: 'msg-2', matchId: 'm-existing', senderId: 'c-1', text: 'Absolutely. Thursday afternoon works well for me.', createdAt: now - 5400000 }
     ],
     feedback: [
-      { id: 'fb-1', type: 'review', name: 'Mai N.', role: 'Product Designer', rating: 5, message: 'Matched with two companies in my city in a week. The salary-up-front part is a game changer — no more guessing.', createdAt: now - 86400000 * 2 },
-      { id: 'fb-2', type: 'review', name: 'David O.', role: 'Head of Talent', rating: 5, message: 'We stopped drowning in unqualified applications. Mutual intent means every conversation is worth having.', createdAt: now - 86400000 * 4 },
-      { id: 'fb-3', type: 'review', name: 'Priya R.', role: 'UX Researcher', rating: 4, message: 'Love the explainable fit score — I finally understand why a role is a good match before I even swipe.', createdAt: now - 86400000 * 6 },
-      { id: 'fb-4', type: 'review', name: 'Tuan L.', role: 'Frontend Engineer', rating: 5, message: 'Met a recruiter for coffee 2 km from my apartment. Feels human, not like a job board.', createdAt: now - 86400000 * 9 }
+      { id: 'fb-1', type: 'review', approved: true, name: 'Mai N.', role: 'Product Designer', rating: 5, message: 'Matched with two companies in my city in a week. The salary-up-front part is a game changer — no more guessing.', createdAt: now - 86400000 * 2 },
+      { id: 'fb-2', type: 'review', approved: true, name: 'David O.', role: 'Head of Talent', rating: 5, message: 'We stopped drowning in unqualified applications. Mutual intent means every conversation is worth having.', createdAt: now - 86400000 * 4 },
+      { id: 'fb-3', type: 'review', approved: true, name: 'Priya R.', role: 'UX Researcher', rating: 4, message: 'Love the explainable fit score — I finally understand why a role is a good match before I even swipe.', createdAt: now - 86400000 * 6 },
+      { id: 'fb-4', type: 'review', approved: true, name: 'Tuan L.', role: 'Frontend Engineer', rating: 5, message: 'Met a recruiter for coffee 2 km from my apartment. Feels human, not like a job board.', createdAt: now - 86400000 * 9 }
     ]
   };
 }

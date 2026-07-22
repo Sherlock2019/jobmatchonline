@@ -13,6 +13,7 @@ import { parseResumeToProfile } from './resume-parse.js';
 import os from 'node:os';
 import { generateIcebreakers, generateInterviewKit, generatePrep, suggestScreeningQuestions } from './coaching.js';
 import { PASSWORD_MIN_LENGTH, hashPassword, rateLimit, validPassword, verifyPassword } from './auth.js';
+import { mailerConfigured, sendMail } from './mailer.js';
 import fs from 'node:fs';
 import { exchangeLinkedinCode, linkedinAuthorizationUrl, readSignedValue, signedValue, toLinkedinJobPayload } from './integrations/linkedin.js';
 import { oauthAuthorizationUrl, oauthExchangeCode, oauthProviders } from './integrations/oauth.js';
@@ -164,23 +165,46 @@ app.get('/api/showcase', async (_req, res, next) => {
 const publicReview = (f) => ({ id: f.id, name: f.name || 'Anonymous', role: f.role, rating: f.rating, message: f.message, createdAt: f.createdAt });
 const feedbackLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 20, bucket: 'feedback' });
 
+// Only approved reviews are shown publicly (moderation).
 app.get('/api/feedback', async (_req, res, next) => {
   try {
     const db = await store.read();
-    res.json({ reviews: (db.feedback || []).filter((f) => f.type === 'review').slice(-8).reverse().map(publicReview) });
+    res.json({ reviews: (db.feedback || []).filter((f) => f.type === 'review' && f.approved).slice(-8).reverse().map(publicReview) });
   } catch (error) { next(error); }
 });
+
+const BLOCKED_WORDS = /\b(fuck|shit|bitch|cunt|nigger|faggot|asshole|whore)\b/i;
 
 app.post('/api/feedback', feedbackLimiter, async (req, res, next) => {
   try {
     const type = oneOf(req.body, 'type', ['review', 'suggestion']);
     const message = reqString(req.body, 'message', { min: 3, max: 1000 });
+    if (BLOCKED_WORDS.test(message)) throw new ValidationError('message', 'Please keep it respectful.');
     const name = optString(req.body, 'name', { max: 80 });
     const role = optString(req.body, 'role', { max: 80 });
     const rating = type === 'review' ? Math.max(1, Math.min(5, Math.round(Number(req.body.rating) || 5))) : undefined;
-    const entry = { id: `fb-${crypto.randomUUID().slice(0, 8)}`, type, name: name || 'Anonymous', role, rating, message, createdAt: Date.now() };
+    // New submissions are held for moderation — never shown until approved.
+    const entry = { id: `fb-${crypto.randomUUID().slice(0, 8)}`, type, name: name || 'Anonymous', role, rating, message, approved: false, createdAt: Date.now() };
     await store.transaction((db) => { db.feedback = Array.isArray(db.feedback) ? db.feedback : []; db.feedback.push(entry); });
-    res.status(201).json({ ok: true, entry: publicReview(entry) });
+    res.status(201).json({ ok: true, pending: true });
+  } catch (error) { next(error); }
+});
+
+// Admin moderation (gated by ADMIN_TOKEN header). List + approve.
+function requireAdmin(req) {
+  const token = process.env.ADMIN_TOKEN;
+  if (!token || req.headers['x-admin-token'] !== token) { const error = new Error('Admin access required'); error.status = 403; throw error; }
+}
+app.get('/api/admin/feedback', async (req, res, next) => {
+  try { requireAdmin(req); const db = await store.read(); res.json({ feedback: (db.feedback || []).slice().reverse() }); }
+  catch (error) { next(error); }
+});
+app.post('/api/admin/feedback/:id/approve', async (req, res, next) => {
+  try {
+    requireAdmin(req);
+    const entry = await store.transaction((db) => { const f = (db.feedback || []).find((item) => item.id === req.params.id); if (f) f.approved = true; return f; });
+    if (!entry) { const error = new Error('Not found'); error.status = 404; throw error; }
+    res.json({ ok: true, entry });
   } catch (error) { next(error); }
 });
 
@@ -241,7 +265,25 @@ app.post('/api/integrations/linkedin/jobs/:jobId/sync', async (req, res, next) =
 // ---------------------------------------------------------------------------
 
 function publicProfile(user) {
-  return { id: user.id, role: user.role, kind: user.kind, name: user.name, email: user.email, title: user.title, company: user.company, photo: user.photo, provider: user.provider, completeness: user.completeness, demo: user.demo === true };
+  return { id: user.id, role: user.role, kind: user.kind, name: user.name, email: user.email, title: user.title, company: user.company, photo: user.photo, provider: user.provider, completeness: user.completeness, demo: user.demo === true, emailVerified: user.emailVerified !== false };
+}
+
+// ---------------------------------------------------------------------------
+// Email verification + password reset (mailer-optional).
+// ---------------------------------------------------------------------------
+const publicOrigin = (process.env.PUBLIC_ORIGIN || 'https://jobsmatchnow.com').replace(/\/$/, '');
+function actionToken(purpose, userId, ttlMs) {
+  return signedValue({ purpose, sub: userId, expiresAt: Date.now() + ttlMs }, sessionSecret);
+}
+function readActionToken(token, purpose) {
+  const payload = readSignedValue(token, sessionSecret);
+  if (!payload || payload.purpose !== purpose || payload.expiresAt < Date.now() || typeof payload.sub !== 'string') return null;
+  return payload;
+}
+async function sendVerificationEmail(user) {
+  const token = actionToken('verify', user.id, 48 * 3600 * 1000);
+  const link = `${publicOrigin}/api/auth/verify?token=${encodeURIComponent(token)}`;
+  await sendMail({ to: user.email, subject: 'Verify your JobsMatchNow email', text: `Welcome to JobsMatchNow! Confirm your email:\n${link}\n\nThis link expires in 48 hours.` });
 }
 
 const authLimiter = rateLimit({ windowMs: 5 * 60 * 1000, max: 30, bucket: 'auth' });
@@ -370,11 +412,15 @@ app.post('/api/auth/register', authLimiter, async (req, res, next) => {
         }
         return existing; // demo-mode passwordless idempotency
       }
+      // Password accounts need email verification once a mailer is configured;
+      // without one (demo/dev) they're auto-verified so the flow stays usable.
+      const needsVerification = Boolean(password) && mailerConfigured();
       const created = {
         id: `u-${crypto.randomUUID().slice(0, 8)}`, role, name, email,
         ...(role === 'employer' ? { kind: kind || 'company' } : {}),
         ...(password ? { passwordHash: hashPassword(password) } : {}),
         provider: provider || 'email',
+        emailVerified: !needsVerification,
         title: role === 'candidate' ? 'New member' : 'Recruiter',
         photo: photo || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,
         skills: [], languages: [], experienceLevel: 'mid', completeness: 15, onboarding: true, createdAt: Date.now(),
@@ -382,6 +428,7 @@ app.post('/api/auth/register', authLimiter, async (req, res, next) => {
       db.users.push(created);
       return created;
     });
+    if (user.emailVerified === false) await sendVerificationEmail(user).catch((e) => console.error('verify email failed', e.message));
     issueSession(res, user);
     res.status(201).json({ user: publicProfile(user) });
   } catch (error) { next(error); }
@@ -400,6 +447,102 @@ app.get('/api/auth/me', async (req, res, next) => {
     const user = db.users.find((item) => item.id === session.sub);
     if (!user) return res.status(401).json({ authenticated: false });
     res.json({ authenticated: true, user: publicProfile(user) });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/auth/verify', async (req, res, next) => {
+  try {
+    const payload = readActionToken(String(req.query.token || ''), 'verify');
+    if (!payload) return res.redirect(`${APP_PATH}?verify=expired`);
+    await store.transaction((db) => { const u = db.users.find((item) => item.id === payload.sub); if (u) u.emailVerified = true; });
+    res.redirect(`${APP_PATH}?verify=ok`);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/resend-verification', authLimiter, async (req, res, next) => {
+  try {
+    const session = authSession(req);
+    if (!session) { const error = new Error('Sign in first'); error.status = 401; throw error; }
+    const db = await store.read();
+    const user = db.users.find((item) => item.id === session.sub);
+    if (user && user.emailVerified === false) await sendVerificationEmail(user).catch(() => undefined);
+    res.json({ ok: true, mailer: mailerConfigured() });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/forgot', authLimiter, async (req, res, next) => {
+  try {
+    const email = reqString(req.body, 'email', { max: 200 }).toLowerCase();
+    const db = await store.read();
+    const user = db.users.find((item) => item.email && item.email.toLowerCase() === email && item.passwordHash);
+    if (user) {
+      const token = actionToken('reset', user.id, 3600 * 1000);
+      const link = `${publicOrigin}${APP_PATH}?reset=${encodeURIComponent(token)}`;
+      await sendMail({ to: user.email, subject: 'Reset your JobsMatchNow password', text: `Reset your password:\n${link}\n\nThis link expires in 1 hour. If you didn't ask, ignore this email.` }).catch(() => undefined);
+    }
+    // Never reveal whether the email exists.
+    res.json({ ok: true, mailer: mailerConfigured() });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/reset', authLimiter, async (req, res, next) => {
+  try {
+    const payload = readActionToken(reqString(req.body, 'token', { max: 4000 }), 'reset');
+    if (!payload) { const error = new Error('This reset link is invalid or expired'); error.status = 400; throw error; }
+    const password = reqString(req.body, 'password', { max: 200 });
+    if (!validPassword(password)) throw new ValidationError('password', `Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
+    const user = await store.transaction((db) => {
+      const u = db.users.find((item) => item.id === payload.sub);
+      if (!u) { const error = new Error('Account not found'); error.status = 404; throw error; }
+      u.passwordHash = hashPassword(password);
+      u.emailVerified = true; // proving email control also verifies it
+      return u;
+    });
+    issueSession(res, user);
+    res.json({ ok: true, user: publicProfile(user) });
+  } catch (error) { next(error); }
+});
+
+// ---------------------------------------------------------------------------
+// GDPR: export my data, delete my account.
+// ---------------------------------------------------------------------------
+app.get('/api/me/export', async (req, res, next) => {
+  try {
+    const session = authSession(req);
+    if (!session) { const error = new Error('Sign in first'); error.status = 401; throw error; }
+    const db = await store.read();
+    const me = db.users.find((item) => item.id === session.sub);
+    if (!me) { const error = new Error('Account not found'); error.status = 404; throw error; }
+    const { passwordHash, ...profile } = me;
+    res.setHeader('Content-Disposition', 'attachment; filename="jobsmatchnow-data.json"');
+    res.json({
+      exportedAt: new Date().toISOString(),
+      profile,
+      jobs: db.jobs.filter((j) => j.employerId === me.id),
+      swipes: db.swipes.filter((s) => s.actorId === me.id),
+      matches: db.matches.filter((m) => m.candidateId === me.id || m.employerId === me.id),
+      messages: db.messages.filter((m) => m.senderId === me.id),
+    });
+  } catch (error) { next(error); }
+});
+
+app.delete('/api/me', async (req, res, next) => {
+  try {
+    const session = authSession(req);
+    if (!session) { const error = new Error('Sign in first'); error.status = 401; throw error; }
+    await store.transaction((db) => {
+      const me = db.users.find((item) => item.id === session.sub);
+      if (!me) { const error = new Error('Account not found'); error.status = 404; throw error; }
+      if (me.demo === true) { const error = new Error('Demo accounts cannot be deleted'); error.status = 403; throw error; }
+      const myMatchIds = new Set(db.matches.filter((m) => m.candidateId === me.id || m.employerId === me.id).map((m) => m.id));
+      db.users = db.users.filter((u) => u.id !== me.id);
+      db.jobs = db.jobs.filter((j) => j.employerId !== me.id);
+      db.swipes = db.swipes.filter((s) => s.actorId !== me.id && s.targetId !== me.id);
+      db.matches = db.matches.filter((m) => !myMatchIds.has(m.id));
+      db.messages = db.messages.filter((m) => !myMatchIds.has(m.matchId) && m.senderId !== me.id);
+    });
+    setCookie(res, AUTH_COOKIE, '', { maxAge: 0 });
+    res.json({ ok: true });
   } catch (error) { next(error); }
 });
 
