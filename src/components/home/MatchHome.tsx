@@ -136,9 +136,15 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
     await reload();
     navigate(result.match ? 'messages' : 'matches');
   };
-  const jobCards = (items: Job[]) => items.length
-    ? <div className="td-job-grid">{items.slice(0, 3).map((job) => <CandidateJobCard key={job.id} job={job} saved={data.bookmarkedIds.includes(job.id)} onSave={() => void toggleSave(job)} onView={() => setSelectedJob(job)} onTalk={() => void startTalk(job)} />)}</div>
-    : <EmptyRow>No opportunities are available in this section yet.</EmptyRow>;
+  const jobCards = (items: Job[]) => {
+    const visible = items.slice(0, 3);
+    return <div className="td-job-grid">
+      {visible.map((job) => <CandidateJobCard key={job.id} job={job} saved={data.bookmarkedIds.includes(job.id)} onSave={() => void toggleSave(job)} onView={() => setSelectedJob(job)} onTalk={() => void startTalk(job)} />)}
+      {Array.from({ length: Math.max(0, 3 - visible.length) }, (_, index) => <article className="td-job-card td-job-placeholder" key={`job-placeholder-${index}`}>
+        <span><Sparkles size={18} /></span><strong>Waiting for the right offer</strong><small>New matching opportunities will appear here.</small>
+      </article>)}
+    </div>;
+  };
 
   const metrics = [
     { icon: Heart, label: 'Jobs Chasing You', value: chasing.length, note: 'active matches', action: 'View jobs', target: 'td-chasing' },
@@ -236,9 +242,15 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
     await reload();
     navigate(result.match ? 'messages' : 'matches');
   };
-  const personCards = (people: Person[], liked = false) => people.length
-    ? <div className="td-people-row">{[...people].sort((a, b) => bestMatchFirst ? (b.match?.score || 0) - (a.match?.score || 0) : a.name.localeCompare(b.name)).slice(0, 4).map((person) => <PersonCard key={person.id} person={person} liked={liked} saved={data.bookmarkedIds.includes(person.id)} onSave={() => void save(person)} onView={() => setSelected(person)} onTalk={() => void talk(person)} />)}</div>
-    : <EmptyRow>No candidates are available in this group yet.</EmptyRow>;
+  const personCards = (people: Person[], liked = false) => {
+    const visible = [...people].sort((a, b) => bestMatchFirst ? (b.match?.score || 0) - (a.match?.score || 0) : a.name.localeCompare(b.name)).slice(0, 4);
+    return <div className="td-people-row">
+      {visible.map((person) => <PersonCard key={person.id} person={person} liked={liked} saved={data.bookmarkedIds.includes(person.id)} onSave={() => void save(person)} onView={() => setSelected(person)} onTalk={() => void talk(person)} />)}
+      {Array.from({ length: Math.max(0, 4 - visible.length) }, (_, index) => <article className="td-person-card td-person-placeholder" key={`person-placeholder-${index}`}>
+        <span><Heart size={18} /></span><strong>Next candidate</strong><small>New interest will appear here.</small>
+      </article>)}
+    </div>;
+  };
 
   const metrics = [
     { icon: Heart, label: 'People Who Love Your Jobs', value: interested.length, note: 'candidates' },

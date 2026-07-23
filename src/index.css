@@ -2157,6 +2157,29 @@ button { cursor:pointer; }
 .td-recruiter-line small { color:#768093; font-size:6px; }
 .td-job-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; }
 .td-job-actions button { min-height:29px; padding:0 8px; font-size:7px; }
+.td-job-placeholder,.td-person-placeholder {
+  min-height:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  text-align:center;
+  border-style:dashed;
+  background:#fbfcfe;
+  color:#7a8395;
+}
+.td-job-placeholder>span,.td-person-placeholder>span {
+  width:40px;
+  height:40px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:#fff0f5;
+  color:#ff2e6d;
+}
+.td-job-placeholder>strong,.td-person-placeholder>strong { font-size:10px; }
+.td-job-placeholder>small,.td-person-placeholder>small { max-width:150px; color:#7a8395; font-size:8px; }
 .td-empty {
   min-height:90px;
   display:flex;
@@ -2280,8 +2303,13 @@ button { cursor:pointer; }
   min-height:40px;
   padding:5px 7px;
   border-radius:6px;
+  border:1px solid #e3e8ef;
+  background:#fff;
+  color:#0d1834;
 }
-.td-role-head>.job-header-badge .job-company-mark { width:27px; height:27px; }
+.td-role-head>.job-header-badge .job-company-mark { width:27px; height:27px; background:#f2efff; color:#6d50db; }
+.td-role-head>.job-header-badge .job-header-copy h2 { color:#0d1834; }
+.td-role-head>.job-header-badge .job-header-copy strong { color:#687187; }
 .td-role-head>.job-header-badge .job-header-copy h2 { font-size:9px; }
 .td-role-head>.job-header-badge .job-header-copy strong { font-size:6px; }
 .td-role-head>span {
