@@ -460,18 +460,23 @@ button { cursor:pointer; }
 
 /* Modal */
 .modal-scrim { position:fixed; inset:0; z-index:100; background:rgba(9,20,13,.72); backdrop-filter:blur(8px); display:grid; place-items:center; padding:20px; }
-.match-modal { width:min(440px,100%); background:white; border-radius:24px; padding:42px; text-align:center; position:relative; box-shadow:0 35px 100px rgba(0,0,0,.3); }
-.modal-close { position:absolute; right:17px; top:17px; border:0; background:#f1f3f0; border-radius:50%; width:34px; height:34px; display:grid; place-items:center; }
-.match-glow { margin:0 auto 22px; width:92px; height:68px; background:url('/brand-heart.svg') center/contain no-repeat; color:transparent; display:grid; place-items:center; filter:drop-shadow(0 12px 13px rgba(38,72,150,.18)); animation:love-pulse 1.8s ease-in-out infinite; }
-.match-glow svg { display:none; }
+.match-modal { width:min(440px,100%); background:white; border-radius:24px; text-align:center; position:relative; box-shadow:0 35px 100px rgba(0,0,0,.3); overflow:hidden; }
+.modal-close { position:absolute; right:17px; top:17px; border:0; background:#f1f3f0; border-radius:50%; width:34px; height:34px; display:grid; place-items:center; z-index:2; }
+.modal-close.on-dark { background:rgba(255,255,255,.14); color:#fff; }
+.match-hero { background:radial-gradient(circle at 50% 15%,#2a2f3d,#101218 72%); color:#fff; padding:40px 30px 28px; }
+.match-script { font:italic 700 40px 'Georgia',serif; }
+.match-sub { color:#c7cbd6; font-size:13px; margin:10px 0 26px; }
+.match-faces { display:flex; align-items:center; justify-content:center; gap:0; }
+.match-face { display:flex; flex-direction:column; align-items:center; gap:3px; width:130px; }
+.match-face img,.match-face-logo { width:74px; height:74px; border-radius:50%; object-fit:cover; border:3px solid rgba(255,255,255,.9); box-shadow:0 8px 22px rgba(0,0,0,.3); }
+.match-face-logo { background:var(--blue); color:white; display:grid; place-items:center; font:800 26px 'Manrope'; }
+.match-face strong { font-size:13px; margin-top:8px; }
+.match-face span { font-size:10px; color:#a8adb8; }
+.match-heart-mid { width:44px; height:44px; border-radius:50%; background:white; color:#fd267a; display:grid; place-items:center; margin:0 -14px; box-shadow:0 6px 16px rgba(0,0,0,.25); z-index:1; }
+.match-body { padding:26px 32px 32px; }
 .match-modal .overline { justify-content:center; }
-.match-modal h2 { font:800 37px 'Manrope'; letter-spacing:-.05em; margin:8px 0; }
-.match-modal>p { color:var(--muted); font-size:12px; line-height:1.6; }
-.match-faces { display:flex; justify-content:center; margin:24px 0; }
-.match-faces img,.match-faces div { width:70px; height:70px; border-radius:50%; object-fit:cover; border:4px solid white; box-shadow:0 5px 20px rgba(0,0,0,.13); }
-.match-faces div { background:var(--blue); color:white; display:grid; place-items:center; font:800 25px 'Manrope'; margin-left:-12px; }
 .match-modal .primary-button { width:100%; }
-.match-modal>.text-button { margin-top:8px; font-size:11px; color:var(--muted); }
+.match-keep-swiping { width:100%; margin-top:10px; }
 
 /* Pipeline */
 .pipeline-summary,.analytics-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:25px; }
@@ -678,23 +683,8 @@ button { cursor:pointer; }
 .pc-track{display:flex;width:100%;height:100%;transition:transform .4s cubic-bezier(.65,0,.35,1);}
 .pc-slide{flex:0 0 100%;height:100%;padding-top:64px;}
 .pc-screen{height:100%;display:flex;flex-direction:column;align-items:center;padding:14px 20px 22px;color:#fff;text-align:center;}
-.pc-screen-match{background:radial-gradient(circle at 50% 20%,#2a2f3d,#101218 70%);justify-content:center;gap:10px;}
-.pc-script{font:italic 700 34px 'Georgia',serif;}
-.pc-sub{font-size:12px;color:#c7cbd6;margin:0 0 6px;}
-.pc-pair{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
-.pc-person{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:0;}
-.pc-person strong{font-size:11px;}
-.pc-person>span{font-size:9px;color:#a8adb8;}
-.pc-heart{color:#fd267a;font-size:20px;flex:none;}
 .pc-avatar-photo{width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.8);}
 .pc-avatar-photo.big{width:78px;height:78px;margin-bottom:6px;}
-.pc-badge{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;font-size:9px;font-weight:700;text-align:left;margin-top:2px;}
-.pc-badge b{font-size:13px;}
-.pc-tag{font-style:normal;font-size:9px;color:#a8adb8;font-weight:500;margin-top:5px;}
-.pc-tag b{color:#fd267a;font-weight:700;}
-.pc-btn{width:100%;max-width:250px;margin-top:8px;padding:12px;border-radius:14px;font:800 11px 'Manrope';letter-spacing:.03em;border:none;cursor:pointer;}
-.pc-btn-grad{background:linear-gradient(135deg,#fd267a,#ff6036);color:#fff;}
-.pc-btn-ghost{background:transparent;border:1.5px solid #fd267a;color:#fd267a;}
 .pc-screen-profile,.pc-screen-job{background:#fff;color:#101218;justify-content:flex-start;gap:6px;}
 .pc-kicker{font-size:9px;font-weight:800;letter-spacing:.08em;color:#9aa1b2;margin-bottom:6px;}
 .pc-name{font-size:15px;}
@@ -710,6 +700,8 @@ button { cursor:pointer; }
 .pc-logo{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;color:#fff;font:800 20px 'Manrope';margin-bottom:6px;}
 .pc-company{font-size:9px;font-weight:700;letter-spacing:.05em;color:#697085;margin-bottom:2px;}
 .pc-blurb{font-size:10px;color:#4b4358;line-height:1.5;margin:0 0 8px;}
+.pc-phone.pc-photo{width:460px;max-width:92vw;background:transparent;border:none;box-shadow:none;border-radius:0;overflow:visible;display:flex;align-items:center;justify-content:center;}
+.pc-exact-img{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 34px 60px rgba(190,24,93,.28));}
 .pc-nav{display:flex;align-items:center;gap:14px;}
 .pc-nav button{width:32px;height:32px;border-radius:50%;border:1px solid #e9e4eb;background:#fff;font-size:16px;cursor:pointer;color:#4b4358;}
 .pc-count{font-size:10px;color:#697085;}
@@ -722,6 +714,7 @@ button { cursor:pointer; }
 .m-nav .brand-heart-mark { width:34px; height:34px; }
 .m-mockup { display:flex; justify-content:center; padding:6px 16px 24px; }
 .m-mockup .pc-phone { width:300px; height:600px; }
+.m-mockup .pc-phone.pc-photo { width:300px; height:600px; }
 .m-pitch { padding:0 22px; text-align:center; }
 .m-pitch .eyebrow { justify-content:center; }
 .m-pitch h1 { font-family:'Manrope'; font-size:clamp(30px,8.6vw,38px); line-height:1.02; letter-spacing:-.05em; margin:14px 0 14px; }

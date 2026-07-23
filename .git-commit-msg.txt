@@ -1,0 +1,10 @@
+Restore real hero-phone.png photo for match slide; redesign real MatchModal to match
+
+- Phone mockup slide 1 uses the actual hero-phone.png artwork again (photo mockup),
+  slides 2-3 stay live-rendered (candidate/job cards). Bigger (460px).
+- Fix duplicate "Role . Role . Recruiter" text bug from earlier CSS/JSX collision.
+- Redesign the real in-app MatchModal (shown after an actual mutual match): dark
+  celebratory hero with script "It's a Match!", avatar pair with a heart badge
+  between them, company badge, "Let's Talk" / "Keep Swiping" buttons, matching
+  the visual quality of the hero mockup, adapted to the app's real data model
+  (no distinct recruiter-person object, so the company/job stands in for it).

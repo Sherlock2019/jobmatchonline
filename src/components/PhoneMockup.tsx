@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /* Three-screen phone mockup: It's a Match -> candidate swipe card -> job swipe card.
-   All three are live-rendered (no static photo asset), one consistent example story
-   so the three screens read as a single narrative. */
+   Slide 1 is the real production mockup photo (exact artwork); slides 2-3 are
+   live-rendered so the candidate/job screens stay easy to keep in sync with the app. */
+
+const EXACT_IMG = import.meta.env.BASE_URL + 'hero-phone.png';
 
 const CANDIDATE = { name: 'Alex Martinez', title: 'Senior Software Engineer', photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop', city: 'Singapore', km: 8, skills: ['TypeScript', 'React', 'AWS'], salary: '$120k–$150k', fit: 94 };
-const RECRUITER = { name: 'Sarah Thompson', title: 'Engineering Manager', photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop' };
 const COMPANY = { name: 'Northstar', logo: 'N', accent: '#3d5afe', city: 'Singapore', role: 'Senior Software Engineer', salary: '$120k–$150k', mode: 'Hybrid · Full-time', blurb: 'Own the matching platform end to end with a product-minded team.', skills: ['TypeScript', 'React', 'AWS'] };
 
 const SLIDES = [
@@ -13,34 +14,6 @@ const SLIDES = [
   { kind: 'candidate', label: 'Candidate profile' },
   { kind: 'job', label: 'Open role' },
 ] as const;
-
-function MatchScreen() {
-  return (
-    <div className="pc-screen pc-screen-match">
-      <div className="pc-script">It&rsquo;s a Match!</div>
-      <p className="pc-sub">You and {CANDIDATE.name.split(' ')[0]} have mutually matched.</p>
-      <div className="pc-pair">
-        <div className="pc-person">
-          <img className="pc-avatar-photo" src={CANDIDATE.photo} alt="" />
-          <strong>{CANDIDATE.name}</strong>
-          <span>{CANDIDATE.title}</span>
-        </div>
-        <span className="pc-heart">♥</span>
-        <div className="pc-person">
-          <img className="pc-avatar-photo" src={RECRUITER.photo} alt="" />
-          <strong>{RECRUITER.name}</strong>
-          <div className="pc-badge" style={{ background: COMPANY.accent }}>
-            <b>{COMPANY.logo}</b>
-            <span>{RECRUITER.title} at {COMPANY.name}</span>
-          </div>
-          <em className="pc-tag"><b>Role</b> &middot; Recruiter</em>
-        </div>
-      </div>
-      <button type="button" className="pc-btn pc-btn-grad">💬 LET&rsquo;S TALK</button>
-      <button type="button" className="pc-btn pc-btn-ghost">» KEEP SWIPING</button>
-    </div>
-  );
-}
 
 function CandidateScreen() {
   return (
@@ -72,6 +45,8 @@ function JobScreen() {
   );
 }
 
+const LIVE_SCREENS = [<CandidateScreen key="candidate" />, <JobScreen key="job" />];
+
 export function PhoneMockup() {
   const [index, setIndex] = useState(0);
   const touchX = useRef<number | null>(null);
@@ -92,7 +67,7 @@ export function PhoneMockup() {
   return (
     <div className="phone-carousel">
       <div
-        className="pc-phone"
+        className={'pc-phone' + (index === 0 ? ' pc-photo' : '')}
         role="group"
         aria-roledescription="carousel"
         aria-label={`Product preview ${index + 1} of ${total}: ${slide.label}`}
@@ -104,15 +79,19 @@ export function PhoneMockup() {
           touchX.current = null;
         }}
       >
-        <div className="pc-notch" />
-        <div className="pc-brand"><span className="pc-brand-mark">♥</span><b>Jobs</b><b className="pc-mid">Match</b><b className="pc-now">Now</b></div>
-        <div className="pc-track" style={{ transform: `translateX(-${index * 100}%)` }}>
-          {SLIDES.map((s, i) => (
-            <div className="pc-slide" key={s.kind} aria-hidden={i !== index}>
-              {s.kind === 'match' ? <MatchScreen /> : s.kind === 'candidate' ? <CandidateScreen /> : <JobScreen />}
+        {index === 0 ? (
+          <img className="pc-exact-img" src={EXACT_IMG} alt="It's a Match — Alex Martinez and Sarah Thompson have mutually matched on JobsMatchNow" />
+        ) : (
+          <>
+            <div className="pc-notch" />
+            <div className="pc-brand"><span className="pc-brand-mark">♥</span><b>Jobs</b><b className="pc-mid">Match</b><b className="pc-now">Now</b></div>
+            <div className="pc-track" style={{ transform: `translateX(-${(index - 1) * 100}%)` }}>
+              {LIVE_SCREENS.map((screen, i) => (
+                <div className="pc-slide" key={i} aria-hidden={i !== index - 1}>{screen}</div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </div>
       <div className="pc-nav" aria-label="Browse product screens">
         <button type="button" onClick={() => go(-1)} aria-label="Previous screen">‹</button>

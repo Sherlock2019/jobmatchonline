@@ -462,21 +462,38 @@ function MatchModal({ match, viewer, onClose, onMessage }: { match: JobMatch; vi
     if (!Capacitor.isNativePlatform()) return;
     import('@capacitor/haptics').then(({ Haptics, ImpactStyle }) => Haptics.impact({ style: ImpactStyle.Heavy })).catch(() => undefined);
   }, []);
-  return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><Confetti /><motion.div className="match-modal" initial={{ y: 30, scale: .96 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: .96 }}><button className="modal-close" onClick={onClose}><X /></button><div className="match-glow"><Heart fill="currentColor" /></div><span className="overline">Mutual interest</span><h2>It’s a match.</h2><p>{counterpart} is interested too. Start a conversation while the momentum is fresh.</p>
-    <div className="match-faces"><img src={match.candidate?.photo || viewer.photo} /><div style={{ background: match.job ? appleColor(match.job.id) : 'var(--blue)' }}>{match.job?.logo || counterpart[0]}</div></div>
-    {(jobRange || candidateRange) && <div className="salary-reveal">
-      <span className="overline">Mutual salary reveal</span>
-      <div className="salary-reveal-rows">
-        {jobRange && <div><small>{match.job?.title || 'Role'} offers</small><strong>{jobRange}</strong></div>}
-        {candidateRange && <div><small>{viewer.role === 'candidate' ? 'Your expectation' : `${match.candidate?.name?.split(' ')[0]}'s expectation`}</small><strong>{candidateRange}</strong></div>}
+  const candidateName = match.candidate?.name || viewer.name;
+  return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><Confetti /><motion.div className="match-modal" initial={{ y: 30, scale: .96 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: .96 }}><button className="modal-close on-dark" onClick={onClose}><X /></button>
+    <div className="match-hero">
+      <div className="match-script">It&rsquo;s a Match!</div>
+      <p className="match-sub">You and {counterpart.split(' ')[0]} have mutually matched.</p>
+      <div className="match-faces">
+        <div className="match-face"><img src={match.candidate?.photo || viewer.photo} alt="" /><strong>{candidateName}</strong><span>{match.candidate?.title || viewer.title}</span></div>
+        <span className="match-heart-mid"><Heart size={20} fill="currentColor" /></span>
+        <div className="match-face">
+          <div className="match-face-logo" style={{ background: match.job ? appleColor(match.job.id) : 'var(--blue)' }}>{match.job?.logo || counterpart[0]}</div>
+          <strong>{match.job?.company || counterpart}</strong>
+          {match.job?.title && <span>{match.job.title}</span>}
+        </div>
       </div>
-      <p>Both ranges are now visible to both sides — at the same time.</p>
-    </div>}
-    {icebreakers.length > 0 && <div className="icebreakers">
-      <span className="overline">Break the ice</span>
-      {icebreakers.map((text, index) => <button key={text} className="icebreaker" disabled={sendingIdx >= 0} onClick={() => sendIcebreaker(text, index)}>{sendingIdx === index ? <Loader2 size={13} className="spin" /> : <Send size={13} />}<span>{text}</span></button>)}
-    </div>}
-    <button className="primary-button" onClick={onMessage}><MessageCircle size={17} />Send a message</button><button className="text-button" onClick={onClose}>Keep exploring</button></motion.div></motion.div>;
+    </div>
+    <div className="match-body">
+      {(jobRange || candidateRange) && <div className="salary-reveal">
+        <span className="overline">Mutual salary reveal</span>
+        <div className="salary-reveal-rows">
+          {jobRange && <div><small>{match.job?.title || 'Role'} offers</small><strong>{jobRange}</strong></div>}
+          {candidateRange && <div><small>{viewer.role === 'candidate' ? 'Your expectation' : `${match.candidate?.name?.split(' ')[0]}'s expectation`}</small><strong>{candidateRange}</strong></div>}
+        </div>
+        <p>Both ranges are now visible to both sides — at the same time.</p>
+      </div>}
+      {icebreakers.length > 0 && <div className="icebreakers">
+        <span className="overline">Break the ice</span>
+        {icebreakers.map((text, index) => <button key={text} className="icebreaker" disabled={sendingIdx >= 0} onClick={() => sendIcebreaker(text, index)}>{sendingIdx === index ? <Loader2 size={13} className="spin" /> : <Send size={13} />}<span>{text}</span></button>)}
+      </div>}
+      <button className="primary-button" onClick={onMessage}><MessageCircle size={17} />Let&rsquo;s Talk</button>
+      <button className="secondary-button match-keep-swiping" onClick={onClose}>Keep Swiping</button>
+    </div>
+  </motion.div></motion.div>;
 }
 
 function Pipeline({ data, setData }: { data: Bootstrap; setData: (d: Bootstrap) => void }) {
