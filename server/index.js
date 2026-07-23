@@ -1051,11 +1051,16 @@ app.get('/api/bootstrap', async (req, res, next) => {
         const likedCandidateIds = new Set(db.swipes
           .filter((swipe) => swipe.direction === 'like' && swipe.targetType === 'job' && swipe.targetId === job.id)
           .map((swipe) => swipe.actorId));
-        const ranked = scoredCandidates.map((candidate) => ({
-          ...candidate,
-          likedYou: likedCandidateIds.has(candidate.id),
-          match: scoreCandidateForJob(candidate, { ...job, distanceKm: candidate.distanceKm }),
-        })).sort((a, b) => Number(b.likedYou) - Number(a.likedYou) || (b.match?.score || 0) - (a.match?.score || 0));
+        const ranked = scoredCandidates.map((candidate) => {
+          // Score with the private source profile, but return only the recruiter-safe
+          // candidate payload. Salary expectations remain hidden until mutual match.
+          const sourceCandidate = candidates.find((person) => person.id === candidate.id) || candidate;
+          return {
+            ...candidate,
+            likedYou: likedCandidateIds.has(candidate.id),
+            match: scoreCandidateForJob({ ...sourceCandidate, distanceKm: candidate.distanceKm }, { ...job, distanceKm: candidate.distanceKm }),
+          };
+        }).sort((a, b) => Number(b.likedYou) - Number(a.likedYou) || (b.match?.score || 0) - (a.match?.score || 0));
         const interested = ranked.filter((candidate) => candidate.likedYou);
         const matchingCandidates = ranked.filter((candidate) => isStrongRoleMatch(candidate.match));
         return {

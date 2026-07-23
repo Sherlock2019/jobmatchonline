@@ -165,10 +165,11 @@ export function scoreCandidateForJob(candidate, job) {
   return { score, matchedSkills, missingSkills, extraSkills, matchedLanguages, experienceFit, breakdown, salaryStatus: salary.status };
 }
 
-/** Strict home-page recommendation: 90% skills plus salary and place/mode compatibility. */
+/** Strict home-page recommendation: 90% overall plus skills, salary and place/mode compatibility. */
 export function isStrongRoleMatch(match) {
   const factors = Object.fromEntries((match?.breakdown || []).map((factor) => [factor.factor, factor.score]));
-  return (factors.skills || 0) >= 0.9
+  return (match?.score || 0) >= 90
+    && (factors.skills || 0) >= 0.9
     && (factors.salary || 0) >= 0.6
     && ((factors.distance || 0) >= 0.85 || (factors.workMode || 0) >= 0.8);
 }
