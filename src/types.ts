@@ -27,6 +27,7 @@ export interface PrivacySettings { visibility?: 'all' | 'after-swipe' | 'paused'
 
 export interface Person {
   id: string; role: Role; kind?: EmployerKind; name: string; email?: string; provider?: string; title: string;
+  demoOrder?: number;
   location?: string; distanceKm?: number; company?: string; photo: string; skills: string[]; languages: string[];
   experienceLevel: string; completeness?: number; availability?: string; match?: MatchEvidence; onboarding?: boolean; salaryHidden?: boolean; demo?: boolean; superLikedYou?: boolean; likedYou?: boolean; viewedYou?: boolean; verified?: boolean;
   // Candidate profile model (item 4)

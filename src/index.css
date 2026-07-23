@@ -2141,6 +2141,7 @@ button { cursor:pointer; }
   padding-top:7px;
   border-top:1px solid #eef1f5;
 }
+.td-recruiter-line>img { width:27px; height:27px; flex:none; object-fit:cover; border-radius:50%; }
 .td-avatar-fallback {
   width:27px;
   height:27px;

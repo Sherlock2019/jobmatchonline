@@ -31,13 +31,26 @@ await store.init();
 // never overwriting values a user has edited.
 await store.transaction((db) => {
   const seed = createSeed();
-  for (const collection of ['users', 'jobs']) {
+  for (const collection of ['users', 'jobs', 'swipes', 'matches', 'messages', 'calls']) {
+    if (!Array.isArray(db[collection])) db[collection] = [];
     const byId = new Map(db[collection].map((item) => [item.id, item]));
     for (const item of seed[collection]) {
       const existing = byId.get(item.id);
       if (!existing) db[collection].push(item);
+      else if (item.demoTemplate) Object.assign(existing, item);
       else for (const [key, value] of Object.entries(item)) if (existing[key] === undefined) existing[key] = value;
     }
+  }
+  // Remove the retired flagship demo relationships that were replaced by the
+  // Sofia/Sarah reference dataset. User-created records are never touched.
+  const retiredDemoIds = {
+    swipes: new Set(['s-seed-1']),
+    matches: new Set(['m-candidate', 'm-existing', 'm-priya']),
+    messages: new Set(['msg-candidate-1', 'msg-1', 'msg-2']),
+    calls: new Set(['call-existing']),
+  };
+  for (const [collection, ids] of Object.entries(retiredDemoIds)) {
+    db[collection] = db[collection].filter((item) => !ids.has(item.id));
   }
   // Merge seed reviews by id and backfill `approved` on them, so the starter
   // reviews stay visible after the moderation field was introduced.
@@ -48,7 +61,6 @@ await store.transaction((db) => {
     else if (existing.approved === undefined) existing.approved = f.approved;
   }
   // Scheduled calls were introduced after the store may already exist on disk.
-  if (!Array.isArray(db.calls)) db.calls = [];
   if (!Array.isArray(db.bookmarks)) db.bookmarks = [];
 });
 console.log(`JobMatch store: ${process.env.DATABASE_URL ? 'postgresql (RDS)' : 'json file'}`);
@@ -1009,8 +1021,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
     const matchedJobIds = new Set(db.matches.filter((match) => match.candidateId === viewer.id).map((match) => match.jobId));
     const matchedCandidateIds = new Set(db.matches.filter((match) => match.employerId === viewer.id).map((match) => match.candidateId));
     // Incoming super-likes: who signalled strong interest in the viewer already?
-    const employerIdsWhoSuperLikedMe = new Set(db.swipes.filter((s) => s.superLike && s.targetType === 'candidate' && s.targetId === viewer.id).map((s) => s.actorId));
-    const employerIdsWhoLikedMe = new Set(db.swipes.filter((s) => s.direction === 'like' && s.targetType === 'candidate' && s.targetId === viewer.id).map((s) => s.actorId));
+    const incomingEmployerLikes = db.swipes.filter((s) => s.direction === 'like' && s.targetType === 'candidate' && s.targetId === viewer.id);
     const viewerJobIds = new Set(db.jobs.filter((job) => job.employerId === viewer.id).map((job) => job.id));
     const candidatesWhoSuperLikedMyJobs = new Set(db.swipes.filter((s) => s.superLike && s.targetType === 'job' && viewerJobIds.has(s.targetId)).map((s) => s.actorId));
     const scoredJobs = db.jobs.map((job) => {
@@ -1023,7 +1034,8 @@ app.get('/api/bootstrap', async (req, res, next) => {
         delete withDistance.salary; delete withDistance.salaryRange;
         withDistance.salaryHidden = true;
       }
-      return { ...withDistance, companyLogo: employer?.companyLogo, match, likedYou: employerIdsWhoLikedMe.has(job.employerId), superLikedYou: employerIdsWhoSuperLikedMe.has(job.employerId), verified: verifiedUser(employer) };
+      const incomingLike = incomingEmployerLikes.find((swipe) => swipe.actorId === job.employerId && (!swipe.jobId || swipe.jobId === job.id));
+      return { ...withDistance, companyLogo: employer?.companyLogo, match, likedYou: Boolean(incomingLike), superLikedYou: Boolean(incomingLike?.superLike), verified: verifiedUser(employer) };
     });
     // Score candidates against this recruiter's own (first active) job when possible.
     const referenceJob = db.jobs.find((job) => job.employerId === viewer.id && String(job.status).toLowerCase() === 'active')
@@ -1060,7 +1072,9 @@ app.get('/api/bootstrap', async (req, res, next) => {
             likedYou: likedCandidateIds.has(candidate.id),
             match: scoreCandidateForJob({ ...sourceCandidate, distanceKm: candidate.distanceKm }, { ...job, distanceKm: candidate.distanceKm }),
           };
-        }).sort((a, b) => Number(b.likedYou) - Number(a.likedYou) || (b.match?.score || 0) - (a.match?.score || 0));
+        }).sort((a, b) => Number(b.likedYou) - Number(a.likedYou)
+          || (job.demoTemplate ? (a.demoOrder || 99) - (b.demoOrder || 99) : 0)
+          || (b.match?.score || 0) - (a.match?.score || 0));
         const interested = ranked.filter((candidate) => candidate.likedYou);
         const matchingCandidates = ranked.filter((candidate) => isStrongRoleMatch(candidate.match));
         return {

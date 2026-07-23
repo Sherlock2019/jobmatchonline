@@ -51,8 +51,8 @@ function DashboardTitle({ icon: Icon, title, subtitle, action, onAction }: {
   </header>;
 }
 
-function CandidateJobCard({ job, saved, onSave, onView, onTalk }: {
-  job: Job; saved: boolean; onSave: () => void; onView: () => void; onTalk: () => void;
+function CandidateJobCard({ job, recruiter, saved, onSave, onView, onTalk }: {
+  job: Job; recruiter?: Person; saved: boolean; onSave: () => void; onView: () => void; onTalk: () => void;
 }) {
   const skills = job.match?.matchedSkills?.length || 0;
   return <article className="td-job-card">
@@ -72,8 +72,8 @@ function CandidateJobCard({ job, saved, onSave, onView, onTalk }: {
       <span><Check size={11} />{skills} matching skills</span>
     </div>
     <div className="td-recruiter-line">
-      <span className="td-avatar-fallback">{job.company.slice(0, 1)}</span>
-      <span><strong>{job.company}</strong><small>Hiring team</small></span>
+      {recruiter?.photo ? <img src={recruiter.photo} alt="" /> : <span className="td-avatar-fallback">{job.company.slice(0, 1)}</span>}
+      <span><strong>{recruiter?.name || job.company}</strong><small>{recruiter?.title || 'Hiring team'}</small></span>
     </div>
     <div className="td-job-actions">
       <button className="secondary-button" onClick={onView}>View Match</button>
@@ -136,7 +136,7 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
     navigate(result.match ? 'messages' : 'matches');
   };
   const jobCards = (items: Job[]) => items.length
-    ? <div className="td-job-grid">{items.slice(0, 3).map((job) => <CandidateJobCard key={job.id} job={job} saved={data.bookmarkedIds.includes(job.id)} onSave={() => void toggleSave(job)} onView={() => setSelectedJob(job)} onTalk={() => void startTalk(job)} />)}</div>
+    ? <div className="td-job-grid">{items.slice(0, 3).map((job) => <CandidateJobCard key={job.id} job={job} recruiter={data.matches.find((match) => match.jobId === job.id)?.employer} saved={data.bookmarkedIds.includes(job.id)} onSave={() => void toggleSave(job)} onView={() => setSelectedJob(job)} onTalk={() => void startTalk(job)} />)}</div>
     : <EmptyRow>No recruiter offers yet. Your profile remains visible to matching teams.</EmptyRow>;
 
   const metrics = [
@@ -227,7 +227,9 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
     navigate(result.match ? 'messages' : 'matches');
   };
   const personCards = (people: Person[], liked = false) => {
-    const visible = [...people].sort((a, b) => bestMatchFirst ? (b.match?.score || 0) - (a.match?.score || 0) : a.name.localeCompare(b.name)).slice(0, 4);
+    const visible = [...people].sort((a, b) => data.viewer.demo && (a.demoOrder || b.demoOrder)
+      ? (a.demoOrder || 99) - (b.demoOrder || 99)
+      : bestMatchFirst ? (b.match?.score || 0) - (a.match?.score || 0) : a.name.localeCompare(b.name)).slice(0, 4);
     if (!visible.length) return <EmptyRow>No candidates have shown interest in this job yet.</EmptyRow>;
     return <div className="td-people-row">
       {visible.map((person) => <PersonCard key={person.id} person={person} liked={liked} saved={data.bookmarkedIds.includes(person.id)} onSave={() => void save(person)} onView={() => setSelected(person)} onTalk={() => void talk(person)} />)}
