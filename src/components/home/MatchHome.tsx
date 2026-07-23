@@ -216,7 +216,6 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
   const [selected, setSelected] = useState<Person | null>(null);
   const [expandedId, setExpandedId] = useState('');
   const [bestMatchFirst, setBestMatchFirst] = useState(true);
-  const [matchingRoleId, setMatchingRoleId] = useState('');
   const groups: RoleMatchGroup[] = data.roleMatches?.length
     ? data.roleMatches
     : data.jobs.filter((job) => job.employerId === data.viewer.id).map((job) => ({
@@ -246,9 +245,6 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
     const visible = [...people].sort((a, b) => bestMatchFirst ? (b.match?.score || 0) - (a.match?.score || 0) : a.name.localeCompare(b.name)).slice(0, 4);
     return <div className="td-people-row">
       {visible.map((person) => <PersonCard key={person.id} person={person} liked={liked} saved={data.bookmarkedIds.includes(person.id)} onSave={() => void save(person)} onView={() => setSelected(person)} onTalk={() => void talk(person)} />)}
-      {Array.from({ length: Math.max(0, 4 - visible.length) }, (_, index) => <article className="td-person-card td-person-placeholder" key={`person-placeholder-${index}`}>
-        <span><Heart size={18} /></span><strong>Next candidate</strong><small>New interest will appear here.</small>
-      </article>)}
     </div>;
   };
 
@@ -278,6 +274,7 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
         {roles.map((group) => {
           const open = group.job.id === openId;
           const precise = (group.matchingCandidates || []).filter((candidate) => isPreciseMatch(candidate.match));
+          const showcase = [...new Map([...group.candidates, ...precise, ...data.candidates].map((candidate) => [candidate.id, candidate])).values()].slice(0, 4);
           return <article className={open ? 'td-role open' : 'td-role'} key={group.job.id}>
             <button className="td-role-head" onClick={() => setExpandedId(open ? '__none__' : group.job.id)} aria-expanded={open}>
               <JobHeaderBadge job={group.job} compact />
@@ -287,16 +284,13 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
               <ChevronDown size={16} />
             </button>
             {open && <div className="td-role-body">
-              {personCards(group.candidates, true)}
-              <button className="td-matching-toggle" onClick={() => setMatchingRoleId(matchingRoleId === group.job.id ? '' : group.job.id)}>
-                <span><TrendingUp size={13} /> Candidates Matching This Role</span>
-                <small>{precise.length} candidates at 90%+</small>
-                <ChevronDown className={matchingRoleId === group.job.id ? 'open' : ''} size={15} />
-              </button>
-              {matchingRoleId === group.job.id && <div className="td-matching-lane">{personCards(precise)}</div>}
+              {personCards(showcase, false)}
             </div>}
           </article>;
         })}
+        {Array.from({ length: Math.max(0, 4 - roles.length) }, (_, index) => <button className="td-role td-role-create" key={`create-role-${index}`} onClick={() => navigate('jobs')}>
+          <span><BriefcaseBusiness size={15} /></span><strong>Add another job offer</strong><small>Publish a role to start receiving candidate interest.</small><ArrowRight size={14} />
+        </button>)}
       </div>
     </section>
 

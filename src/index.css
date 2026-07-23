@@ -2329,6 +2329,21 @@ button { cursor:pointer; }
 .td-role-head>svg { color:#697489; transition:.2s; }
 .td-role.open .td-role-head>svg { transform:rotate(180deg); }
 .td-role-body { padding:10px; border-top:1px solid #edf0f4; background:#fbfcfe; }
+.td-role-create {
+  width:100%;
+  min-height:46px;
+  display:grid;
+  grid-template-columns:28px minmax(150px,auto) 1fr 18px;
+  align-items:center;
+  gap:8px;
+  padding:7px 10px;
+  text-align:left;
+  color:#667188;
+}
+.td-role-create>span { width:27px; height:27px; display:grid; place-items:center; border-radius:7px; background:#f2efff; color:#6d50db; }
+.td-role-create>strong { color:#14203b; font-size:10px; }
+.td-role-create>small { font-size:8px; }
+.td-role-create>svg { color:#0a75c7; }
 .td-people-row {
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
