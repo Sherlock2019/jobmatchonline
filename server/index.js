@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { JsonStore } from './store.js';
 import { PgStore } from './store-pg.js';
 import { createSeed } from './seed.js';
-import { detectMutualMatch, likesRemainingToday, scoreCandidateForJob, ValidationError, reqString, optString, oneOf } from './matching.js';
+import { detectMutualMatch, isStrongRoleMatch, likesRemainingToday, scoreCandidateForJob, ValidationError, reqString, optString, oneOf } from './matching.js';
 import { applyCandidateProfile, applyRecruiterProfile, candidateCompleteness, recruiterCompleteness } from './profile.js';
 import { anonymizeText, convertDocxToPdf, detectTools, docxToHtml, extractDocxText, extractPdfText, makeSimplePdf, pdfThumbnail } from './resume.js';
 import { applyJob, parseJobText } from './jobs.js';
@@ -1053,9 +1053,11 @@ app.get('/api/bootstrap', async (req, res, next) => {
           match: scoreCandidateForJob(candidate, { ...job, distanceKm: candidate.distanceKm }),
         })).sort((a, b) => Number(b.likedYou) - Number(a.likedYou) || (b.match?.score || 0) - (a.match?.score || 0));
         const interested = ranked.filter((candidate) => candidate.likedYou);
+        const matchingCandidates = ranked.filter((candidate) => isStrongRoleMatch(candidate.match));
         return {
           job: { ...job, match: scoreCandidateForJob(viewer, job) },
-          candidates: interested.length ? interested : ranked,
+          candidates: interested,
+          matchingCandidates,
           interestedCount: interested.length,
           newCount: interested.slice(0, 4).length,
         };

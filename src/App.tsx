@@ -29,7 +29,7 @@ import { loadSession, saveSession } from './lib/auth';
 import type { Bootstrap, Job, JobMatch, Message, Person, Role, SessionUser, View } from './types';
 
 const candidateNav: { view: View; label: string; icon: typeof Compass }[] = [
-  { view: 'home', label: 'Home', icon: Compass }, { view: 'discover', label: 'Jobs Chasing You', icon: BriefcaseBusiness }, { view: 'matches', label: 'Matches', icon: Heart }, { view: 'messages', label: 'Conversations', icon: MessageCircle }, { view: 'profile', label: 'My Profile', icon: Users },
+  { view: 'home', label: 'Home', icon: Compass }, { view: 'discover', label: 'Roles Matching You', icon: BriefcaseBusiness }, { view: 'matches', label: 'Jobs & Recruiters', icon: Heart }, { view: 'messages', label: 'Conversations', icon: MessageCircle }, { view: 'profile', label: 'My Profile', icon: Users },
 ];
 const employerNav: { view: View; label: string; icon: typeof Compass }[] = [
   { view: 'home', label: 'Home', icon: Compass }, { view: 'jobs', label: 'My Jobs', icon: BriefcaseBusiness }, { view: 'discover', label: 'Candidates', icon: Users }, { view: 'messages', label: 'Conversations', icon: MessageCircle }, { view: 'pipeline', label: 'Pipeline', icon: Layers3 }, { view: 'analytics', label: 'Reports', icon: BarChart3 }, { view: 'profile', label: 'Company Profile', icon: Target },
@@ -185,7 +185,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
       )}
     </section>
     {profileSaved && <div className="profile-saved-toast" role="status"><Check size={15} /> Profile updated. Recruiter view refreshed.</div>}
-    <nav className="mobile-bottom-nav" aria-label="Primary navigation">{nav.slice(0, 5).map(({ view: itemView, label, icon: Icon }) => <button key={itemView} className={view === itemView ? 'active' : ''} onClick={() => setView(itemView)}><Icon size={19} /><span>{label === 'Jobs Chasing You' ? 'Jobs' : label}</span></button>)}</nav>
+    <nav className="mobile-bottom-nav" aria-label="Primary navigation">{nav.slice(0, 5).map(({ view: itemView, label, icon: Icon }) => <button key={itemView} className={view === itemView ? 'active' : ''} onClick={() => setView(itemView)}><Icon size={19} /><span>{label === 'Roles Matching You' ? 'Roles' : label === 'Jobs & Recruiters' ? 'Love You' : label}</span></button>)}</nav>
     <AnimatePresence>{settingsOpen && <SettingsModal user={session} onClose={() => setSettingsOpen(false)} onDeleted={() => { setSettingsOpen(false); onExit(); }} />}</AnimatePresence>
   </div>;
 }

@@ -165,6 +165,14 @@ export function scoreCandidateForJob(candidate, job) {
   return { score, matchedSkills, missingSkills, extraSkills, matchedLanguages, experienceFit, breakdown, salaryStatus: salary.status };
 }
 
+/** Strict home-page recommendation: 90% skills plus salary and place/mode compatibility. */
+export function isStrongRoleMatch(match) {
+  const factors = Object.fromEntries((match?.breakdown || []).map((factor) => [factor.factor, factor.score]));
+  return (factors.skills || 0) >= 0.9
+    && (factors.salary || 0) >= 0.6
+    && ((factors.distance || 0) >= 0.85 || (factors.workMode || 0) >= 0.8);
+}
+
 /** Start of the current UTC day, as a timestamp. */
 export function startOfToday(now = Date.now()) {
   const d = new Date(now);

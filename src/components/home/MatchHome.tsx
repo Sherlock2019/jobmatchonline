@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react';
 import {
   ArrowRight, Bookmark, BriefcaseBusiness, Building2, Check, Coffee, Eye,
-  Heart, MapPin, MessageCircle, Pencil, Sparkles, Star, Target, TrendingUp,
-  UserRound, X,
+  Heart, MapPin, MessageCircle, Pencil, Sparkles, Star, Target, TrendingUp, X,
 } from 'lucide-react';
 import { api } from '../../api';
-import type { Bootstrap, Job, Person, RoleMatchGroup, View } from '../../types';
+import type { Bootstrap, Job, MatchEvidence, Person, RoleMatchGroup, View } from '../../types';
 import { CandidateCards } from '../profile/CandidateCards';
 import { JobDetailModal } from '../coach/CoachModals';
 
@@ -26,6 +25,13 @@ function stars(score = 0) {
   if (score >= 75) return 3;
   if (score >= 65) return 2;
   return 1;
+}
+
+function isStrongMatch(match?: MatchEvidence) {
+  const factors = Object.fromEntries((match?.breakdown || []).map((factor) => [factor.factor, factor.score]));
+  return (factors.skills || 0) >= 0.9
+    && (factors.salary || 0) >= 0.6
+    && ((factors.distance || 0) >= 0.85 || (factors.workMode || 0) >= 0.8);
 }
 
 function MatchStars({ score }: { score?: number }) {
@@ -118,8 +124,8 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
   const [busyId, setBusyId] = useState('');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const jobs = useMemo(() => [...data.jobs].sort((a, b) => (b.match?.score || 0) - (a.match?.score || 0)), [data.jobs]);
-  const visibleJobs = jobs.slice(0, 6);
-  const interested = jobs.filter((job) => job.likedYou || job.superLikedYou);
+  const lovedJobs = jobs.filter((job) => job.likedYou || job.superLikedYou);
+  const rolesMatching = jobs.filter((job) => isStrongMatch(job.match));
   const conversations = data.matches.slice(0, 3);
   const reload = async () => setData(await api.bootstrap(data.viewer.id));
   const toggleSave = async (job: Job) => {
@@ -140,32 +146,38 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
     <section className="mh-hero">
       <div><span className="overline">Your JobMatch home</span><h1>Good morning, {firstName(data.viewer.name)} <span aria-hidden="true">👋</span></h1>
         <h2>The right roles are already looking for you.</h2>
-        <p>Your profile is {completion}% complete and matching with {jobs.length} relevant opportunities.</p>
+        <p>Your profile is {completion}% complete and already matching strongly with {rolesMatching.length} relevant opportunities.</p>
         <div className="mh-hero-actions"><button className="primary-button" onClick={() => navigate('discover')}>Explore Matches</button><button className="secondary-button" onClick={() => navigate('profile')}>Preview as Recruiter</button></div>
       </div>
-      <aside className="mh-strength"><div className="mh-ring" style={{ '--value': `${completion * 3.6}deg` } as React.CSSProperties}><strong>{completion}%</strong></div><b>Profile strength</b><span><Eye size={13} />{Math.max(interested.length * 3, 1)} recruiter views</span><span><Heart size={13} />{interested.length} interested</span><small><i /> Visible to recruiters</small></aside>
+      <aside className="mh-strength"><div className="mh-ring" style={{ '--value': `${completion * 3.6}deg` } as React.CSSProperties}><strong>{completion}%</strong></div><b>Profile strength</b><span><Eye size={13} />{Math.max(lovedJobs.length * 3, 1)} recruiter views</span><span><Heart size={13} />{lovedJobs.length} recruiters interested</span><small><i /> Visible to recruiters</small></aside>
     </section>
 
     <section className="mh-summary" aria-label="Your recent activity">
       {[
-        { icon: Heart, label: 'Jobs Chasing You', value: jobs.length, note: `${Math.min(4, jobs.length)} new this week`, action: 'View jobs', view: 'discover' as View },
-        { icon: Eye, label: 'Recruiters Checking You Out', value: Math.max(interested.length * 3, 1), note: `${interested.length} showing interest`, action: 'See activity', view: 'home' as View },
-        { icon: UserRound, label: 'Recruiters Like You', value: interested.length, note: interested.length ? 'New interest waiting' : 'Keep strengthening', action: 'See who', view: 'matches' as View },
+        { icon: Heart, label: 'Jobs & Recruiters That Love You', value: lovedJobs.length, note: 'They liked you first', action: 'View offers', view: 'home' as View },
+        { icon: Target, label: 'Roles Matching You', value: rolesMatching.length, note: '90%+ compatible', action: 'See roles', view: 'home' as View },
+        { icon: Eye, label: 'Recruiters Checking You Out', value: Math.max(lovedJobs.length * 3, 1), note: `${lovedJobs.length} showing interest`, action: 'See activity', view: 'home' as View },
         { icon: Coffee, label: 'Let’s Talk Invitations', value: conversations.length, note: `${data.messages.length} recent messages`, action: 'Open conversations', view: 'messages' as View },
       ].map((item) => <button key={item.label} className="mh-summary-card" onClick={() => navigate(item.view)}><span><item.icon size={17} /></span><small>{item.label}</small><strong>{item.value}</strong><p>{item.note}</p><b>{item.action}<ArrowRight size={12} /></b></button>)}
     </section>
 
     <section className="mh-section">
-      <SectionHeading icon={Heart} title="Jobs Chasing You" subtitle="Your strongest opportunities, ranked by compatibility." action="Explore all" onAction={() => navigate('discover')} />
-      {visibleJobs.length ? <div className="mh-job-grid">{visibleJobs.map((job, index) => <JobMatchCard key={job.id} job={job} featured={index === 0} saved={data.bookmarkedIds.includes(job.id)} onSave={() => void toggleSave(job)} onLike={() => void actOnJob(job, 'like')} onPass={() => void actOnJob(job, 'pass')} onView={() => setSelectedJob(job)} onTalk={() => void actOnJob(job, 'like', true)} />)}</div>
-        : <EmptyMatchState title="Your perfect role is still looking for you" text="Complete your skills and preferences to improve your matches." action="Improve My Profile" onAction={() => onEditProfile(1)} />}
+      <SectionHeading icon={Heart} title="Jobs and Recruiters That Love You" subtitle="Real job offers from recruiters who have already liked your profile." action="See all offers" onAction={() => navigate('matches')} />
+      {lovedJobs.length ? <div className="mh-job-grid">{lovedJobs.slice(0, 6).map((job, index) => <JobMatchCard key={job.id} job={job} featured={index === 0} saved={data.bookmarkedIds.includes(job.id)} onSave={() => void toggleSave(job)} onLike={() => void actOnJob(job, 'like')} onPass={() => void actOnJob(job, 'pass')} onView={() => setSelectedJob(job)} onTalk={() => void actOnJob(job, 'like', true)} />)}</div>
+        : <EmptyMatchState title="No recruiter likes yet" text="Your profile is visible. Strengthen it while the right recruiters discover you." action="Strengthen My Profile" onAction={() => onEditProfile(0)} />}
       {busyId && <span className="mh-saving" role="status">Updating your matches…</span>}
+    </section>
+
+    <section className="mh-section">
+      <SectionHeading icon={Target} title="Roles Matching You" subtitle="At least 90% skill coverage, compatible salary, and a location or work-mode fit." action="Explore all roles" onAction={() => navigate('discover')} />
+      {rolesMatching.length ? <div className="mh-job-grid compact">{rolesMatching.slice(0, 6).map((job) => <JobMatchCard key={`matching-${job.id}`} job={job} saved={data.bookmarkedIds.includes(job.id)} onSave={() => void toggleSave(job)} onLike={() => void actOnJob(job, 'like')} onPass={() => void actOnJob(job, 'pass')} onView={() => setSelectedJob(job)} onTalk={() => void actOnJob(job, 'like', true)} />)}</div>
+        : <EmptyMatchState title="We’re refining your strongest role matches" text="Add salary, location, and work-mode preferences to unlock precise 90%+ recommendations." action="Update Preferences" onAction={() => onEditProfile(2)} />}
     </section>
 
     <section className="mh-lower-grid">
       <div className="mh-panel">
         <SectionHeading icon={Eye} title="Recruiters Checking You Out" subtitle="Companies showing genuine interest." />
-        {interested.length ? <div className="mh-activity-list">{interested.slice(0, 4).map((job, index) => <button key={job.id} onClick={() => navigate('discover')}><span className="mh-company-logo small" style={{ background: job.accent }}>{job.logo}</span><span><strong>{job.company}</strong><small>{job.superLikedYou ? 'sent you a Super Match' : 'liked your profile'} · {index ? `${index + 1}h ago` : 'Recently'}</small></span><ArrowRight size={14} /></button>)}</div>
+        {lovedJobs.length ? <div className="mh-activity-list">{lovedJobs.slice(0, 4).map((job, index) => <button key={job.id} onClick={() => setSelectedJob(job)}><span className="mh-company-logo small" style={{ background: job.accent }}>{job.logo}</span><span><strong>{job.company}</strong><small>{job.superLikedYou ? 'sent you a Super Match' : 'liked your profile'} · {index ? `${index + 1}h ago` : 'Recently'}</small></span><ArrowRight size={14} /></button>)}</div>
           : <p className="mh-panel-empty">A stronger profile helps the right recruiters discover you.</p>}
       </div>
       <div className="mh-panel">
@@ -190,10 +202,15 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
 export function RecruiterHome({ data, setData, navigate }: HomeProps) {
   const [selected, setSelected] = useState<Person | null>(null);
   const [busyId, setBusyId] = useState('');
-  const groups: RoleMatchGroup[] = data.roleMatches?.length ? data.roleMatches : data.jobs.filter((job) => job.employerId === data.viewer.id).map((job) => ({ job, candidates: data.candidates, interestedCount: data.candidates.filter((candidate) => candidate.likedYou).length, newCount: 0 }));
-  const activeGroups = groups.length ? groups : data.jobs.slice(0, 1).map((job) => ({ job, candidates: data.candidates, interestedCount: 0, newCount: 0 }));
-  const candidates = activeGroups.flatMap((group) => group.candidates);
+  const groups: RoleMatchGroup[] = data.roleMatches?.length ? data.roleMatches : data.jobs.filter((job) => job.employerId === data.viewer.id).map((job) => {
+    const candidates = data.candidates.filter((candidate) => candidate.likedYou);
+    return { job, candidates, matchingCandidates: data.candidates.filter((candidate) => isStrongMatch(candidate.match)), interestedCount: candidates.length, newCount: 0 };
+  });
+  const activeGroups: RoleMatchGroup[] = groups.length ? groups : data.jobs.slice(0, 1).map((job) => ({ job, candidates: [], matchingCandidates: data.candidates.filter((candidate) => isStrongMatch(candidate.match)), interestedCount: 0, newCount: 0 }));
+  const candidates = activeGroups.flatMap((group) => [...group.candidates, ...(group.matchingCandidates || [])]);
   const uniqueCandidates = new Map(candidates.map((candidate) => [candidate.id, candidate]));
+  const lovedCandidates = new Map(activeGroups.flatMap((group) => group.candidates).map((candidate) => [candidate.id, candidate]));
+  const strongCandidates = new Map(activeGroups.flatMap((group) => group.matchingCandidates || []).map((candidate) => [candidate.id, candidate]));
   const refresh = async () => setData(await api.bootstrap(data.viewer.id));
   const swipe = async (candidate: Person, direction: 'like' | 'pass', talk = false) => {
     setBusyId(candidate.id);
@@ -213,11 +230,11 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
     <header className="mh-recruiter-head"><div><span className="overline">Your hiring home</span><h1>Good morning, {firstName(data.viewer.name)} <span aria-hidden="true">👋</span></h1><p>Here’s who loves your jobs today.</p></div><button className="primary-button" onClick={() => navigate('jobs')}>+ Create a New Job</button></header>
     <section className="mh-summary recruiter">
       {[
-        { icon: Heart, label: 'People Who Love Your Jobs', value: [...uniqueCandidates.values()].filter((candidate) => candidate.likedYou).length, note: 'genuine interest' },
+        { icon: Heart, label: 'People Who Love Your Jobs', value: lovedCandidates.size, note: 'liked an offer first' },
+        { icon: Target, label: 'Candidates Matching Your Jobs', value: strongCandidates.size, note: '90%+ compatible' },
         { icon: Eye, label: 'Viewed Your Jobs', value: uniqueCandidates.size, note: 'qualified people' },
         { icon: Coffee, label: 'Coffee Requests', value: data.calls.length, note: 'awaiting' },
         { icon: MessageCircle, label: 'Active Conversations', value: conversations, note: 'ongoing' },
-        { icon: TrendingUp, label: 'Perfect Matches', value: [...uniqueCandidates.values()].filter((candidate) => (candidate.match?.score || 0) >= 90).length, note: '90% and above' },
       ].map((item) => <button key={item.label} className="mh-summary-card" onClick={() => navigate(item.label.includes('Conversation') ? 'messages' : 'home')}><span><item.icon size={17} /></span><small>{item.label}</small><strong>{item.value}</strong><p>{item.note}</p></button>)}
     </section>
 
@@ -225,9 +242,22 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
       <SectionHeading icon={Heart} title="People Who Love This Job" subtitle="Interested candidates grouped by role and ranked by match quality." />
       {activeGroups.length ? <div className="mh-role-list">{activeGroups.map((group, groupIndex) => <section className={groupIndex === 0 ? 'mh-role-block expanded' : 'mh-role-block'} key={group.job.id}>
         <header><span className="mh-role-icon"><Target size={16} /></span><div><h3>{group.job.title}</h3><p>{group.interestedCount} people love this job · {group.newCount} new today</p></div><button onClick={() => navigate('discover')}>View all candidates <ArrowRight size={13} /></button></header>
-        <div className="mh-candidate-row">{group.candidates.slice(0, groupIndex === 0 ? 5 : 4).map((candidate) => <CandidateMatchCard key={`${group.job.id}-${candidate.id}`} candidate={candidate} saved={data.bookmarkedIds.includes(candidate.id)} onSave={() => void save(candidate)} onLike={() => void swipe(candidate, 'like')} onPass={() => void swipe(candidate, 'pass')} onView={() => setSelected(candidate)} onTalk={() => void swipe(candidate, 'like', true)} />)}</div>
+        {group.candidates.length ? <div className="mh-candidate-row">{group.candidates.slice(0, groupIndex === 0 ? 5 : 4).map((candidate) => <CandidateMatchCard key={`${group.job.id}-${candidate.id}`} candidate={candidate} saved={data.bookmarkedIds.includes(candidate.id)} onSave={() => void save(candidate)} onLike={() => void swipe(candidate, 'like')} onPass={() => void swipe(candidate, 'pass')} onView={() => setSelected(candidate)} onTalk={() => void swipe(candidate, 'like', true)} />)}</div>
+          : <p className="mh-role-empty">No candidate has liked this offer yet. Its strongest compatible people appear below.</p>}
       </section>)}</div> : <EmptyMatchState title="The right people have not found this role yet" text="Improve the job profile, salary transparency, skills, and team culture." action="Improve Job Profile" onAction={() => navigate('jobs')} />}
       {busyId && <span className="mh-saving" role="status">Updating candidate activity…</span>}
+    </section>
+
+    <section className="mh-section">
+      <SectionHeading icon={Target} title="Candidates Matching Your Job Offers" subtitle="At least 90% skill coverage, compatible salary, and a location or work-mode fit." action="Improve job offers" onAction={() => navigate('jobs')} />
+      <div className="mh-role-list">{activeGroups.map((group) => {
+        const matching = group.matchingCandidates || [];
+        return <section className="mh-role-block matching" key={`matching-${group.job.id}`}>
+          <header><span className="mh-role-icon"><TrendingUp size={16} /></span><div><h3>{group.job.title}</h3><p>{matching.length} candidates meet your 90%+ compatibility rule</p></div><button onClick={() => navigate('discover')}>Explore candidates <ArrowRight size={13} /></button></header>
+          {matching.length ? <div className="mh-candidate-row">{matching.slice(0, 5).map((candidate) => <CandidateMatchCard key={`matching-${group.job.id}-${candidate.id}`} candidate={candidate} saved={data.bookmarkedIds.includes(candidate.id)} onSave={() => void save(candidate)} onLike={() => void swipe(candidate, 'like')} onPass={() => void swipe(candidate, 'pass')} onView={() => setSelected(candidate)} onTalk={() => void swipe(candidate, 'like', true)} />)}</div>
+            : <p className="mh-role-empty">No 90%+ candidates yet. Add salary, work mode, and precise required skills to improve matching.</p>}
+        </section>;
+      })}</div>
     </section>
 
     <section className="mh-recruiter-lower">

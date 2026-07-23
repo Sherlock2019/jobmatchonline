@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectMutualMatch, likesRemainingToday, salaryCompatibility, scoreCandidateForJob } from './matching.js';
+import { detectMutualMatch, isStrongRoleMatch, likesRemainingToday, salaryCompatibility, scoreCandidateForJob } from './matching.js';
 
 test('scores a candidate fit with a six-factor breakdown and no seniority factor', () => {
   const result = scoreCandidateForJob(
@@ -72,6 +72,18 @@ test('full-fit candidate scores 100 and salary status is tracked', () => {
   );
   assert.equal(result.score, 100);
   assert.equal(result.salaryStatus, 'within');
+  assert.equal(isStrongRoleMatch(result), true);
+});
+
+test('strong role match requires 90% skills, salary, and location or work-mode fit', () => {
+  const base = { breakdown: [
+    { factor: 'skills', score: 0.9 }, { factor: 'salary', score: 0.8 },
+    { factor: 'distance', score: 0.85 }, { factor: 'workMode', score: 0.5 },
+  ] };
+  assert.equal(isStrongRoleMatch(base), true);
+  assert.equal(isStrongRoleMatch({ breakdown: base.breakdown.map((factor) => factor.factor === 'skills' ? { ...factor, score: 0.89 } : factor) }), false);
+  assert.equal(isStrongRoleMatch({ breakdown: base.breakdown.map((factor) => factor.factor === 'salary' ? { ...factor, score: 0.5 } : factor) }), false);
+  assert.equal(isStrongRoleMatch({ breakdown: base.breakdown.map((factor) => factor.factor === 'distance' ? { ...factor, score: 0.4 } : factor) }), false);
 });
 
 test('salary compatibility statuses', () => {
