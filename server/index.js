@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { JsonStore } from './store.js';
 import { PgStore } from './store-pg.js';
 import { createSeed } from './seed.js';
+import { matchingPool, targetIsInMatchingPool } from './matching-pool.js';
 import { detectMutualMatch, isStrongRoleMatch, likesRemainingToday, scoreCandidateForJob, ValidationError, reqString, optString, oneOf } from './matching.js';
 import { applyCandidateProfile, applyRecruiterProfile, candidateCompleteness, recruiterCompleteness } from './profile.js';
 import { anonymizeText, convertDocxToPdf, detectTools, docxToHtml, extractDocxText, extractPdfText, makeSimplePdf, pdfThumbnail } from './resume.js';
@@ -373,7 +374,7 @@ app.get('/api/auth/profiles', async (_req, res, next) => {
     const db = await store.read();
     res.json({
       profiles: db.users
-        .filter((user) => user.demo === true && !String(user.id).startsWith('sso-'))
+        .filter((user) => ['candidate-demo', 'employer-demo'].includes(user.id) && user.demoTemplate === true)
         .map((user) => ({ id: user.id, role: user.role, kind: user.kind, name: user.name, title: user.title, company: user.company, demo: true })),
     });
   } catch (error) { next(error); }
@@ -1016,16 +1017,17 @@ app.get('/api/bootstrap', async (req, res, next) => {
     if (!viewer) { const error = new Error('Sign in to continue'); error.status = 401; throw error; }
     assertDemoActor(req, db, viewer.id);
     const role = viewer.role === 'employer' ? 'employer' : 'candidate';
-    const candidates = db.users.filter((user) => user.role === 'candidate');
+    const pool = matchingPool(db, viewer);
+    const candidates = pool.users.filter((user) => user.role === 'candidate');
     // Mutual salary reveal: exact ranges are hidden until both sides matched.
-    const matchedJobIds = new Set(db.matches.filter((match) => match.candidateId === viewer.id).map((match) => match.jobId));
-    const matchedCandidateIds = new Set(db.matches.filter((match) => match.employerId === viewer.id).map((match) => match.candidateId));
+    const matchedJobIds = new Set(pool.matches.filter((match) => match.candidateId === viewer.id).map((match) => match.jobId));
+    const matchedCandidateIds = new Set(pool.matches.filter((match) => match.employerId === viewer.id).map((match) => match.candidateId));
     // Incoming super-likes: who signalled strong interest in the viewer already?
-    const incomingEmployerLikes = db.swipes.filter((s) => s.direction === 'like' && s.targetType === 'candidate' && s.targetId === viewer.id);
-    const viewerJobIds = new Set(db.jobs.filter((job) => job.employerId === viewer.id).map((job) => job.id));
-    const candidatesWhoSuperLikedMyJobs = new Set(db.swipes.filter((s) => s.superLike && s.targetType === 'job' && viewerJobIds.has(s.targetId)).map((s) => s.actorId));
-    const scoredJobs = db.jobs.map((job) => {
-      const employer = db.users.find((user) => user.id === job.employerId);
+    const incomingEmployerLikes = pool.swipes.filter((s) => s.direction === 'like' && s.targetType === 'candidate' && s.targetId === viewer.id);
+    const viewerJobIds = new Set(pool.jobs.filter((job) => job.employerId === viewer.id).map((job) => job.id));
+    const candidatesWhoSuperLikedMyJobs = new Set(pool.swipes.filter((s) => s.superLike && s.targetType === 'job' && viewerJobIds.has(s.targetId)).map((s) => s.actorId));
+    const scoredJobs = pool.jobs.map((job) => {
+      const employer = pool.users.find((user) => user.id === job.employerId);
       // Real haversine distance when both sides have coordinates; else demo fallback.
       const realDist = haversineKm(viewer.geo, job.geo);
       const withDistance = { ...job, distanceKm: realDist ?? job.distanceKm ?? demoDistances[job.id] };
@@ -1038,8 +1040,8 @@ app.get('/api/bootstrap', async (req, res, next) => {
       return { ...withDistance, companyLogo: employer?.companyLogo, match, likedYou: Boolean(incomingLike), superLikedYou: Boolean(incomingLike?.superLike), verified: verifiedUser(employer) };
     });
     // Score candidates against this recruiter's own (first active) job when possible.
-    const referenceJob = db.jobs.find((job) => job.employerId === viewer.id && String(job.status).toLowerCase() === 'active')
-      || db.jobs.find((job) => job.employerId === viewer.id) || db.jobs[0];
+    const referenceJob = pool.jobs.find((job) => job.employerId === viewer.id && String(job.status).toLowerCase() === 'active')
+      || pool.jobs.find((job) => job.employerId === viewer.id) || pool.jobs[0];
     // Deck candidates: contact details and exact salary stay hidden until a mutual match.
     const jobGeo = referenceJob?.geo || viewer.geo;
     const scoredCandidates = candidates.filter((candidate) => candidate.id !== viewer.id).map(({ email, phone, contactChannels, ...candidate }) => {
@@ -1057,10 +1059,10 @@ app.get('/api/bootstrap', async (req, res, next) => {
     // Every recruiter role receives its own correctly scored candidate list.
     // Candidate contact details remain stripped because these objects reuse the
     // same recruiter-safe payload as the discovery deck.
-    const roleMatches = role === 'employer' ? db.jobs
+    const roleMatches = role === 'employer' ? pool.jobs
       .filter((job) => job.employerId === viewer.id && String(job.status).toLowerCase() === 'active')
       .map((job) => {
-        const likedCandidateIds = new Set(db.swipes
+        const likedCandidateIds = new Set(pool.swipes
           .filter((swipe) => swipe.direction === 'like' && swipe.targetType === 'job' && swipe.targetId === job.id)
           .map((swipe) => swipe.actorId));
         const ranked = scoredCandidates.map((candidate) => {
@@ -1085,20 +1087,20 @@ app.get('/api/bootstrap', async (req, res, next) => {
           newCount: interested.slice(0, 4).length,
         };
       }) : [];
-    const matches = db.matches.filter((match) => role === 'candidate' ? match.candidateId === viewer.id : match.employerId === viewer.id).map((match) => ({
+    const matches = pool.matches.filter((match) => role === 'candidate' ? match.candidateId === viewer.id : match.employerId === viewer.id).map((match) => ({
       ...match,
-      candidate: db.users.find((user) => user.id === match.candidateId),
-      employer: db.users.find((user) => user.id === match.employerId),
+      candidate: pool.users.find((user) => user.id === match.candidateId),
+      employer: pool.users.find((user) => user.id === match.employerId),
       job: (() => {
-        const job = db.jobs.find((item) => item.id === match.jobId);
-        const employer = db.users.find((user) => user.id === match.employerId);
+        const job = pool.jobs.find((item) => item.id === match.jobId);
+        const employer = pool.users.find((user) => user.id === match.employerId);
         return job ? { ...job, companyLogo: employer?.companyLogo } : job;
       })(),
       screeningAnswers: db.swipes.find((swipe) => swipe.actorId === match.candidateId && swipe.targetId === match.jobId && swipe.direction === 'like')?.answers,
     }));
     const matchIds = new Set(matches.map((match) => match.id));
     const bookmarkedIds = db.bookmarks.filter((b) => b.userId === viewer.id).map((b) => b.targetId);
-    res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, roleMatches, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), calls: db.calls.filter((call) => matchIds.has(call.matchId)), bookmarkedIds, likesRemaining: likesRemainingToday(db.swipes, viewer.id) });
+    res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, roleMatches, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), calls: db.calls.filter((call) => matchIds.has(call.matchId)), bookmarkedIds, likesRemaining: likesRemainingToday(pool.swipes, viewer.id) });
   } catch (error) { next(error); }
 });
 
@@ -1117,6 +1119,9 @@ app.post('/api/swipes', async (req, res, next) => {
       const actor = db.users.find((user) => user.id === actorId);
       if (!actor) throw new ValidationError('actorId', 'Unknown user');
       assertDemoActor(req, db, actorId);
+      if (!targetIsInMatchingPool(db, actor, targetType, targetId)) {
+        const error = new Error('Demo and live matching are separate'); error.status = 403; throw error;
+      }
       if (direction === 'like' && likesRemainingToday(db.swipes, actorId) <= 0) {
         const error = new Error('Daily like limit reached'); error.status = 429; throw error;
       }

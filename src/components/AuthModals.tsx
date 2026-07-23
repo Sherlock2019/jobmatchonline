@@ -112,12 +112,12 @@ export function LoginModal({ onClose, onComplete }: { onClose: () => void; onCom
     <div className="auth-divider"><span>or</span></div>
     <SsoButtons config={config} busy={busy} onMockSso={(provider) => { setBusy(provider); run(() => authProviders[provider].signIn()); }} />
     {config.demoAuth && profiles.length > 0 && <>
-      <div className="auth-divider"><span>demo profiles</span></div>
+      <div className="auth-divider"><span>test the matching experience</span></div>
       <form className="auth-form" onSubmit={(event) => { event.preventDefault(); if (!selected) return; setSubmitting('demo'); run(() => authProviders.demo.signIn({ userId: selected })); }}>
         <select className="auth-select" value={selected} onChange={(event) => setSelected(event.target.value)} aria-label="Demo profile">
           {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} — {profile.role === 'candidate' ? 'Candidate' : 'Recruiter'} (demo)</option>)}
         </select>
-        <button type="submit" className="secondary-button auth-submit" disabled={submitting !== null || !selected}>{submitting === 'demo' ? <Loader2 size={16} className="spin" /> : <>Continue as demo <ArrowRight size={16} /></>}</button>
+        <button type="submit" className="secondary-button auth-submit" disabled={submitting !== null || !selected}>{submitting === 'demo' ? <Loader2 size={16} className="spin" /> : <>Test demo matching <ArrowRight size={16} /></>}</button>
       </form>
     </>}
     {error && <p className="auth-error">{error}</p>}

@@ -357,6 +357,7 @@ button { cursor:pointer; }
 .hero-actions .primary-button, .hero-actions .secondary-button { min-height:68px; font-size:20px; padding:0 40px; border-radius:999px; }
 .hero-actions .primary-button { box-shadow:0 16px 34px rgba(253,38,122,.32); }
 .hero-actions .primary-button svg, .hero-actions .secondary-button svg { width:22px; height:22px; }
+.hero-actions .demo-test-button { color:#0878d1; border-color:#afd7f5; background:#eef8ff; }
 
 /* Value cards — one Apple color each, with a colored top edge */
 .value-grid article { border-top-width:4px; border-top-style:solid; }
