@@ -360,7 +360,11 @@ button { cursor:pointer; }
 .topbar-actions>button i { position:absolute; width:6px; height:6px; background:var(--accent); border-radius:50%; top:8px; right:8px; border:1px solid white; }
 .menu-button { display:none; border:0; background:none; margin-right:8px; }
 .page { padding:40px clamp(24px,4vw,58px) 70px; max-width:1500px; margin:auto; }
-.page-title { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:28px; gap:20px; }
+.page-title { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:28px; gap:20px; flex-wrap:wrap; }
+.preference-chip { display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:14px; padding:9px 13px; background:white; }
+.preference-chip small { display:block; color:var(--muted); font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+.preference-chip strong { font-size:12px; }
+.preference-chip button { border:0; background:#f3f0f5; border-radius:50%; width:24px; height:24px; display:grid; place-items:center; color:#4b4358; flex:none; }
 .page-title h1,.threads-head h1 { font:800 32px 'Manrope'; letter-spacing:-.045em; margin:7px 0 4px; }
 .page-title p { color:var(--muted); font-size:12px; margin:0; }
 .title-actions { display:flex; gap:9px; }
@@ -398,6 +402,24 @@ button { cursor:pointer; }
 .job-meta span { display:flex; align-items:center; gap:5px; }
 .job-meta .distance-badge { padding:4px 7px; border-radius:99px; color:var(--blue); background:#edf7ff; font-size:8px; font-weight:800; }
 .job-meta .mode-badge { padding:4px 7px; border-radius:99px; color:#0c7a43; background:#e8f8ee; border:1px solid #bfe8cf; font-size:8px; font-weight:800; }
+.job-meta.soft { color:var(--muted); margin-top:6px; }
+.job-meta .hiring-pill { color:#0c7a43; background:#e8f8ee; border:1px solid #bfe8cf; border-radius:99px; padding:4px 8px; font-size:8px; font-weight:800; }
+.job-meta .hiring-pill i { width:6px; height:6px; border-radius:50%; background:#20b46a; margin-right:0; }
+.top-company-pill { color:#a05a00; background:#fff3d6; border:1px solid #f5d999; border-radius:99px; padding:3px 8px; font-size:9px; font-weight:800; margin-left:6px; }
+.card-age { font-weight:400; opacity:.7; margin-left:6px; font-size:.85em; }
+.card-hero-langs { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; font-size:10px; }
+.card-hero-langs span { background:rgba(0,0,0,.34); backdrop-filter:blur(5px); border-radius:999px; padding:4px 9px; }
+.skill-more { background:#f3f0f5; color:#8a90a0; font-size:9px; font-weight:700; padding:5px 10px; border-radius:999px; }
+.card-quote { display:flex; gap:10px; margin:14px 0; padding:13px 14px; border-radius:13px; background:#fff0f5; border:1px solid #ffd7e5; }
+.card-quote svg { flex:none; color:var(--green); margin-top:2px; }
+.card-quote p { margin:4px 0 0; font-size:11px; line-height:1.55; color:#5d4a56; }
+.match-count-line { font-size:10px; color:#526b8a; font-weight:700; margin:6px 0 4px; }
+.stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0; }
+.stat-grid div { background:#f8faf7; border-radius:11px; padding:8px 11px; display:flex; flex-direction:column; gap:2px; }
+.stat-grid small { color:var(--muted); font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+.stat-grid strong { font-size:11px; }
+.bookmark-toggle { border:0; background:rgba(255,255,255,.9); border-radius:50%; width:32px; height:32px; display:grid; place-items:center; color:#4b4358; box-shadow:0 4px 12px rgba(0,0,0,.15); }
+.bookmark-toggle.active { color:var(--green); }
 .description { color:#5d6962; font-size:12px; line-height:1.6; margin:17px 0; }
 .match-reason { padding:14px; border-radius:13px; display:flex; gap:11px; background:#f3f8eb; border:1px solid #e4efcf; }
 .match-reason>div { width:28px; height:28px; border-radius:9px; display:grid; place-items:center; background:white; color:var(--green); flex:none; }
@@ -433,6 +455,17 @@ button { cursor:pointer; }
 .superlike-ribbon { position:absolute; z-index:6; top:16px; left:50%; transform:translateX(-50%); display:inline-flex; align-items:center; gap:5px; background:linear-gradient(145deg,#22c1f0,#2b6ef5); color:white; border-radius:999px; padding:6px 13px; font-size:10px; font-weight:800; box-shadow:0 8px 20px rgba(43,110,245,.32); }
 .action-row .like-action { color:white; background:var(--brand-gradient); border-color:transparent; box-shadow:0 9px 24px rgba(253,38,122,.27); }
 .action-row button:disabled { opacity:.45; }
+.action-row.five button { width:48px; height:48px; }
+.action-row.five .superlike-action,.action-row.five .like-action { width:56px; height:56px; }
+.action-row.five .ask-action { color:#a855f7; }
+.action-row.five .save-action { color:#0c7a43; }
+.action-row.five .save-action.active { background:#e8f8ee; border-color:#bfe8cf; }
+.deck-progress-row { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+.deck-progress { flex:1; height:5px; border-radius:5px; background:#f0e9ee; overflow:hidden; }
+.deck-progress i { display:block; height:100%; background:var(--brand-gradient); border-radius:5px; transition:width .3s ease; }
+.deck-progress-row small { color:var(--muted); font-size:10px; font-weight:700; white-space:nowrap; }
+.deck-progress-row .undo-action { width:30px; height:30px; border-radius:50%; border:1px solid var(--line); background:white; color:#f5a623; display:grid; place-items:center; flex:none; }
+.deck-progress-row .undo-action:disabled { opacity:.4; }
 .keyboard-hint { display:flex; justify-content:center; gap:18px; padding-top:16px; color:#9aa39d; font-size:8px; }
 .keyboard-hint span { display:flex; align-items:center; gap:4px; }
 .keyboard-hint kbd { min-width:19px; height:18px; display:grid; place-items:center; padding:0 5px; background:white; border:1px solid var(--line); border-radius:4px; }
@@ -472,6 +505,10 @@ button { cursor:pointer; }
 .match-face-logo { background:var(--blue); color:white; display:grid; place-items:center; font:800 26px 'Manrope'; }
 .match-face strong { font-size:13px; margin-top:8px; }
 .match-face span { font-size:10px; color:#a8adb8; }
+.match-badge { display:flex; align-items:center; gap:6px; padding:6px 10px; border-radius:10px; font-size:9px; font-weight:700; text-align:left; margin-top:5px; color:#fff; }
+.match-badge b { font-size:14px; }
+.match-tag { font-style:normal; font-size:9px; color:#a8adb8; font-weight:500; margin-top:5px; }
+.match-tag b { color:#fd267a; font-weight:700; }
 .match-heart-mid { width:44px; height:44px; border-radius:50%; background:white; color:#fd267a; display:grid; place-items:center; margin:0 -14px; box-shadow:0 6px 16px rgba(0,0,0,.25); z-index:1; }
 .match-body { padding:26px 32px 32px; }
 .match-modal .overline { justify-content:center; }
@@ -853,6 +890,9 @@ button { cursor:pointer; }
 
 /* ── Coaching: prep, gaps, screening, interview kits ── */
 .coach-modal { width:min(560px,100%); max-height:calc(100vh - 40px); background:white; border-radius:20px; overflow-y:auto; position:relative; box-shadow:0 35px 100px rgba(0,0,0,.35); padding:26px 28px; }
+.ask-modal { width:min(420px,100%); max-height:calc(100vh - 40px); overflow-y:auto; background:white; border-radius:20px; position:relative; box-shadow:0 35px 100px rgba(0,0,0,.35); padding:26px 26px 22px; }
+.ask-modal h3 { font:800 20px 'Manrope'; margin:0 0 6px; }
+.ask-modal>p { color:var(--muted); font-size:11px; line-height:1.5; margin:0 0 16px; }
 .coach-modal.wide { width:min(680px,100%); }
 .coach-head { display:flex; align-items:center; gap:14px; padding-right:40px; }
 .coach-head h2 { font:800 22px 'Manrope'; letter-spacing:-.04em; margin:4px 0 3px; }

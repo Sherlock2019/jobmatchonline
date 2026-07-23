@@ -49,6 +49,7 @@ await store.transaction((db) => {
   }
   // Scheduled calls were introduced after the store may already exist on disk.
   if (!Array.isArray(db.calls)) db.calls = [];
+  if (!Array.isArray(db.bookmarks)) db.bookmarks = [];
 });
 console.log(`JobMatch store: ${process.env.DATABASE_URL ? 'postgresql (RDS)' : 'json file'}`);
 const demoDistances = { 'j-1': 7, 'j-2': 18, 'j-3': 42, 'j-4': 75, 'c-1': 5, 'c-2': 26, 'c-3': 12, 'c-4': 65 };
@@ -550,6 +551,7 @@ app.delete('/api/me', async (req, res, next) => {
       db.matches = db.matches.filter((m) => !myMatchIds.has(m.id));
       db.messages = db.messages.filter((m) => !myMatchIds.has(m.matchId) && m.senderId !== me.id);
       db.calls = db.calls.filter((c) => !myMatchIds.has(c.matchId) && c.createdBy !== me.id);
+      db.bookmarks = db.bookmarks.filter((b) => b.userId !== me.id);
     });
     setCookie(res, AUTH_COOKIE, '', { maxAge: 0 });
     res.json({ ok: true });
@@ -1037,11 +1039,13 @@ app.get('/api/bootstrap', async (req, res, next) => {
     const matches = db.matches.filter((match) => role === 'candidate' ? match.candidateId === viewer.id : match.employerId === viewer.id).map((match) => ({
       ...match,
       candidate: db.users.find((user) => user.id === match.candidateId),
+      employer: db.users.find((user) => user.id === match.employerId),
       job: db.jobs.find((job) => job.id === match.jobId),
       screeningAnswers: db.swipes.find((swipe) => swipe.actorId === match.candidateId && swipe.targetId === match.jobId && swipe.direction === 'like')?.answers,
     }));
     const matchIds = new Set(matches.map((match) => match.id));
-    res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), calls: db.calls.filter((call) => matchIds.has(call.matchId)), likesRemaining: likesRemainingToday(db.swipes, viewer.id) });
+    const bookmarkedIds = db.bookmarks.filter((b) => b.userId === viewer.id).map((b) => b.targetId);
+    res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), calls: db.calls.filter((call) => matchIds.has(call.matchId)), bookmarkedIds, likesRemaining: likesRemainingToday(db.swipes, viewer.id) });
   } catch (error) { next(error); }
 });
 
@@ -1073,7 +1077,7 @@ app.post('/api/swipes', async (req, res, next) => {
         match = { id: crypto.randomUUID(), ...mutual, stage: 'Matched', createdAt: Date.now() };
         db.matches.push(match);
         // Expand for the match screen: names, photos, and the mutual salary reveal.
-        match = { ...match, candidate: db.users.find((user) => user.id === match.candidateId), job: db.jobs.find((job) => job.id === match.jobId) };
+        match = { ...match, candidate: db.users.find((user) => user.id === match.candidateId), employer: db.users.find((user) => user.id === match.employerId), job: db.jobs.find((job) => job.id === match.jobId) };
       }
       return { swipe, match, duplicate: false, likesRemaining: likesRemainingToday(db.swipes, actorId) };
     });
@@ -1161,6 +1165,23 @@ app.post('/api/calls', async (req, res, next) => {
       return item;
     });
     res.status(201).json(call);
+  } catch (error) { next(error); }
+});
+
+// Save-for-later toggle on a job/candidate card. Idempotent-ish: posting again un-saves it.
+app.post('/api/bookmarks/toggle', async (req, res, next) => {
+  try {
+    const userId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const targetId = reqString(req.body, 'targetId', { max: 128 });
+    const targetType = oneOf(req.body, 'targetType', ['job', 'candidate']);
+    const bookmarked = await store.transaction((db) => {
+      assertDemoActor(req, db, userId);
+      const existing = db.bookmarks.find((b) => b.userId === userId && b.targetId === targetId && b.targetType === targetType);
+      if (existing) { db.bookmarks = db.bookmarks.filter((b) => b !== existing); return false; }
+      db.bookmarks.push({ id: crypto.randomUUID(), userId, targetId, targetType, createdAt: Date.now() });
+      return true;
+    });
+    res.json({ bookmarked });
   } catch (error) { next(error); }
 });
 

@@ -38,6 +38,7 @@ export function createSeed() {
     calls: [
       { id: 'call-existing', matchId: 'm-existing', createdBy: 'employer-demo', title: 'Intro call — Senior Product Designer', startAt: now + 86400000 * 2, durationMinutes: 25, notes: 'Quick intro, no need to prepare anything.', createdAt: now - 5000000 }
     ],
+    bookmarks: [],
     feedback: [
       { id: 'fb-1', type: 'review', approved: true, name: 'Mai N.', role: 'Product Designer', rating: 5, message: 'Matched with two companies in my city in a week. The salary-up-front part is a game changer — no more guessing.', createdAt: now - 86400000 * 2 },
       { id: 'fb-2', type: 'review', approved: true, name: 'David O.', role: 'Head of Talent', rating: 5, message: 'We stopped drowning in unqualified applications. Mutual intent means every conversation is worth having.', createdAt: now - 86400000 * 4 },

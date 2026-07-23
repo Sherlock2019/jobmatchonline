@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { PhoneMockup } from './components/PhoneMockup';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
-import { Activity, ArrowRight, BadgeCheck, BarChart3, Bell, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, Download, ExternalLink, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, MapPin, Menu, MessageCircle, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, Download, ExternalLink, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
 import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
@@ -283,8 +283,21 @@ function Discover({ role, data, setData, navigate, onEditProfile }: { role: Role
   };
   // Item 10: after a gap skill is added, re-bootstrap so every fit score recalculates live.
   const refreshScores = () => api.bootstrap(data.viewer.id).then(setData).catch(() => undefined);
+  const [asking, setAsking] = useState(false);
+  const toggleBookmark = async (target: Job | Person) => {
+    const targetType = role === 'candidate' ? 'job' : 'candidate';
+    const { bookmarked } = await api.toggleBookmark({ userId: data.viewer.id, targetId: target.id, targetType });
+    setData({ ...data, bookmarkedIds: bookmarked ? [...data.bookmarkedIds, target.id] : data.bookmarkedIds.filter((id) => id !== target.id) });
+  };
+  const askThenLike = (text: string) => {
+    if (!current) return;
+    setAsking(false);
+    void commitSwipe('like', current, { answers: [{ question: 'A quick question before we match', answer: text }] });
+  };
 
-  return <div className="page discover-page"><div className="page-title"><div><span className="overline">{role === 'candidate' ? 'Your next move' : 'Recommended talent'}</span><h1>{role === 'candidate' ? 'Discover roles' : 'Discover people'}</h1><p>{role === 'candidate' ? 'Curated from your skills, goals, and work preferences.' : 'Ranked against Senior Product Designer · Northstar.'}</p></div><div className="title-actions"><button className={filtersOpen ? 'ghost-button active' : 'ghost-button'} onClick={() => setFiltersOpen((v) => !v)}><SlidersHorizontal size={17} />Filters{filtersActive && <span>{[query.trim(), filterMode, filterType, minScore > 0].filter(Boolean).length}</span>}</button></div></div>
+  return <div className="page discover-page"><div className="page-title"><div><span className="overline">{role === 'candidate' ? 'For Candidates' : 'For Recruiters'}</span><h1>{role === 'candidate' ? 'Swipe Jobs' : 'Swipe Candidates'}</h1><p>{role === 'candidate' ? 'Discover opportunities that fit you.' : 'Find the perfect talent for your team.'}</p></div>
+    <div className="preference-chip"><small>{role === 'candidate' ? 'Your preferences' : "You're hiring for"}</small><strong>{role === 'candidate' ? [data.viewer.preferences?.desiredRoles?.[0], data.viewer.preferences?.workMode?.mode].filter(Boolean).join(' · ') || 'Any role' : data.jobs.find((j) => j.employerId === data.viewer.id)?.title || 'Open roles'}</strong><button onClick={() => role === 'candidate' ? onEditProfile(2) : navigate('jobs')} aria-label="Edit preferences"><ChevronDown size={13} style={{ transform: 'rotate(-90deg)' }} /></button></div>
+    <div className="title-actions"><button className={filtersOpen ? 'ghost-button active' : 'ghost-button'} onClick={() => setFiltersOpen((v) => !v)}><SlidersHorizontal size={17} />Filters{filtersActive && <span>{[query.trim(), filterMode, filterType, minScore > 0].filter(Boolean).length}</span>}</button></div></div>
     {role === 'candidate' && <ReadyChecklist viewer={data.viewer} onEditProfile={onEditProfile} />}
     <div className="discover-search"><div className="ds-input"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={role === 'candidate' ? 'Search roles, companies, skills…' : 'Search talent by name, title, skills…'} aria-label="Search" />{query && <button className="ds-clear" onClick={() => setQuery('')} aria-label="Clear search"><X size={14} /></button>}</div></div>
     {filtersOpen && <div className="discover-filters">
@@ -297,18 +310,30 @@ function Discover({ role, data, setData, navigate, onEditProfile }: { role: Role
     </div>}
     <section className="geo-control" aria-label="Geolocation of Opportunities"><div><MapPin size={18} /><span><small>Geolocation of Opportunities</small><strong>{role === 'candidate' ? 'Roles' : 'Candidates'} within {radius} km</strong></span></div><input aria-label="Maximum match distance in kilometres" type="range" min="5" max="100" step="5" value={radius} onChange={(event) => setRadius(Number(event.target.value))} /><p>City-level matching only. Exact locations stay private.</p></section>
     <div className="discover-layout"><section className="deck-area">
-      <div className="deck-meta"><span><Sparkles size={15} />{filtersActive ? 'Search results' : role === 'candidate' ? 'Your Top 3 today' : 'Personalized for you'}</span><small>{filtersActive ? `${Math.max(deck.length - index, 0)} of ${deck.length} match` : role === 'candidate' ? `${Math.max(deck.length - index, 0)} of today's ${deck.length} left` : `${Math.max(deck.length - index, 0)} nearby recommendations`}</small></div>
-      <div className="card-stack">{next && <div className="stack-card"><CardSummary item={next} role={role} /></div>}{current ? <SwipeCard key={current.id} item={current} role={role} onSwipe={act} onOpenResume={role === 'employer' ? setResumeFor : undefined} resumeUnlocked={role === 'employer' && matchedCandidateIds.has(current.id)} onOpenJob={role === 'candidate' ? setJobDetail : undefined} gapViewer={role === 'candidate' ? data.viewer : undefined} onSkillAdded={refreshScores} /> : <EmptyDeck role={role} onReset={() => setIndex(0)} />}</div>
-      {current && <div className="action-row"><button onClick={() => act('pass')} disabled={busy} className="pass-action" aria-label="Pass"><X /></button><button onClick={undo} disabled={busy || index === 0} className="undo-action" aria-label="Undo last swipe" title="Rewind last swipe"><RotateCcw /></button><button onClick={() => act('like', true)} disabled={busy} className="superlike-action" aria-label="Super Like" title="Super Like — a stronger signal"><Star fill="currentColor" /></button><button onClick={() => act('like')} disabled={busy} className="like-action" aria-label="Like"><Heart fill="currentColor" /></button></div>}
-      <div className="keyboard-hint"><span><kbd>←</kbd> Pass</span><span><kbd>★</kbd> Super</span><span><kbd>→</kbd> Like</span></div>
+      <div className="deck-progress-row">
+        <div className="deck-progress" role="progressbar" aria-valuenow={Math.min(index + 1, deck.length)} aria-valuemin={1} aria-valuemax={deck.length || 1}><i style={{ width: deck.length ? `${(Math.min(index + 1, deck.length) / deck.length) * 100}%` : '0%' }} /></div>
+        <small>{Math.min(index + 1, deck.length)} / {deck.length}</small>
+        <button className="undo-action" onClick={undo} disabled={busy || index === 0} aria-label="Undo last swipe" title="Rewind last swipe"><RotateCcw size={15} /></button>
+      </div>
+      <div className="card-stack">{next && <div className="stack-card"><CardSummary item={next} role={role} /></div>}{current ? <SwipeCard key={current.id} item={current} role={role} onSwipe={act} onOpenResume={role === 'employer' ? setResumeFor : undefined} resumeUnlocked={role === 'employer' && matchedCandidateIds.has(current.id)} onOpenJob={role === 'candidate' ? setJobDetail : undefined} gapViewer={role === 'candidate' ? data.viewer : undefined} onSkillAdded={refreshScores} bookmarked={data.bookmarkedIds.includes(current.id)} onToggleBookmark={() => toggleBookmark(current)} /> : <EmptyDeck role={role} onReset={() => setIndex(0)} />}</div>
+      {current && <div className="action-row five"><button onClick={() => act('pass')} disabled={busy} className="pass-action" aria-label="Pass"><X /></button><button onClick={() => act('like', true)} disabled={busy} className="superlike-action" aria-label="Super Like" title="Super Like — a stronger signal"><Star fill="currentColor" /></button><button onClick={() => setAsking(true)} disabled={busy} className="ask-action" aria-label="Ask" title="Ask a quick question"><MessageCircleQuestion /></button><button onClick={() => toggleBookmark(current)} disabled={busy} className={data.bookmarkedIds.includes(current.id) ? 'save-action active' : 'save-action'} aria-label="Save for later" title="Save for later"><BookmarkIcon fill={data.bookmarkedIds.includes(current.id) ? 'currentColor' : 'none'} /></button><button onClick={() => act('like')} disabled={busy} className="like-action" aria-label="Like"><Heart fill="currentColor" /></button></div>}
+      <div className="keyboard-hint"><span><kbd>←</kbd> Pass</span><span>Swipe left or right</span><span><kbd>→</kbd> Like</span></div>
     </section><aside className="insight-panel"><div className="daily-card"><div><span>Today’s activity</span><strong>{data.likesRemaining}</strong><small>likes remaining</small></div><div className="ring" style={{ '--progress': `${data.likesRemaining * 2}%` } as React.CSSProperties}><Heart size={18} /></div></div><div className="tip-card"><div className="tip-icon"><Zap size={17} /></div><strong>{role === 'candidate' ? 'Complete your preferences' : 'Calibrate your search'}</strong><p>{role === 'candidate' ? 'Add your preferred team size to improve recommendations by up to 18%.' : 'Review five profiles to help JobsMatchNow learn what great looks like for this role.'}</p><button>{role === 'candidate' ? 'Update preferences' : 'View calibration'} <ArrowRight size={14} /></button></div><div className="quality-card"><div className="quality-head"><span>Match quality</span><strong>Excellent</strong></div><div className="quality-bar"><i /></div><p>Your recommendations use 12 verified profile signals.</p></div></aside></div>
     <AnimatePresence>{match && <MatchModal match={match} viewer={data.viewer} onClose={() => setMatch(null)} onMessage={() => { setMatch(null); navigate('messages'); }} />}</AnimatePresence>
     <AnimatePresence>{resumeFor && <Suspense fallback={null}><ResumeViewerModal person={resumeFor} viewerId={data.viewer.id} onClose={() => setResumeFor(null)} /></Suspense>}</AnimatePresence>
     <AnimatePresence>{jobDetail && <JobDetailModal job={jobDetail} onClose={() => setJobDetail(null)} />}</AnimatePresence>
-    <AnimatePresence>{screeningFor && <ScreeningModal job={screeningFor} onCancel={() => setScreeningFor(null)} onSubmit={(answers) => { const target = screeningFor; setScreeningFor(null); void commitSwipe('like', target, { answers }); }} />}</AnimatePresence></div>;
+    <AnimatePresence>{screeningFor && <ScreeningModal job={screeningFor} onCancel={() => setScreeningFor(null)} onSubmit={(answers) => { const target = screeningFor; setScreeningFor(null); void commitSwipe('like', target, { answers }); }} />}</AnimatePresence>
+    <AnimatePresence>{asking && current && <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAsking(false)}>
+      <motion.div className="ask-modal" initial={{ y: 20, scale: .97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 12, scale: .97 }} onClick={(event) => event.stopPropagation()}>
+        <button className="modal-close" onClick={() => setAsking(false)} aria-label="Close"><X /></button>
+        <h3>Ask a quick question</h3>
+        <p>Picking one sends a like along with your question — it'll show up if you match.</p>
+        {role === 'employer' ? <RecruiterStarters candidateName={(current as Person).name} archetype={(current as Person).aboutMeArchetype} onPick={askThenLike} /> : <CandidateStarters onPick={askThenLike} />}
+      </motion.div>
+    </motion.div>}</AnimatePresence></div>;
 }
 
-function SwipeCard({ item, role, onSwipe, onOpenResume, resumeUnlocked, onOpenJob, gapViewer, onSkillAdded }: { item: Job | Person; role: Role; onSwipe: (direction: 'like' | 'pass') => void; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean; onOpenJob?: (job: Job) => void; gapViewer?: Person; onSkillAdded?: () => void }) {
+function SwipeCard({ item, role, onSwipe, onOpenResume, resumeUnlocked, onOpenJob, gapViewer, onSkillAdded, bookmarked, onToggleBookmark }: { item: Job | Person; role: Role; onSwipe: (direction: 'like' | 'pass') => void; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean; onOpenJob?: (job: Job) => void; gapViewer?: Person; onSkillAdded?: () => void; bookmarked?: boolean; onToggleBookmark?: () => void }) {
   const [flipped, setFlipped] = useState(false);
   const x = useMotionValue(0); const rotate = useTransform(x, [-220, 220], [-8, 8]); const likeOpacity = useTransform(x, [20, 120], [0, 1]); const passOpacity = useTransform(x, [-120, -20], [1, 0]);
   return <motion.article className="swipe-card" style={{ x, rotate }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.85} onDragEnd={(_, info) => { if (info.offset.x > 110) onSwipe('like'); else if (info.offset.x < -110) onSwipe('pass'); }}>
@@ -316,7 +341,7 @@ function SwipeCard({ item, role, onSwipe, onOpenResume, resumeUnlocked, onOpenJo
     {item.superLikedYou && <div className="superlike-ribbon"><Star size={12} fill="currentColor" /> Super Liked you</div>}
     <div className={flipped ? 'card-flip flipped' : 'card-flip'}>
       <div className="card-face card-front">
-        <CardSummary item={item} role={role} detailed onOpenResume={onOpenResume} resumeUnlocked={resumeUnlocked} onOpenJob={onOpenJob} gapViewer={gapViewer} onSkillAdded={onSkillAdded} />
+        <CardSummary item={item} role={role} detailed onOpenResume={onOpenResume} resumeUnlocked={resumeUnlocked} onOpenJob={onOpenJob} gapViewer={gapViewer} onSkillAdded={onSkillAdded} bookmarked={bookmarked} onToggleBookmark={onToggleBookmark} />
         <button className="flip-button" onPointerDownCapture={(event) => event.stopPropagation()} onClick={() => setFlipped(true)}><Sparkles size={13} /> Why this match</button>
       </div>
       <div className="card-face card-back"><FitBreakdown item={item} role={role} onBack={() => setFlipped(false)} /></div>
@@ -401,40 +426,89 @@ function ResumeChip({ person, unlocked, onOpen }: { person: Person; unlocked: bo
   </button>;
 }
 
-function CardSummary({ item, role, detailed = false, onOpenResume, resumeUnlocked = false, onOpenJob, gapViewer, onSkillAdded }: { item: Job | Person; role: Role; detailed?: boolean; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean; onOpenJob?: (job: Job) => void; gapViewer?: Person; onSkillAdded?: () => void }) {
+/** Age from an ISO birthdate, or undefined — pre-match privacy rule (public or explicitly disclosed only). */
+function ageFrom(person: Person): number | undefined {
+  if (!person.birthdate || (person.agePrivacy !== 'public' && !person.discloseAge)) return undefined;
+  const born = new Date(person.birthdate);
+  if (Number.isNaN(born.getTime())) return undefined;
+  const now = new Date();
+  let age = now.getFullYear() - born.getFullYear();
+  if (now.getMonth() < born.getMonth() || (now.getMonth() === born.getMonth() && now.getDate() < born.getDate())) age -= 1;
+  return age >= 14 && age <= 100 ? age : undefined;
+}
+
+function BookmarkButton({ active, onToggle }: { active: boolean; onToggle: () => void }) {
+  return <button type="button" className={active ? 'bookmark-toggle active' : 'bookmark-toggle'} onPointerDownCapture={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onToggle(); }} aria-label={active ? 'Remove from saved' : 'Save for later'} aria-pressed={active}>
+    <BookmarkIcon size={15} fill={active ? 'currentColor' : 'none'} />
+  </button>;
+}
+
+function CardSummary({ item, role, detailed = false, onOpenResume, resumeUnlocked = false, onOpenJob, gapViewer, onSkillAdded, bookmarked, onToggleBookmark }: { item: Job | Person; role: Role; detailed?: boolean; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean; onOpenJob?: (job: Job) => void; gapViewer?: Person; onSkillAdded?: () => void; bookmarked?: boolean; onToggleBookmark?: () => void }) {
   if (role === 'candidate') {
     const job = item as Job;
     const heroStyle = job.coverImage ? { backgroundImage: `linear-gradient(transparent 38%, rgba(0,0,0,.82)), url(${apiBase}${job.coverImage})` } : { background: appleGradient(job.id) };
+    const missing = job.match?.missingSkills?.length ?? 0;
+    const matched = job.match?.matchedSkills?.length ?? 0;
+    const topSkills = job.requiredSkills.slice(0, 4);
+    const moreSkills = job.requiredSkills.length - topSkills.length;
     return <>
       <div className="card-hero" style={heroStyle}>
         {!job.coverImage && <span className="card-hero-logo" aria-hidden="true">{job.logo}</span>}
-        <div className="card-hero-top"><div className="fit-badge"><span>{job.match.score}%</span> match</div>{job.demo && <span className="demo-badge">Demo</span>}</div>
+        <div className="card-hero-top"><div className="fit-badge"><span>{job.match.score}%</span> match</div>{onToggleBookmark && <BookmarkButton active={Boolean(bookmarked)} onToggle={onToggleBookmark} />}{job.demo && <span className="demo-badge">Demo</span>}</div>
         <div className="card-hero-overlay">
-          <div className="card-hero-eyebrow">{job.company}{job.verified && <BadgeCheck size={14} className="verified-mark" />}</div>
+          <div className="card-hero-eyebrow">{job.company}{job.verified && <BadgeCheck size={14} className="verified-mark" />}{job.verified && <span className="top-company-pill">Top Company</span>}</div>
           <h2>{job.title}</h2>
           <div className="card-hero-meta"><span><MapPin size={14} />{job.location}</span><span className="mode-badge">{workModeLabel(job)}</span>{showsCommute(job) && <span className="distance-badge">{job.distanceKm} km · ≈ {motorbikeMinutes(job.distanceKm!)} min</span>}</div>
         </div>
       </div>
       <div className="card-body">
-        <div className="job-meta"><span><BriefcaseBusiness size={15} />{job.type}</span>{job.salaryHidden ? <SalaryBadge status={job.match?.salaryStatus} /> : <span>{job.salary}</span>}<span>{job.responseTime} response</span></div>
-        <p className="description">{job.description}</p>
-        {detailed && <><div className="match-reason"><div><Sparkles size={17} /></div><section><strong>Why you’re a strong match</strong><p>{job.match.matchedSkills.length} priority skills match, your experience level fits, and the role supports your preferred work style.</p></section></div><div className="card-section"><span className="card-label">Your matching skills</span><div className="skill-list">{job.match.matchedSkills.map((skill) => <span key={skill}><Check size={12} />{skill}</span>)}</div></div>{gapViewer && onSkillAdded && <GapCoach job={job} viewer={gapViewer} onSkillAdded={onSkillAdded} />}<div className="card-foot"><div><strong>{job.mission}</strong><small>{job.culture.join(' · ')}</small></div><button onPointerDownCapture={(event) => event.stopPropagation()} onClick={() => onOpenJob?.(job)}>Full role <ArrowRight size={14} /></button></div></>}
+        <div className="job-meta"><span><BriefcaseBusiness size={15} />{job.type}</span>{job.salaryHidden ? <SalaryBadge status={job.match?.salaryStatus} /> : <span>{job.salary}</span>}{job.status?.toLowerCase() === 'active' && <span className="hiring-pill"><i />Actively hiring</span>}</div>
+        <div className="job-meta soft"><span>{job.experienceLevel} exp</span>{job.responseTime && <span>{job.responseTime} response</span>}</div>
+        {detailed && <>
+          <div className="card-quote"><Sparkles size={15} /><div><span className="card-label">About the role</span><p>{job.description}</p></div></div>
+          <span className="card-label">Top skills</span>
+          <div className="skill-list">{topSkills.map((skill) => <span key={skill}>{skill}</span>)}{moreSkills > 0 && <span className="skill-more">+{moreSkills}</span>}</div>
+          {job.benefits?.length ? <><span className="card-label">Why you might love this</span><div className="skill-list soft">{job.benefits.slice(0, 4).map((b) => <span key={b}>{b}</span>)}</div></> : null}
+          <div className="match-count-line">{matched} matching skill{matched === 1 ? '' : 's'}{missing > 0 ? ` · ${missing} missing` : ''}</div>
+          {gapViewer && onSkillAdded && <GapCoach job={job} viewer={gapViewer} onSkillAdded={onSkillAdded} />}
+          <div className="card-foot"><div><strong>{job.mission}</strong><small>{job.culture.join(' · ')}</small></div><button onPointerDownCapture={(event) => event.stopPropagation()} onClick={() => onOpenJob?.(job)}>Full role <ArrowRight size={14} /></button></div>
+        </>}
       </div>
     </>;
   }
   const person = item as Person;
+  const age = ageFrom(person);
+  const languages = person.languageDetail?.length ? person.languageDetail : (person.languages || []).map((name) => ({ name, level: '' }));
+  const topSkills = person.skills.slice(0, 4);
+  const moreSkills = person.skills.length - topSkills.length;
+  const matched = person.match?.matchedSkills?.length ?? 0;
+  const missing = person.match?.missingSkills?.length ?? 0;
+  const salary = person.preferences?.salary;
+  const wm = person.preferences?.workMode;
   return <>
     <div className="card-hero" style={{ backgroundImage: `linear-gradient(transparent 38%, rgba(0,0,0,.82)), url(${person.photo})` }}>
-      <div className="card-hero-top"><div className="fit-badge"><span>{person.match?.score}%</span> match</div>{person.availability && <span className="avail-pill"><i />Available {person.availability}</span>}</div>
+      <div className="card-hero-top"><div className="fit-badge"><span>{person.match?.score}%</span> match</div>{onToggleBookmark && <BookmarkButton active={Boolean(bookmarked)} onToggle={onToggleBookmark} />}</div>
       <div className="card-hero-overlay">
-        <h2>{person.name}{person.verified && <BadgeCheck size={18} className="verified-mark" />}{person.demo && <span className="demo-badge">Demo</span>}</h2>
+        {person.availability && <span className="avail-pill"><i />Available {person.availability}</span>}
+        <h2>{person.name}{age !== undefined && <span className="card-age">{age}</span>}{person.verified && <BadgeCheck size={18} className="verified-mark" />}{person.demo && <span className="demo-badge">Demo</span>}</h2>
         <p className="card-hero-sub">{person.title}</p>
-        {(person.preferences?.desiredRoles?.[0] || person.availability) && <div className="looking-for"><Target size={12} />Looking for: {person.preferences?.desiredRoles?.[0] || `available ${person.availability}`}</div>}
-        <div className="card-hero-meta"><span><MapPin size={14} />{person.location}</span>{person.distanceKm !== undefined && <span className="distance-badge">{person.distanceKm} km away</span>}<span><BriefcaseBusiness size={14} />{person.experienceLevel}</span></div>
+        <div className="card-hero-meta"><span><MapPin size={14} />{person.location}</span>{person.distanceKm !== undefined && <span className="distance-badge">{person.distanceKm} km away</span>}</div>
+        {languages.length > 0 && <div className="card-hero-langs">{languages.map((l) => <span key={l.name}>{l.name}{l.level ? ` (${l.level})` : ''}</span>)}</div>}
       </div>
     </div>
     <div className="card-body">
-      {detailed && <><div className="match-reason"><div><Sparkles size={17} /></div><section><strong>Why they stand out</strong><p>{person.match?.matchedSkills.join(', ')} align with the role. Their background and availability fit your hiring plan.</p></section></div><div className="card-section"><span className="card-label">Top skills</span><div className="skill-list">{person.skills.map((skill) => <span key={skill}>{skill}</span>)}</div></div>{onOpenResume && <ResumeChip person={person} unlocked={resumeUnlocked} onOpen={onOpenResume} />}</>}
+      <div className="skill-list">{topSkills.map((skill) => <span key={skill}>{skill}</span>)}{moreSkills > 0 && <span className="skill-more">+{moreSkills}</span>}</div>
+      {person.presentation && <div className="card-quote"><Heart size={15} /><div><span className="card-label">About {person.name.split(' ')[0]}</span><p>{person.presentation}</p></div></div>}
+      <div className="stat-grid">
+        {person.yearsExperience !== undefined && <div><small>Exp</small><strong>{person.yearsExperience}+ years</strong></div>}
+        {salary?.min !== undefined && !person.salaryHidden && <div><small>Salary</small><strong>{salary.min.toLocaleString()}–{salary.max?.toLocaleString()} {salary.currency}</strong></div>}
+        {wm?.mode && <div><small>Work mode</small><strong>{wm.mode === 'hybrid' ? `Hybrid · ${wm.hybridDays ?? 2}d` : wm.mode === 'onsite' ? 'On-site' : 'Remote'}</strong></div>}
+        {person.distanceRangeKm !== undefined && <div><small>Commute</small><strong>&lt; {person.distanceRangeKm} km</strong></div>}
+      </div>
+      {detailed && <>
+        {(matched > 0 || missing > 0) && <div className="match-count-line">{matched} matching skill{matched === 1 ? '' : 's'}{missing > 0 ? ` · ${missing} missing` : ''}</div>}
+        {onOpenResume && <ResumeChip person={person} unlocked={resumeUnlocked} onOpen={onOpenResume} />}
+      </>}
     </div>
   </>;
 }
@@ -445,7 +519,7 @@ function EmptyDeck({ role, onReset }: { role: Role; onReset: () => void }) {
 }
 
 function MatchModal({ match, viewer, onClose, onMessage }: { match: JobMatch; viewer: Person; onClose: () => void; onMessage: () => void }) {
-  const counterpart = viewer.role === 'candidate' ? (match.job?.company || 'The team') : (match.candidate?.name || 'The candidate');
+  const counterpart = viewer.role === 'candidate' ? (match.employer?.name || match.job?.company || 'The team') : (match.candidate?.name || 'The candidate');
   const jobRange = formatRange(match.job?.salaryRange);
   const candidateRange = formatRange(viewer.role === 'candidate' ? viewer.preferences?.salary as { min: number; max: number; currency: string } | undefined : match.candidate?.preferences?.salary as { min: number; max: number; currency: string } | undefined);
   // Item 13: tailored conversation starters from the profile/job overlap.
@@ -471,9 +545,10 @@ function MatchModal({ match, viewer, onClose, onMessage }: { match: JobMatch; vi
         <div className="match-face"><img src={match.candidate?.photo || viewer.photo} alt="" /><strong>{candidateName}</strong><span>{match.candidate?.title || viewer.title}</span></div>
         <span className="match-heart-mid"><Heart size={20} fill="currentColor" /></span>
         <div className="match-face">
-          <div className="match-face-logo" style={{ background: match.job ? appleColor(match.job.id) : 'var(--blue)' }}>{match.job?.logo || counterpart[0]}</div>
-          <strong>{match.job?.company || counterpart}</strong>
-          {match.job?.title && <span>{match.job.title}</span>}
+          {match.employer?.photo ? <img src={match.employer.photo} alt="" /> : <div className="match-face-logo" style={{ background: match.job ? appleColor(match.job.id) : 'var(--blue)' }}>{match.job?.logo || counterpart[0]}</div>}
+          <strong>{match.employer?.name || match.job?.company || counterpart}</strong>
+          {match.employer && match.job ? <div className="match-badge" style={{ background: match.job.accent || appleColor(match.job.id) }}><b>{match.job.logo}</b><span>{match.employer.title || `Recruiter at ${match.job.company}`}</span></div> : match.job?.title && <span>{match.job.title}</span>}
+          {match.employer && <em className="match-tag"><b>Role</b> &middot; Recruiter</em>}
         </div>
       </div>
     </div>

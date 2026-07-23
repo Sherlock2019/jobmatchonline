@@ -1,10 +1,12 @@
-Restore real hero-phone.png photo for match slide; redesign real MatchModal to match
+Real match screen shows real recruiter photo; redesign Discover swipe cards
 
-- Phone mockup slide 1 uses the actual hero-phone.png artwork again (photo mockup),
-  slides 2-3 stay live-rendered (candidate/job cards). Bigger (460px).
-- Fix duplicate "Role . Role . Recruiter" text bug from earlier CSS/JSX collision.
-- Redesign the real in-app MatchModal (shown after an actual mutual match): dark
-  celebratory hero with script "It's a Match!", avatar pair with a heart badge
-  between them, company badge, "Let's Talk" / "Keep Swiping" buttons, matching
-  the visual quality of the hero mockup, adapted to the app's real data model
-  (no distinct recruiter-person object, so the company/job stands in for it).
+- Server now hydrates the employer's own Person record onto JobMatch (bootstrap
+  + swipe-match response), so MatchModal shows the real recruiter's photo,
+  name, and title instead of just a company-logo circle.
+- Redesign Discover: "Swipe Candidates" / "Swipe Jobs" header, preference chip,
+  progress bar, richer card body (age, languages, About-Me quote card, stat
+  grid, matching/missing skill count, Top Company / Actively hiring pills),
+  bookmark icon, and a 5-button action row (Pass / Super Like / Ask / Save /
+  Like). Ask reuses the existing conversation-starter picker and rides on a
+  like-swipe via the screening-answers mechanism. Save persists via new
+  /api/bookmarks/toggle endpoint.
