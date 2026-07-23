@@ -122,7 +122,6 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
   const jobs = useMemo(() => [...data.jobs].sort((a, b) => (b.match?.score || 0) - (a.match?.score || 0)), [data.jobs]);
   const chasing = jobs.filter((job) => job.likedYou || job.superLikedYou);
   const precise = jobs.filter((job) => isPreciseMatch(job.match));
-  const saved = jobs.filter((job) => data.bookmarkedIds.includes(job.id));
   const conversations = data.matches.slice(0, 3);
   const completion = data.viewer.completeness || 0;
 
@@ -136,15 +135,9 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
     await reload();
     navigate(result.match ? 'messages' : 'matches');
   };
-  const jobCards = (items: Job[]) => {
-    const visible = items.slice(0, 3);
-    return <div className="td-job-grid">
-      {visible.map((job) => <CandidateJobCard key={job.id} job={job} saved={data.bookmarkedIds.includes(job.id)} onSave={() => void toggleSave(job)} onView={() => setSelectedJob(job)} onTalk={() => void startTalk(job)} />)}
-      {Array.from({ length: Math.max(0, 3 - visible.length) }, (_, index) => <article className="td-job-card td-job-placeholder" key={`job-placeholder-${index}`}>
-        <span><Sparkles size={18} /></span><strong>Waiting for the right offer</strong><small>New matching opportunities will appear here.</small>
-      </article>)}
-    </div>;
-  };
+  const jobCards = (items: Job[]) => items.length
+    ? <div className="td-job-grid">{items.slice(0, 3).map((job) => <CandidateJobCard key={job.id} job={job} saved={data.bookmarkedIds.includes(job.id)} onSave={() => void toggleSave(job)} onView={() => setSelectedJob(job)} onTalk={() => void startTalk(job)} />)}</div>
+    : <EmptyRow>No recruiter offers yet. Your profile remains visible to matching teams.</EmptyRow>;
 
   const metrics = [
     { icon: Heart, label: 'Jobs Chasing You', value: chasing.length, note: 'active matches', action: 'View jobs', target: 'td-chasing' },
@@ -200,14 +193,6 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
 
     <div className="td-tip"><Sparkles size={13} /> Tip: Profiles with salary and work-mode preferences get 3× more matches.</div>
 
-    <section className="td-section td-secondary-section" id="td-precise">
-      <DashboardTitle icon={Target} title="Jobs That Match Your Wants" subtitle="90%+ match based on skills, salary, location, and work mode." action="Explore all" onAction={() => navigate('discover')} />
-      {jobCards(precise)}
-    </section>
-    <section className="td-section td-secondary-section" id="td-saved">
-      <DashboardTitle icon={Bookmark} title="Saved Job Offers" subtitle="Offers saved for review before you apply." action="Find more roles" onAction={() => navigate('discover')} />
-      {jobCards(saved)}
-    </section>
     {selectedJob && <JobDetailModal job={selectedJob} onClose={() => setSelectedJob(null)} />}
   </main>;
 }
@@ -243,17 +228,18 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
   };
   const personCards = (people: Person[], liked = false) => {
     const visible = [...people].sort((a, b) => bestMatchFirst ? (b.match?.score || 0) - (a.match?.score || 0) : a.name.localeCompare(b.name)).slice(0, 4);
+    if (!visible.length) return <EmptyRow>No candidates have shown interest in this job yet.</EmptyRow>;
     return <div className="td-people-row">
       {visible.map((person) => <PersonCard key={person.id} person={person} liked={liked} saved={data.bookmarkedIds.includes(person.id)} onSave={() => void save(person)} onView={() => setSelected(person)} onTalk={() => void talk(person)} />)}
     </div>;
   };
 
   const metrics = [
-    { icon: Heart, label: 'People Who Love Your Jobs', value: interested.length, note: 'candidates' },
-    { icon: Eye, label: 'Viewed Your Jobs', value: allPeople.length, note: 'today' },
-    { icon: Coffee, label: 'Coffee Requests', value: data.calls.length, note: 'awaiting' },
-    { icon: MessageCircle, label: 'Active Conversations', value: data.matches.length, note: 'ongoing' },
-    { icon: TrendingUp, label: topRole?.job.title || 'Top Performing Role', value: topRole?.matchingCandidates?.length || 0, note: 'perfect matches' },
+    { icon: Heart, label: 'People Who Love Your Jobs', value: interested.length, note: 'candidates', target: 'td-roles' },
+    { icon: Eye, label: 'Viewed Your Jobs', value: allPeople.length, note: 'today', target: 'td-recent' },
+    { icon: Coffee, label: 'Coffee Requests', value: data.calls.length, note: 'awaiting', target: 'td-coffee' },
+    { icon: MessageCircle, label: 'Active Conversations', value: data.matches.length, note: 'ongoing', target: 'messages' },
+    { icon: TrendingUp, label: topRole?.job.title || 'Top Performing Role', value: topRole?.matchingCandidates?.length || 0, note: 'perfect matches', target: 'td-roles' },
   ];
 
   return <main className="td-dashboard td-recruiter">
@@ -263,7 +249,7 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
     </header>
 
     <section className="td-metrics recruiter" aria-label="Recruiter summary">
-      {metrics.map((metric, index) => <button key={metric.label} className={index === 4 ? 'highlight' : ''} onClick={() => index === 3 ? navigate('messages') : scrollTo('td-roles')}>
+      {metrics.map((metric, index) => <button key={metric.label} className={index === 4 ? 'highlight' : ''} onClick={() => metric.target === 'messages' ? navigate('messages') : scrollTo(metric.target)}>
         <span><metric.icon size={15} /></span><small>{metric.label}</small><strong>{metric.value}</strong><p>{metric.note}</p>
       </button>)}
     </section>
@@ -274,30 +260,26 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
         {roles.map((group) => {
           const open = group.job.id === openId;
           const precise = (group.matchingCandidates || []).filter((candidate) => isPreciseMatch(candidate.match));
-          const showcase = [...new Map([...group.candidates, ...precise, ...data.candidates].map((candidate) => [candidate.id, candidate])).values()].slice(0, 4);
           return <article className={open ? 'td-role open' : 'td-role'} key={group.job.id}>
-            <button className="td-role-head" onClick={() => setExpandedId(open ? '__none__' : group.job.id)} aria-expanded={open}>
+            <div className="td-role-head" role="button" tabIndex={0} onClick={() => setExpandedId(open ? '__none__' : group.job.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setExpandedId(open ? '__none__' : group.job.id); } }} aria-expanded={open}>
               <JobHeaderBadge job={group.job} compact />
               <span><Heart size={12} /> {group.candidates.length} love this job</span>
               <span>{group.newCount || precise.length} new today</span>
-              <b>View all candidates <ArrowRight size={11} /></b>
+              <button onClick={(event) => { event.stopPropagation(); navigate('discover'); }}>View all candidates <ArrowRight size={11} /></button>
               <ChevronDown size={16} />
-            </button>
+            </div>
             {open && <div className="td-role-body">
-              {personCards(showcase, false)}
+              {personCards(group.candidates, true)}
             </div>}
           </article>;
         })}
-        {Array.from({ length: Math.max(0, 4 - roles.length) }, (_, index) => <button className="td-role td-role-create" key={`create-role-${index}`} onClick={() => navigate('jobs')}>
-          <span><BriefcaseBusiness size={15} /></span><strong>Add another job offer</strong><small>Publish a role to start receiving candidate interest.</small><ArrowRight size={14} />
-        </button>)}
       </div>
     </section>
 
     <section className="td-bottom-grid recruiter">
-      <article className="td-list-panel"><DashboardTitle icon={Eye} title="Recently Viewed Your Jobs" />{allPeople.slice(0, 4).map((person) => <button key={person.id} onClick={() => setSelected(person)}><img src={person.photo} alt="" /><span><strong>{person.name}</strong><small>Viewed a role recently</small></span><ArrowRight size={12} /></button>)}</article>
-      <article className="td-list-panel"><DashboardTitle icon={Coffee} title="Coffee Requests" />{data.matches.slice(0, 4).map((match) => <button key={match.id} onClick={() => navigate('messages')}><img src={match.candidate.photo} alt="" /><span><strong>{match.candidate.name}</strong><small>{match.job.title}</small></span><ArrowRight size={12} /></button>)}</article>
-      <article className="td-list-panel"><DashboardTitle icon={MessageCircle} title="Active Conversations" />{data.matches.slice(0, 4).map((match) => <button key={match.id} onClick={() => navigate('messages')}><img src={match.candidate.photo} alt="" /><span><strong>{match.candidate.name}</strong><small>{data.messages.filter((message) => message.matchId === match.id).at(-1)?.text || match.job.title}</small></span><Bell size={12} /></button>)}</article>
+      <article className="td-list-panel" id="td-recent"><DashboardTitle icon={Eye} title="Recently Viewed Your Jobs" />{allPeople.slice(0, 4).map((person) => <button key={person.id} onClick={() => setSelected(person)}><img src={person.photo} alt="" /><span><strong>{person.name}</strong><small>Viewed a role recently</small></span><ArrowRight size={12} /></button>)}</article>
+      <article className="td-list-panel" id="td-coffee"><DashboardTitle icon={Coffee} title="Coffee Requests" />{data.matches.slice(0, 4).map((match) => <button key={match.id} onClick={() => navigate('messages')}><img src={match.candidate.photo} alt="" /><span><strong>{match.candidate.name}</strong><small>{match.job.title}</small></span><ArrowRight size={12} /></button>)}</article>
+      <article className="td-list-panel" id="td-conversations"><DashboardTitle icon={MessageCircle} title="Active Conversations" />{data.matches.slice(0, 4).map((match) => <button key={match.id} onClick={() => navigate('messages')}><img src={match.candidate.photo} alt="" /><span><strong>{match.candidate.name}</strong><small>{data.messages.filter((message) => message.matchId === match.id).at(-1)?.text || match.job.title}</small></span><Bell size={12} /></button>)}</article>
     </section>
     {selected && <CandidateProfileModal candidate={selected} onClose={() => setSelected(null)} onTalk={() => { const person = selected; setSelected(null); void talk(person); }} />}
   </main>;
