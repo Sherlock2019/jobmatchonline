@@ -719,9 +719,26 @@ button { cursor:pointer; }
 .pc-brand .pc-now{color:#fd267a;}
 .pc-track{display:flex;width:100%;height:100%;transition:transform .4s cubic-bezier(.65,0,.35,1);}
 .pc-slide{flex:0 0 100%;height:100%;padding-top:64px;}
+.pc-slide-match{padding-top:0;background:#050505;}
+.pc-match-img{display:block;width:100%;height:100%;object-fit:contain;}
 .pc-screen{height:100%;display:flex;flex-direction:column;align-items:center;padding:14px 20px 22px;color:#fff;text-align:center;}
 .pc-avatar-photo{width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.8);}
 .pc-avatar-photo.big{width:78px;height:78px;margin-bottom:6px;}
+.pc-screen-match{background:radial-gradient(circle at 50% 20%,#2a2f3d,#101218 70%);justify-content:center;gap:10px;}
+.pc-script{font:italic 700 34px 'Georgia',serif;}
+.pc-sub{font-size:12px;color:#c7cbd6;margin:0 0 6px;}
+.pc-pair{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.pc-person{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:0;}
+.pc-person strong{font-size:11px;}
+.pc-person>span{font-size:9px;color:#a8adb8;}
+.pc-heart{color:#fd267a;font-size:20px;flex:none;}
+.pc-badge{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;font-size:9px;font-weight:700;text-align:left;margin-top:2px;color:#fff;}
+.pc-badge b{font-size:13px;}
+.pc-tag{font-style:normal;font-size:9px;color:#a8adb8;font-weight:500;margin-top:5px;}
+.pc-tag b{color:#fd267a;font-weight:700;}
+.pc-btn{width:100%;max-width:250px;margin-top:8px;padding:12px;border-radius:14px;font:800 11px 'Manrope';letter-spacing:.03em;border:none;cursor:pointer;}
+.pc-btn-grad{background:linear-gradient(135deg,#fd267a,#ff6036);color:#fff;}
+.pc-btn-ghost{background:transparent;border:1.5px solid #fd267a;color:#fd267a;}
 .pc-screen-profile,.pc-screen-job{background:#fff;color:#101218;justify-content:flex-start;gap:6px;}
 .pc-kicker{font-size:9px;font-weight:800;letter-spacing:.08em;color:#9aa1b2;margin-bottom:6px;}
 .pc-name{font-size:15px;}
@@ -737,8 +754,6 @@ button { cursor:pointer; }
 .pc-logo{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;color:#fff;font:800 20px 'Manrope';margin-bottom:6px;}
 .pc-company{font-size:9px;font-weight:700;letter-spacing:.05em;color:#697085;margin-bottom:2px;}
 .pc-blurb{font-size:10px;color:#4b4358;line-height:1.5;margin:0 0 8px;}
-.pc-phone.pc-photo{width:460px;max-width:92vw;background:transparent;border:none;box-shadow:none;border-radius:0;overflow:visible;display:flex;align-items:center;justify-content:center;}
-.pc-exact-img{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 34px 60px rgba(190,24,93,.28));}
 .pc-nav{display:flex;align-items:center;gap:14px;}
 .pc-nav button{width:32px;height:32px;border-radius:50%;border:1px solid #e9e4eb;background:#fff;font-size:16px;cursor:pointer;color:#4b4358;}
 .pc-count{font-size:10px;color:#697085;}
