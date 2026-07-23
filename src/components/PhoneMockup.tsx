@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /* Three-screen phone mockup: It's a Match -> candidate swipe card -> job swipe card.
-   Slide 1 uses the supplied match artwork; slides 2-3 remain live-rendered. */
-
-const MATCH_MOCKUP = import.meta.env.BASE_URL + 'hero-phone.png';
+   Slide 1 uses the supplied match artwork; slides 2-3 remain live-rendered.
+   Imported (not referenced from /public) so Vite content-hashes the filename —
+   this busts the browser's 30-day immutable cache whenever the artwork changes. */
+import MATCH_MOCKUP from '../assets/match-mockup.png';
 
 const CANDIDATE = { name: 'Alex Martinez', title: 'Senior Software Engineer', photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop', city: 'Singapore', km: 8, skills: ['TypeScript', 'React', 'AWS'], salary: '$120k–$150k', fit: 94 };
 const COMPANY = { name: 'Northstar', logo: 'N', accent: '#3d5afe', city: 'Singapore', role: 'Senior Software Engineer', salary: '$120k–$150k', mode: 'Hybrid · Full-time', blurb: 'Own the matching platform end to end with a product-minded team.', skills: ['TypeScript', 'React', 'AWS'] };
