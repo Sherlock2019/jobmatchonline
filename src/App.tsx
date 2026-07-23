@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { PhoneMockup } from './components/PhoneMockup';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
-import { Activity, ArrowRight, BadgeCheck, BarChart3, Bell, BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, MapPin, Menu, MessageCircle, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowRight, BadgeCheck, BarChart3, Bell, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, Download, ExternalLink, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, MapPin, Menu, MessageCircle, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
 import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
@@ -17,6 +17,9 @@ import { RecruiterProfilePage } from './components/profile/RecruiterProfilePage'
 const ResumeViewerModal = lazy(() => import('./components/ResumeViewerModal').then((m) => ({ default: m.ResumeViewerModal })));
 import { JobEditor } from './components/jobs/JobEditor';
 import { GapCoach, JobDetailModal, MatchDetailModal, ScreeningModal } from './components/coach/CoachModals';
+import { CandidateStarters, RecruiterStarters } from './components/messages/ConversationStarters';
+import { ScheduleCallModal } from './components/messages/ScheduleCallModal';
+import { googleCalendarUrl, icsDataUrl, outlookCalendarUrl } from './lib/calendar';
 import type { ScreeningAnswer } from './types';
 import { comparisonRows } from './content/landingContent';
 import { appleColor, appleGradient } from './lib/colors';
@@ -185,7 +188,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
 function ViewRouter({ view, role, data, setData, navigate, onEditProfile, reload }: { view: View; role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void; onEditProfile: (step: number) => void; reload: () => void }) {
   if (view === 'discover') return <Discover role={role} data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} />;
   if (view === 'pipeline') return <Pipeline data={data} setData={setData} />;
-  if (view === 'messages') return <Messages data={data} setData={setData} />;
+  if (view === 'messages') return <Messages role={role} data={data} setData={setData} />;
   if (view === 'analytics') return <Analytics data={data} />;
   if (view === 'jobs') return <Jobs data={data} reload={reload} />;
   if (view === 'matches') return <Matches data={data} navigate={navigate} />;
@@ -196,7 +199,7 @@ function ViewRouter({ view, role, data, setData, navigate, onEditProfile, reload
 /** Item 18: pre-swipe readiness checklist for candidates, with fix links into the wizard. */
 function ReadyChecklist({ viewer, onEditProfile }: { viewer: Person; onEditProfile: (step: number) => void }) {
   const items = [
-    { label: 'Resume uploaded', done: Boolean(viewer.documents?.resume), step: 3 },
+    { label: 'Resume uploaded', done: Boolean(viewer.documents?.resume), step: 1 },
     { label: 'Salary expectation set', done: viewer.preferences?.salary?.min !== undefined, step: 2 },
     { label: 'Profile at least 90% complete', done: (viewer.completeness ?? 0) >= 90, step: 0 },
   ];
@@ -494,10 +497,72 @@ function Pipeline({ data, setData }: { data: Bootstrap; setData: (d: Bootstrap) 
     <AnimatePresence>{detail && <MatchDetailModal match={detail} onClose={() => setDetail(null)} />}</AnimatePresence></div>;
 }
 
-function Messages({ data, setData }: { data: Bootstrap; setData: (d: Bootstrap) => void }) {
-  const match = data.matches[0]; const [text, setText] = useState(''); const thread = data.messages.filter((m) => m.matchId === match?.id);
+function Messages({ role, data, setData }: { role: Role; data: Bootstrap; setData: (d: Bootstrap) => void }) {
+  const [selectedMatchId, setSelectedMatchId] = useState<string | undefined>(undefined);
+  const match = data.matches.find((m) => m.id === selectedMatchId) || data.matches[0];
+  const [text, setText] = useState('');
+  const thread = data.messages.filter((m) => m.matchId === match?.id);
+  // The person on the other side of this chat: for a candidate that's the employer/job, for an employer it's the candidate.
+  const otherName = role === 'candidate' ? match?.job?.company : match?.candidate?.name;
+  const otherPhoto = role === 'candidate' ? undefined : match?.candidate?.photo;
   const send = async (event: React.FormEvent) => { event.preventDefault(); if (!text.trim() || !match) return; const message = await api.message({ matchId: match.id, senderId: data.viewer.id, text }); setData({ ...data, messages: [...data.messages, message] }); setText(''); };
-  return <div className="messages-page"><aside className="threads"><div className="threads-head"><div><span className="overline">Inbox</span><h1>Messages</h1></div><button><Filter size={17} /></button></div><div className="thread-search"><Search size={16} /><input placeholder="Search conversations" /></div>{data.matches.map((item, index) => <button className={index === 0 ? 'thread active' : 'thread'} key={item.id}><img src={item.candidate?.photo} /><div><div><strong>{item.candidate?.name || item.job?.company}</strong><time>{index === 0 ? '1h' : '1d'}</time></div><p>{index === 0 ? 'Thursday afternoon works well…' : 'Thanks for connecting — I’d love…'}</p></div>{index === 0 && <i />}</button>)}</aside><section className="conversation">{match ? <><header><img src={match.candidate?.photo} /><div><strong>{match.candidate?.name}</strong><span><i />Active now · {match.job?.title}</span></div><button><MoreHorizontal /></button></header><div className="conversation-body"><div className="date-divider">Today</div>{thread.map((message) => { const own = message.senderId === data.viewer.id; return <div className={own ? 'bubble-row own' : 'bubble-row'} key={message.id}>{!own && <img src={match.candidate?.photo} />}<div><p>{message.text}</p><time>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></div></div>; })}<div className="schedule-card"><div><BriefcaseBusiness size={18} /></div><section><span>Interview</span><strong>Product conversation</strong><p>Thursday, July 23 · 2:30–3:00 PM</p></section><button>View</button></div></div><form className="composer" onSubmit={send}><input value={text} onChange={(e) => setText(e.target.value)} placeholder="Write a message…" /><button type="submit" disabled={!text.trim()}><Send size={17} /></button></form></> : <EmptyState title="No conversations yet" />}</section><aside className="context-panel"><img src={match?.candidate?.photo} /><h3>{match?.candidate?.name}</h3><p>{match?.candidate?.title}</p><span className="fit-pill">94% role match</span><div className="context-details"><label>Matched for</label><strong>{match?.job?.title}</strong><label>Location</label><strong>{match?.candidate?.location}</strong><label>Stage</label><strong>{match?.stage}</strong></div><button className="secondary-button">View full profile</button></aside></div>;
+  // Auto-open when the thread is empty (nothing to say yet); stays reachable via the header
+  // toggle afterward so the same questions double as prep notes before a scheduled call.
+  const [showStarters, setShowStarters] = useState(thread.length === 0);
+  useEffect(() => { setShowStarters(thread.length === 0); }, [match?.id]);
+  const [scheduling, setScheduling] = useState(false);
+  const calls = data.calls.filter((c) => c.matchId === match?.id).sort((a, b) => a.startAt - b.startAt);
+  return <div className="messages-page">
+    <aside className="threads">
+      <div className="threads-head"><div><span className="overline">Inbox</span><h1>Messages</h1></div><button><Filter size={17} /></button></div>
+      <div className="thread-search"><Search size={16} /><input placeholder="Search conversations" /></div>
+      {data.matches.map((item) => {
+        const label = role === 'candidate' ? item.job?.company : item.candidate?.name;
+        return <button className={item.id === match?.id ? 'thread active' : 'thread'} key={item.id} onClick={() => setSelectedMatchId(item.id)}>
+          {role === 'candidate' ? <div className="company-logo small" style={{ background: item.job?.accent }}>{item.job?.logo}</div> : <img src={item.candidate?.photo} />}
+          <div><div><strong>{label}</strong></div><p>{item.job?.title}</p></div>
+        </button>;
+      })}
+    </aside>
+    <section className="conversation">{match ? <>
+      <header>{role === 'candidate' ? <div className="company-logo small" style={{ background: match.job?.accent }}>{match.job?.logo}</div> : <img src={match.candidate?.photo} />}
+        <div><strong>{otherName}</strong><span><i />{match.job?.title}</span></div>
+        <button className={showStarters ? 'starter-toggle active' : 'starter-toggle'} onClick={() => setShowStarters((v) => !v)} title="Conversation starters — also handy to prep for a call"><Sparkles size={16} /></button>
+        {role === 'employer' && <button className="starter-toggle" onClick={() => setScheduling(true)} title="Schedule a call"><Calendar size={16} /></button>}
+        <button><MoreHorizontal /></button>
+      </header>
+      <div className="conversation-body">
+        <div className="date-divider">Today</div>
+        {thread.map((message) => { const own = message.senderId === data.viewer.id; return <div className={own ? 'bubble-row own' : 'bubble-row'} key={message.id}>{!own && otherPhoto && <img src={otherPhoto} />}<div><p>{message.text}</p><time>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></div></div>; })}
+        {calls.map((call) => {
+          const event = { title: call.title, description: call.notes, startAt: call.startAt, durationMinutes: call.durationMinutes };
+          return <div className="schedule-card" key={call.id}>
+            <div><BriefcaseBusiness size={18} /></div>
+            <section><span>Scheduled call</span><strong>{call.title}</strong><p>{new Date(call.startAt).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · {call.durationMinutes} min</p></section>
+            <div className="schedule-card-links">
+              <a href={googleCalendarUrl(event)} target="_blank" rel="noreferrer" title="Add to Google Calendar"><ExternalLink size={14} /> Google</a>
+              <a href={outlookCalendarUrl(event)} target="_blank" rel="noreferrer" title="Add to Outlook"><ExternalLink size={14} /> Outlook</a>
+              <a href={icsDataUrl(event)} download={`${call.title}.ics`} title="Download .ics"><Download size={14} /> .ics</a>
+            </div>
+          </div>;
+        })}
+      </div>
+      {showStarters && (role === 'employer'
+        ? <RecruiterStarters candidateName={match.candidate?.name || 'there'} archetype={match.candidate?.aboutMeArchetype} onPick={setText} />
+        : <CandidateStarters onPick={setText} />)}
+      <form className="composer" onSubmit={send}><input value={text} onChange={(e) => setText(e.target.value)} placeholder="Write a message…" /><button type="submit" disabled={!text.trim()}><Send size={17} /></button></form>
+      {scheduling && <ScheduleCallModal match={match} viewer={data.viewer} onClose={() => setScheduling(false)}
+        onScheduled={(call) => { setData({ ...data, calls: [...data.calls, call] }); setScheduling(false); }}
+        onShareLink={async (shareText) => { const message = await api.message({ matchId: match.id, senderId: data.viewer.id, text: shareText }); setData({ ...data, messages: [...data.messages, message] }); setScheduling(false); }} />}
+    </> : <EmptyState title="No conversations yet" />}</section>
+    <aside className="context-panel">
+      {role === 'candidate' ? <div className="company-logo" style={{ background: match?.job?.accent }}>{match?.job?.logo}</div> : <img src={match?.candidate?.photo} />}
+      <h3>{otherName}</h3><p>{role === 'candidate' ? match?.job?.location : match?.candidate?.title}</p>
+      <span className="fit-pill">{match?.candidate?.match?.score ?? 94}% role match</span>
+      <div className="context-details"><label>Matched for</label><strong>{match?.job?.title}</strong><label>Location</label><strong>{match?.candidate?.location}</strong><label>Stage</label><strong>{match?.stage}</strong></div>
+      <button className="secondary-button">View full profile</button>
+    </aside>
+  </div>;
 }
 
 function Matches({ data, navigate }: { data: Bootstrap; navigate: (v: View) => void }) { return <div className="page"><div className="page-title"><div><span className="overline">Mutual interest</span><h1>Your matches</h1><p>These teams chose you back. Start a conversation when you’re ready.</p></div></div><div className="match-grid">{data.matches.map((match) => <article key={match.id}><div className="match-company" style={{ background: match.job ? appleColor(match.job.id) : 'var(--blue)' }}>{match.job?.logo}</div><span className="fit-pill">{match.candidate?.match?.score || 94}% match</span><h2>{match.job?.title}</h2><p>{match.job?.company} · {match.job?.location}</p><div className="match-grid-actions"><button className="secondary-button">View role</button><button className="primary-button" onClick={() => navigate('messages')}><MessageCircle size={16} />Message</button></div></article>)}</div></div>; }

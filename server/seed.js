@@ -35,6 +35,9 @@ export function createSeed() {
       { id: 'msg-1', matchId: 'm-existing', senderId: 'employer-demo', text: 'Hi Jordan — your systems work really stood out. Would you be open to a 25-minute intro this week?', createdAt: now - 7200000 },
       { id: 'msg-2', matchId: 'm-existing', senderId: 'c-1', text: 'Absolutely. Thursday afternoon works well for me.', createdAt: now - 5400000 }
     ],
+    calls: [
+      { id: 'call-existing', matchId: 'm-existing', createdBy: 'employer-demo', title: 'Intro call — Senior Product Designer', startAt: now + 86400000 * 2, durationMinutes: 25, notes: 'Quick intro, no need to prepare anything.', createdAt: now - 5000000 }
+    ],
     feedback: [
       { id: 'fb-1', type: 'review', approved: true, name: 'Mai N.', role: 'Product Designer', rating: 5, message: 'Matched with two companies in my city in a week. The salary-up-front part is a game changer — no more guessing.', createdAt: now - 86400000 * 2 },
       { id: 'fb-2', type: 'review', approved: true, name: 'David O.', role: 'Head of Talent', rating: 5, message: 'We stopped drowning in unqualified applications. Mutual intent means every conversation is worth having.', createdAt: now - 86400000 * 4 },

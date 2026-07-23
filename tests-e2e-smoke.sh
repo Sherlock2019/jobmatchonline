@@ -8,7 +8,7 @@ j() { curl -s -m 20 "$@"; }
 echo "== 1. health / session / app shell =="
 ck "api health ok" "$(j $B/api/health | jq -r .ok)" "true"
 ck "session endpoint guards unauthenticated access (401)" "$(j $B/api/auth/session -o /dev/null -w "%{http_code}")" "401"
-ck "app shell served" "$(j $B/app/ -o /dev/null -w '%{http_code}')" "200"
+ck "app shell served" "$(j $B/ -o /dev/null -w '%{http_code}')" "200"
 ck "login entry (linkedin oauth) redirects/answers" "$(curl -s -m 20 -o /dev/null -w '%{http_code}' $B/api/auth/linkedin)" "302"
 
 echo "== 2. bootstrap: candidate + employer roles (registration-equivalent demo entry) =="
@@ -50,7 +50,7 @@ ck "bad swipe rejected (unknown user)" "$(j -o /dev/null -w '%{http_code}' -X PO
 ck "bad message rejected (unknown match)" "$(j -o /dev/null -w '%{http_code}' -X POST $B/api/messages -H 'Content-Type: application/json' -d '{"matchId":"nope","senderId":"candidate-demo","text":"hi"}')" "404"
 
 echo "== 6. exact mockup + carousel shipped in app bundle =="
-A=$(curl -s $B/app/ | grep -o 'src="[^"]*index[^"]*\.js"' | head -1 | sed 's/src="//;s/"$//')
+A=$(curl -s $B/ | grep -o 'src="[^"]*index[^"]*\.js"' | head -1 | sed 's/src="//;s/"$//')
 BUN=$(curl -s "$B$A")
 for m in "hero-phone.png" "Register free" "CANDIDATE PROFILE" "mutually matched"; do
   echo "$BUN" | grep -q "$m" && { echo "  PASS bundle has: $m"; pass=$((pass+1)); } || { echo "  FAIL bundle missing: $m"; fail=$((fail+1)); }

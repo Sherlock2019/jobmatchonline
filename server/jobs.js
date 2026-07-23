@@ -79,10 +79,42 @@ export function applyJob(job, body, { strict = false } = {}) {
   }
   set('requiredLanguages', strArray(body.requiredLanguages, 8, 40));
 
+  // Card-mirroring fields (job profile = 5 cards, like the candidate deck).
+  set('openings', num(body.openings, 1, 999)); // card 1
+  set('urgency', str(body.urgency, 40));
+  set('deadline', str(body.deadline, 40));
+  set('successMeasures', strArray(body.successMeasures, 8, 200)); // card 2
+  set('benefits', strArray(body.benefits, 20, 80)); // card 3
+  set('workingHours', str(body.workingHours, 60));
+  set('flexibleHours', str(body.flexibleHours, 80));
+  set('probation', str(body.probation, 40));
+  set('bonus', str(body.bonus, 60));
+  set('equity', str(body.equity, 60));
+  if (body.salaryNegotiable !== undefined) job.salaryNegotiable = Boolean(body.salaryNegotiable);
+  set('hybridDays', num(body.hybridDays, 0, 5));
+  if (body.visaSponsorship !== undefined) job.visaSponsorship = Boolean(body.visaSponsorship);
+  if (body.relocationSupport !== undefined) job.relocationSupport = Boolean(body.relocationSupport);
+  set('travel', str(body.travel, 60));
+  set('onCall', str(body.onCall, 60));
+  set('teamSize', str(body.teamSize, 40)); // card 4
+  set('teamComposition', strArray(body.teamComposition, 12, 60));
+  set('teamLocations', str(body.teamLocations, 120));
+  set('managerName', str(body.managerName, 120));
+  set('managerTitle', str(body.managerTitle, 120));
+  set('managerStyle', str(body.managerStyle, 200));
+  set('managementStyleTags', strArray(body.managementStyleTags, 8, 40));
+  set('teamStyle', strArray(body.teamStyle, 8, 40));
+  set('values', strArray(body.values, 10, 60));
+  set('teamSong', str(body.teamSong, 400));
+  set('mission', str(body.mission, 300));
+  set('culture', strArray(body.culture, 10, 60));
+  set('hiringTimeline', str(body.hiringTimeline, 80)); // card 5
+  if (body.backgroundCheck !== undefined) job.backgroundCheck = Boolean(body.backgroundCheck);
+  if (body.referenceCheck !== undefined) job.referenceCheck = Boolean(body.referenceCheck);
+
   if (strict) {
     if (!job.title) throw new ValidationError('title', 'Title is required');
-    if (!job.seniority && !job.experienceLevel) throw new ValidationError('seniority', 'Seniority is required');
-    if (!job.requiredSkills || job.requiredSkills.length < 3) throw new ValidationError('requiredSkillsDetail', 'At least 3 required skills');
+    if (!job.requiredSkills || job.requiredSkills.length < 1) throw new ValidationError('requiredSkillsDetail', 'At least 1 required skill');
     if (!job.type) throw new ValidationError('type', 'Employment type is required');
     if (!job.workMode) throw new ValidationError('workMode', 'Work mode is required');
     if (!job.location) throw new ValidationError('location', 'Location is required');

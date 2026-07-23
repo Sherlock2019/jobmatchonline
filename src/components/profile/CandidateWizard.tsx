@@ -17,11 +17,53 @@ const CONTACT_TYPES: readonly ContactChannelType[] = ['whatsapp', 'telegram', 'p
 const AGE_PRIVACY_LABELS = { public: 'Show publicly', 'after-match': 'Only after matching', private: 'Keep private' } as const;
 const WORK_AUTH_OPTIONS = ['Citizen', 'Permanent resident', 'Work visa held', 'Needs sponsorship', 'Working-holiday visa'] as const;
 const MINDSET_SUGGESTIONS = ['Curious', 'Accountable', 'Resilient', 'Empathetic', 'Pragmatic', 'Driven', 'Calm under pressure', 'Growth-minded'] as const;
-const HUMAN_SKILLS = ['Leadership', 'Communication', 'Collaboration', 'Creativity', 'Problem solving', 'Adaptability', 'Mentoring', 'Ownership', 'Strategic thinking', 'Attention to detail'] as const;
 const INTEREST_SUGGESTIONS = ['Coffee', 'Cycling', 'Music', 'AI projects', 'Travel', 'Gaming', 'Reading', 'Cooking', 'Photography'] as const;
 
-// The five wizard steps mirror the five profile cards recruiters swipe through.
-export const CANDIDATE_STEPS = ['Snapshot', 'Technical stack', 'Preferences', 'Human stack', 'Reviews & visibility'] as const;
+// Supporting traits offered on the About Me step (deterministic — no LLM involved yet).
+const ABOUT_ME_TRAITS = ['Accountable', 'Adaptable', 'Analytical', 'Collaborative', 'Creative', 'Curious', 'Empathetic', 'Hands-on', 'Independent', 'Organized', 'Practical', 'Reliable', 'Resilient', 'Strategic', 'Supportive'] as const;
+
+export type Archetype = { id: string; cardTitle: string; prefilled: string; defaultTraits: string[] };
+
+// Prefilled "About Me" starting points — pick one, personalize, edit freely.
+// Trimmed from 14 to 8: the most overlapping types are folded into a close neighbor
+// (Reliable Operator -> Team Servant, Goal Achiever -> Doer, Strategist -> Problem Solver,
+// Change Maker -> Leader, Explorer -> Innovator, Connector -> Customer Champion) so the
+// picker is a quick scan instead of a wall of chips.
+export const ARCHETYPES: Archetype[] = [
+  { id: 'team-servant', cardTitle: 'I Help the Team Succeed', defaultTraits: ['Supportive', 'Reliable', 'Collaborative', 'Empathetic'],
+    prefilled: 'I believe strong teams succeed when people support one another, communicate openly, and share responsibility. I am usually the person who helps remove blockers, listens carefully, and makes sure everyone has what they need to perform well. People can depend on me to follow through — I take pride in being careful and consistent with the work entrusted to me.\n\nI do not need to be the loudest person in the room. I prefer to contribute through reliability, practical support, and consistent follow-through, communicating early when risks appear rather than hiding problems. I value trust, respect, shared ownership, and celebrating team success rather than individual credit.' },
+  { id: 'doer', cardTitle: 'I Turn Ideas Into Action', defaultTraits: ['Hands-on', 'Practical', 'Independent', 'Accountable'],
+    prefilled: 'I am action-oriented and enjoy moving quickly from discussion to execution. When I see a problem, I prefer to understand it, define the next practical step, and start making progress toward a clear, measurable goal.\n\nI work well in environments where people take ownership and avoid unnecessary complexity. I am disciplined and persistent about seeing things through, comfortable learning while doing, and I believe achieving the right result matters more than simply completing a list of tasks.' },
+  { id: 'problem-solver', cardTitle: 'I Enjoy Solving Difficult Problems', defaultTraits: ['Analytical', 'Curious', 'Strategic'],
+    prefilled: 'I enjoy understanding complex problems, identifying their root causes, and finding solutions that are both effective and practical. I naturally ask questions, test assumptions, and connect daily decisions to the wider context and long-term goals behind them.\n\nI am comfortable working with uncertainty and I remain calm when the first solution does not work. I value evidence, clear thinking, and combining analysis with practical execution — strategy, to me, is a clear direction that helps people make better decisions, not a document.' },
+  { id: 'builder', cardTitle: 'I Build Things That Last', defaultTraits: ['Creative', 'Hands-on'],
+    prefilled: 'I enjoy creating products, systems, processes, and teams from the ground up. I like turning incomplete ideas into something useful, reliable, and scalable.\n\nI think beyond the first version and consider how the work will be maintained, improved, and used by others. I value strong foundations, simple design, clear documentation, and continuous improvement.' },
+  { id: 'leader', cardTitle: 'I Create Direction and Enable Others', defaultTraits: ['Supportive', 'Strategic', 'Accountable', 'Adaptable'],
+    prefilled: 'I see leadership as creating clarity, building trust, and helping people perform at their best. I enjoy aligning teams around a common objective, making difficult decisions, and helping organizations move from an existing way of working toward something better.\n\nI lead with accountability and transparency, focusing on building understanding and reducing resistance so progress happens without unnecessary disruption. I am comfortable taking responsibility when things go wrong and giving credit to the team when things go well.' },
+  { id: 'mentor', cardTitle: 'I Help People Grow', defaultTraits: ['Supportive'],
+    prefilled: 'I enjoy sharing knowledge, supporting colleagues, and helping people become more confident and capable. I believe mentoring is not about providing every answer, but helping others develop their own judgment and problem-solving skills.\n\nI am patient, approachable, and comfortable giving honest but constructive feedback. I value learning cultures where questions are welcomed and knowledge is shared openly.' },
+  { id: 'innovator', cardTitle: 'I Look for Better Ways', defaultTraits: ['Curious', 'Creative', 'Adaptable'],
+    prefilled: 'I am naturally curious and often look for better ways to solve problems, improve experiences, or create new opportunities. I enjoy entering unfamiliar situations and learning quickly — new technologies, industries, and challenges energize me.\n\nI am comfortable challenging assumptions, experimenting carefully, and adapting as I gain more information. I believe innovation should produce real value rather than novelty alone, and I work best in environments that encourage curiosity and continuous learning.' },
+  { id: 'customer-champion', cardTitle: 'I Start With the Customer', defaultTraits: ['Empathetic', 'Reliable', 'Collaborative'],
+    prefilled: 'I believe the best solutions begin with a clear understanding of people’s real needs. I enjoy listening, connecting people and ideas that can benefit from one another, and translating problems into practical solutions that create measurable value.\n\nI aim to build trust through honesty, reliability, and clear communication across technical, business, and leadership audiences. I am comfortable balancing expectations with technical, operational, and business realities.' },
+];
+
+type AboutMeAnswers = { bestWhen: string; relyOnMe: string; proudResult: string };
+
+/** Deterministic template composition — no LLM involved. Archetype paragraph + the candidate's own sentence endings. */
+function composeAboutMe(archetype: Archetype, answers: AboutMeAnswers): string {
+  const extra = [
+    answers.bestWhen.trim() && `I am at my best when ${answers.bestWhen.trim()}.`,
+    answers.relyOnMe.trim() && `People can rely on me to ${answers.relyOnMe.trim()}.`,
+    answers.proudResult.trim() && `A result I am proud of is ${answers.proudResult.trim()}.`,
+  ].filter(Boolean).join(' ');
+  return extra ? `${archetype.prefilled}\n\n${extra}` : archetype.prefilled;
+}
+
+// The six wizard steps mirror the profile cards recruiters swipe through, plus the About Me step.
+// The first four carry every must-have field; the last two are optional and skippable.
+export const CANDIDATE_STEPS = ['Snapshot', 'Technical stack', 'Preferences', 'About me', 'Human stack', 'Reviews & visibility'] as const;
+const CANDIDATE_REQUIRED_STEPS = 4;
 
 type Form = {
   name: string; photo: string; headline: string; email: string; phone: string; city: string; country: string;
@@ -35,7 +77,7 @@ type Form = {
   salaryMin: string; salaryMax: string; currency: string; salaryPeriod: string; salaryNegotiable: boolean;
   availability?: string; noticePeriod: string; travel: string;
   relocateOpen: boolean; relocateLocations: string[]; companySize: string; prefIndustries: string[]; workStyle: string[];
-  presentation: string; mindset: string[]; humanSkills: string[]; workingPrefer: string[]; workingAvoid: string[];
+  presentation: string; aboutMeArchetype?: string; mindset: string[]; humanSkills: string[]; workingPrefer: string[]; workingAvoid: string[];
   interests: string[]; motto: string; favoriteSong: string; recommendations: Recommendation[];
   resume?: ResumeMeta; coverLetter: string; visibility?: 'all' | 'after-swipe' | 'paused'; blockedCompanies: string[]; openToWork: boolean;
 };
@@ -62,11 +104,11 @@ function fromPerson(p: Person): Form {
     availability: p.preferences?.availability, noticePeriod: p.preferences?.noticePeriod || '', travel: p.preferences?.travel || '',
     relocateOpen: p.preferences?.relocate?.open ?? false, relocateLocations: p.preferences?.relocate?.locations || [],
     companySize: p.preferences?.companySize || '', prefIndustries: p.preferences?.industries || [], workStyle: p.preferences?.workStyle || [],
-    presentation: p.presentation || '', mindset: p.mindset || [], humanSkills: p.humanSkills || [],
+    presentation: p.presentation || '', aboutMeArchetype: p.aboutMeArchetype, mindset: p.mindset || [], humanSkills: p.humanSkills || [],
     workingPrefer: p.workingPrefer || [], workingAvoid: p.workingAvoid || [], interests: p.interests || [],
     motto: p.motto || '', favoriteSong: p.favoriteSong || '', recommendations: p.recommendations || [],
     resume: p.documents?.resume, coverLetter: p.documents?.coverLetter || '',
-    visibility: p.privacy?.visibility, blockedCompanies: p.privacy?.blockedCompanies || [],
+    visibility: p.privacy?.visibility || 'all', blockedCompanies: p.privacy?.blockedCompanies || [],
     openToWork: p.privacy?.openToWork ?? true,
   };
 }
@@ -98,9 +140,11 @@ function stepPayload(step: number, form: Form, finishing: boolean) {
     },
   };
   if (step === 3) return {
-    presentation: form.presentation || undefined, mindset: form.mindset, humanSkills: form.humanSkills,
-    workingPrefer: form.workingPrefer, workingAvoid: form.workingAvoid, interests: form.interests,
-    motto: form.motto || undefined, favoriteSong: form.favoriteSong || undefined,
+    presentation: form.presentation || undefined, aboutMeArchetype: form.aboutMeArchetype, motto: form.motto || undefined, humanSkills: form.humanSkills,
+  };
+  if (step === 4) return {
+    mindset: form.mindset, workingPrefer: form.workingPrefer, workingAvoid: form.workingAvoid,
+    interests: form.interests, favoriteSong: form.favoriteSong || undefined,
   };
   return {
     recommendations: form.recommendations,
@@ -113,16 +157,16 @@ function stepErrors(step: number, form: Form): string[] {
   const errors: string[] = [];
   if (step === 0) {
     if (!form.name.trim()) errors.push('Full name is required');
-    if (!form.headline.trim()) errors.push('Headline is required');
     if (!/.+@.+\..+/.test(form.email)) errors.push('A valid email is required');
     if (!form.city.trim() || !form.country.trim()) errors.push('City and country are required');
+    if (!form.nationality.trim()) errors.push('Nationality is required');
+    if (!form.workAuthorization) errors.push('Work authorization status is required');
   }
   if (step === 1) {
     if (!form.title.trim()) errors.push('Current or last title is required');
     if (form.yearsExperience === '' || Number.isNaN(Number(form.yearsExperience))) errors.push('Years of experience is required');
     if (!form.seniority) errors.push('Pick a seniority level');
-    if (form.skillsDetail.length < 3) errors.push('Add at least 3 skills');
-    if (!form.resume) errors.push('Upload your resume (PDF or DOCX)');
+    if (form.skillsDetail.length < 1) errors.push('Add at least 1 skill');
   }
   if (step === 2) {
     if (!form.desiredRoles.length) errors.push('Add at least one desired role');
@@ -130,14 +174,9 @@ function stepErrors(step: number, form: Form): string[] {
     if (!form.workModeChoice) errors.push('Pick a work mode');
     if (form.salaryMin === '' || form.salaryMax === '') errors.push('Salary expectation range is required');
     else if (Number(form.salaryMin) > Number(form.salaryMax)) errors.push('Salary minimum cannot exceed maximum');
-    if (!form.availability) errors.push('Pick your availability');
-    if (form.workStyle.length < 3) errors.push('Pick at least 3 work-style tags');
   }
   if (step === 3) {
-    if (!form.presentation.trim()) errors.push('A short personal introduction is required');
-  }
-  if (step === 4) {
-    if (!form.visibility) errors.push('Choose who can see your profile');
+    if (!form.presentation.trim()) errors.push('About Me is required — pick an identity to start from a template, or write your own');
   }
   return errors;
 }
@@ -152,6 +191,15 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
   const [autofillNote, setAutofillNote] = useState('');
   const [geoBusy, setGeoBusy] = useState(false);
   const [error, setError] = useState('');
+  const [aboutMeAnswers, setAboutMeAnswers] = useState<AboutMeAnswers>({ bestWhen: '', relyOnMe: '', proudResult: '' });
+  const pickArchetype = (archetype: Archetype) => {
+    patch({
+      aboutMeArchetype: archetype.id,
+      motto: archetype.cardTitle,
+      presentation: composeAboutMe(archetype, aboutMeAnswers),
+      humanSkills: form.humanSkills.length ? form.humanSkills : archetype.defaultTraits,
+    });
+  };
   const captureLocation = async () => {
     setGeoBusy(true); setError('');
     try { const { getBrowserLocation } = await import('../../lib/geo'); patch({ geo: await getBrowserLocation() }); }
@@ -170,6 +218,18 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
       const { user } = await api.updateProfile(viewer.id, stepPayload(step, form, finishing) as Partial<Person>);
       if (finishing) onDone(user);
       else { setStep(step + 1); setAttempted(false); }
+    } catch (e) { setError(e instanceof Error ? e.message : 'Save failed'); }
+    finally { setSaving(false); }
+  };
+
+  // Jumps straight to done from the first optional step, saving whatever's filled in
+  // across the remaining (skippable) steps without forcing the user to click through them.
+  const skipRest = async () => {
+    setSaving(true); setError('');
+    try {
+      const payload = { ...stepPayload(4, form, false), ...stepPayload(5, form, true) };
+      const { user } = await api.updateProfile(viewer.id, payload as Partial<Person>);
+      onDone(user);
     } catch (e) { setError(e instanceof Error ? e.message : 'Save failed'); }
     finally { setSaving(false); }
   };
@@ -220,8 +280,8 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
   return <div className="wizard-page">
     <div className="wizard-card">
       <header className="wz-head">
-        <div><span className="overline">Set up your candidate profile</span><h1>{CANDIDATE_STEPS[step]}</h1></div>
-        <span className="wz-step-count">Step {step + 1} of {CANDIDATE_STEPS.length}</span>
+        <div><span className="overline">{step < CANDIDATE_REQUIRED_STEPS ? 'Set up your candidate profile' : 'Optional — add now or skip and edit later'}</span><h1>{CANDIDATE_STEPS[step]}</h1></div>
+        <span className="wz-step-count">{step < CANDIDATE_REQUIRED_STEPS ? `Step ${step + 1} of ${CANDIDATE_REQUIRED_STEPS}` : `Optional ${step - CANDIDATE_REQUIRED_STEPS + 1} of ${CANDIDATE_STEPS.length - CANDIDATE_REQUIRED_STEPS}`}</span>
       </header>
       <div className="wz-progress" role="progressbar" aria-valuenow={step + 1} aria-valuemin={1} aria-valuemax={CANDIDATE_STEPS.length}><i style={{ width: `${((step + 1) / CANDIDATE_STEPS.length) * 100}%` }} /></div>
 
@@ -245,18 +305,18 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
           </Field>
           <Field label="Pronouns (optional)"><TextInput value={form.pronouns} onChange={(e) => patch({ pronouns: e.target.value })} placeholder="e.g. she/her, they/them" /></Field>
         </div>
-        <Field label="Headline" required hint="One line that sells your craft."><TextInput value={form.headline} onChange={(e) => patch({ headline: e.target.value })} placeholder="e.g. Product designer who ships design systems" /></Field>
+        <Field label="Headline (optional)" hint="One line that sells your craft."><TextInput value={form.headline} onChange={(e) => patch({ headline: e.target.value })} placeholder="e.g. Product designer who ships design systems" /></Field>
         <div className="wz-row">
           <Field label="City" required><TextInput value={form.city} onChange={(e) => patch({ city: e.target.value })} /></Field>
           <Field label="Country" required><TextInput value={form.country} onChange={(e) => patch({ country: e.target.value })} /></Field>
         </div>
         <div className="wz-row">
-          <Field label="Nationality (optional)" hint="Never affects your match score."><TextInput value={form.nationality} onChange={(e) => patch({ nationality: e.target.value })} /></Field>
+          <Field label="Nationality" required hint="Never affects your match score — recruiters need it to check work eligibility, like on LinkedIn."><TextInput value={form.nationality} onChange={(e) => patch({ nationality: e.target.value })} /></Field>
           <Field label="Date of birth (optional)"><TextInput type="date" value={form.birthdate} onChange={(e) => patch({ birthdate: e.target.value })} /></Field>
         </div>
         {form.birthdate && <Field label="Who can see your age" hint="Age never affects matching."><Segmented options={['public', 'after-match', 'private'] as const} value={form.agePrivacy} onChange={(agePrivacy) => patch({ agePrivacy })} labels={AGE_PRIVACY_LABELS} /></Field>}
         <div className="wz-row">
-          <Field label="Work authorization" hint="Shown as a status, never a document."><select className="wz-input wz-select" value={form.workAuthorization} onChange={(e) => patch({ workAuthorization: e.target.value })}><option value="">Prefer not to say</option>{WORK_AUTH_OPTIONS.map((o) => <option key={o}>{o}</option>)}</select></Field>
+          <Field label="Work authorization" required hint="Your status relative to where you'll work — shown as a status, never a document."><select className="wz-input wz-select" value={form.workAuthorization} onChange={(e) => patch({ workAuthorization: e.target.value })}><option value="">Select one…</option>{WORK_AUTH_OPTIONS.map((o) => <option key={o}>{o}</option>)}</select></Field>
           <Field label="Visa sponsorship"><Toggle checked={form.visaSponsorship} onChange={(visaSponsorship) => patch({ visaSponsorship })} label={form.visaSponsorship ? 'I need sponsorship' : 'No sponsorship needed'} /></Field>
         </div>
         <Field label="Location for distance matching" hint="Enables real distance to roles. Your exact coordinates are never shown to anyone.">
@@ -294,7 +354,7 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
           <Field label="Years of experience" required><TextInput type="number" min={0} max={60} value={form.yearsExperience} onChange={(e) => patch({ yearsExperience: e.target.value })} /></Field>
         </div>
         <Field label="Seniority" required><Segmented options={['junior', 'mid', 'senior', 'lead', 'exec'] as const} value={form.seniority} onChange={(seniority) => patch({ seniority })} labels={SENIORITY_LABELS} /></Field>
-        <Field label="Skills" required hint="At least 3. Click the dots to set your level (1–5).">
+        <Field label="Skills" required hint="At least 1 — add more any time. Click the dots to set your level (1–5).">
           <LevelTagInput value={form.skillsDetail} onChange={(skillsDetail) => patch({ skillsDetail })} />
           <div className="wz-suggestions">{SKILL_SUGGESTIONS.filter((skill) => !form.skillsDetail.some((item) => item.name === skill)).slice(0, 5).map((skill) => <button type="button" key={skill} onClick={() => patch({ skillsDetail: [...form.skillsDetail, { name: skill, level: 3 }] })}>+ {skill}</button>)}</div>
         </Field>
@@ -327,7 +387,7 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
           <Field label="Website"><TextInput value={form.links.website || ''} onChange={(e) => patch({ links: { ...form.links, website: e.target.value } })} /></Field>
           <Field label="LinkedIn"><TextInput value={form.links.linkedin || ''} onChange={(e) => patch({ links: { ...form.links, linkedin: e.target.value } })} placeholder="linkedin.com/in/…" /></Field>
         </div>
-        <Field label="Resume" required hint="PDF or DOCX, up to 10MB. Recruiters read it in-app and can download the PDF.">
+        <Field label="Resume (optional)" hint="PDF or DOCX, up to 10MB. Speeds up recruiter review, but you can add it later.">
           <label className={form.resume ? 'wz-upload has-file' : 'wz-upload'}>
             <input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => e.target.files?.[0] && uploadResume(e.target.files[0])} />
             {uploading ? <><Loader2 size={17} className="spin" /> Uploading…</> : form.resume ? <><FileText size={17} /> {form.resume.originalName} <em>Replace</em></> : <><Upload size={17} /> Upload resume</>}
@@ -355,7 +415,7 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
           <div className="wz-inline"><Toggle checked={form.salaryNegotiable} onChange={(salaryNegotiable) => patch({ salaryNegotiable })} label="Negotiable" /></div>
         </Field>
         <div className="wz-row">
-          <Field label="Availability" required><Segmented options={AVAILABILITIES} value={form.availability as typeof AVAILABILITIES[number] | undefined} onChange={(availability) => patch({ availability })} /></Field>
+          <Field label="Availability (optional)"><Segmented options={AVAILABILITIES} value={form.availability as typeof AVAILABILITIES[number] | undefined} onChange={(availability) => patch({ availability })} /></Field>
           <Field label="Notice period"><TextInput value={form.noticePeriod} onChange={(e) => patch({ noticePeriod: e.target.value })} placeholder="e.g. 30 days" /></Field>
         </div>
         <div className="wz-row">
@@ -367,27 +427,39 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
           <Toggle checked={form.relocateOpen} onChange={(relocateOpen) => patch({ relocateOpen })} label={form.relocateOpen ? 'Yes — I would relocate for the right role' : 'No — match me near my city'} />
           {form.relocateOpen && <TagInput value={form.relocateLocations} onChange={(relocateLocations) => patch({ relocateLocations })} placeholder="Cities or countries you'd move to" />}
         </Field>
-        <Field label="Work-style tags" required hint="Pick 3–6 that describe how you work best."><Chips options={WORK_STYLES} value={form.workStyle} onToggle={(option) => patch({ workStyle: form.workStyle.includes(option) ? form.workStyle.filter((item) => item !== option) : form.workStyle.length < 6 ? [...form.workStyle, option] : form.workStyle })} /></Field>
+        <Field label="Work-style tags (optional)" hint="Pick up to 6 that describe how you work best."><Chips options={WORK_STYLES} value={form.workStyle} onToggle={(option) => patch({ workStyle: form.workStyle.includes(option) ? form.workStyle.filter((item) => item !== option) : form.workStyle.length < 6 ? [...form.workStyle, option] : form.workStyle })} /></Field>
       </div>}
 
       {step === 3 && <div className="wz-body">
-        <Field label="Personal introduction" required hint="A few sentences on who you are beyond the CV — how you work and what you value.">
-          <textarea className="wz-input wz-textarea" rows={4} value={form.presentation} onChange={(e) => patch({ presentation: e.target.value })} placeholder="I enjoy turning hard problems into simple systems teams can operate confidently. I work best with transparent leaders and practical teams…" />
+        <p className="wz-hint" style={{ margin: '-6px 0 4px' }}>Pick a professional identity for a prefilled starting point, personalize it, and edit anything — or skip the picker and write your own.</p>
+        <Field label="Choose your professional identity" hint="Sets a prefilled About Me you can edit below.">
+          <div className="wz-chips">
+            {ARCHETYPES.map((a) => <button type="button" key={a.id} className={form.aboutMeArchetype === a.id ? 'active' : ''} aria-pressed={form.aboutMeArchetype === a.id} onClick={() => pickArchetype(a)}>{a.cardTitle}</button>)}
+          </div>
         </Field>
+        <Field label="Supporting traits (optional)" hint="Pick up to 6."><Chips options={ABOUT_ME_TRAITS} value={form.humanSkills} onToggle={(option) => patch({ humanSkills: form.humanSkills.includes(option) ? form.humanSkills.filter((item) => item !== option) : form.humanSkills.length < 6 ? [...form.humanSkills, option] : form.humanSkills })} /></Field>
+        <div className="wz-row">
+          <Field label="I am at my best when… (optional)"><TextInput value={aboutMeAnswers.bestWhen} onChange={(e) => setAboutMeAnswers({ ...aboutMeAnswers, bestWhen: e.target.value })} /></Field>
+          <Field label="People can rely on me to… (optional)"><TextInput value={aboutMeAnswers.relyOnMe} onChange={(e) => setAboutMeAnswers({ ...aboutMeAnswers, relyOnMe: e.target.value })} /></Field>
+        </div>
+        <Field label="A result I am proud of is… (optional)"><TextInput value={aboutMeAnswers.proudResult} onChange={(e) => setAboutMeAnswers({ ...aboutMeAnswers, proudResult: e.target.value })} /></Field>
+        {form.aboutMeArchetype && <button type="button" className="secondary-button" onClick={() => patch({ presentation: composeAboutMe(ARCHETYPES.find((a) => a.id === form.aboutMeArchetype)!, aboutMeAnswers) })}>Apply answers to About Me text</button>}
+        <Field label="About Me" required hint="Recruiters read this first. Personalize the template above or write your own — either way, edit freely.">
+          <textarea className="wz-input wz-textarea" rows={8} value={form.presentation} onChange={(e) => patch({ presentation: e.target.value })} placeholder="Choose an identity above to start from a template, or write your own." />
+        </Field>
+      </div>}
+
+      {step === 4 && <div className="wz-body">
         <Field label="Mindset" hint="Pick a few traits that describe you."><Chips options={MINDSET_SUGGESTIONS} value={form.mindset} onToggle={(option) => patch({ mindset: form.mindset.includes(option) ? form.mindset.filter((item) => item !== option) : form.mindset.length < 5 ? [...form.mindset, option] : form.mindset })} /></Field>
-        <Field label="Human capabilities" hint="Up to 8."><Chips options={HUMAN_SKILLS} value={form.humanSkills} onToggle={(option) => patch({ humanSkills: form.humanSkills.includes(option) ? form.humanSkills.filter((item) => item !== option) : form.humanSkills.length < 8 ? [...form.humanSkills, option] : form.humanSkills })} /></Field>
         <div className="wz-row">
           <Field label="I thrive with"><TagInput value={form.workingPrefer} onChange={(workingPrefer) => patch({ workingPrefer })} placeholder="e.g. Clear objectives — press Enter" /></Field>
           <Field label="I avoid"><TagInput value={form.workingAvoid} onChange={(workingAvoid) => patch({ workingAvoid })} placeholder="e.g. Constant meetings — press Enter" /></Field>
         </div>
         <Field label="Interests" hint="Optional conversation starters."><TagInput value={form.interests} onChange={(interests) => patch({ interests })} suggestions={INTEREST_SUGGESTIONS} /></Field>
-        <div className="wz-row">
-          <Field label="Personal motto (optional)"><TextInput value={form.motto} onChange={(e) => patch({ motto: e.target.value })} placeholder="Optional one-liner" /></Field>
-          <Field label="Favorite song (optional)" hint="Spotify or YouTube link — opens externally, never autoplays."><TextInput value={form.favoriteSong} onChange={(e) => patch({ favoriteSong: e.target.value })} placeholder="https://…" /></Field>
-        </div>
+        <Field label="Favorite song (optional)" hint="Spotify or YouTube link — opens externally, never autoplays."><TextInput value={form.favoriteSong} onChange={(e) => patch({ favoriteSong: e.target.value })} placeholder="https://…" /></Field>
       </div>}
 
-      {step === 4 && <div className="wz-body">
+      {step === 5 && <div className="wz-body">
         <Field label="Recommendations (optional)" hint="Add recommendations former recruiters or managers have given you. Only ones you approve appear on your profile.">
           <Repeat items={form.recommendations} onChange={(recommendations) => patch({ recommendations })} blank={() => ({ recruiterName: '', role: '', company: '', relationship: '', text: '' })} addLabel="Add a recommendation"
             render={(item, update) => <div className="wz-repeat-grid">
@@ -398,7 +470,7 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
               <textarea className="wz-input wz-textarea" placeholder="What they said about working with you" value={item.text || ''} onChange={(e) => update({ text: e.target.value })} />
             </div>} />
         </Field>
-        <Field label="Who can see your profile" required>
+        <Field label="Who can see your profile" hint="Defaults to all recruiters — change anytime.">
           <Segmented options={['all', 'after-swipe', 'paused'] as const} value={form.visibility} onChange={(visibility) => patch({ visibility })} labels={{ all: 'All recruiters', 'after-swipe': 'Only after I swipe', paused: 'Paused' }} />
         </Field>
         <Field label="Blocked companies" hint="They will never see your profile."><TagInput value={form.blockedCompanies} onChange={(blockedCompanies) => patch({ blockedCompanies })} placeholder="Company name — press Enter" /></Field>
@@ -410,9 +482,12 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
 
       <footer className="wz-foot">
         {step > 0 ? <button className="secondary-button" onClick={() => { setStep(step - 1); setAttempted(false); }}><ArrowLeft size={16} /> Back</button> : onCancel ? <button className="secondary-button" onClick={onCancel}>Cancel</button> : <span />}
-        <button className="primary-button" onClick={next} disabled={saving || uploading}>
-          {saving ? <Loader2 size={16} className="spin" /> : finishing ? <><Check size={16} /> Finish profile</> : <>Continue <ArrowRight size={16} /></>}
-        </button>
+        <div className="wz-foot-actions">
+          {step === CANDIDATE_REQUIRED_STEPS && <button className="secondary-button" onClick={skipRest} disabled={saving}>Skip &amp; finish</button>}
+          <button className="primary-button" onClick={next} disabled={saving || uploading}>
+            {saving ? <Loader2 size={16} className="spin" /> : finishing ? <><Check size={16} /> Finish profile</> : <>Continue <ArrowRight size={16} /></>}
+          </button>
+        </div>
       </footer>
     </div>
   </div>;

@@ -47,6 +47,8 @@ await store.transaction((db) => {
     if (!existing) db.feedback.push(f);
     else if (existing.approved === undefined) existing.approved = f.approved;
   }
+  // Scheduled calls were introduced after the store may already exist on disk.
+  if (!Array.isArray(db.calls)) db.calls = [];
 });
 console.log(`JobMatch store: ${process.env.DATABASE_URL ? 'postgresql (RDS)' : 'json file'}`);
 const demoDistances = { 'j-1': 7, 'j-2': 18, 'j-3': 42, 'j-4': 75, 'c-1': 5, 'c-2': 26, 'c-3': 12, 'c-4': 65 };
@@ -547,6 +549,7 @@ app.delete('/api/me', async (req, res, next) => {
       db.swipes = db.swipes.filter((s) => s.actorId !== me.id && s.targetId !== me.id);
       db.matches = db.matches.filter((m) => !myMatchIds.has(m.id));
       db.messages = db.messages.filter((m) => !myMatchIds.has(m.matchId) && m.senderId !== me.id);
+      db.calls = db.calls.filter((c) => !myMatchIds.has(c.matchId) && c.createdBy !== me.id);
     });
     setCookie(res, AUTH_COOKIE, '', { maxAge: 0 });
     res.json({ ok: true });
@@ -1038,7 +1041,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
       screeningAnswers: db.swipes.find((swipe) => swipe.actorId === match.candidateId && swipe.targetId === match.jobId && swipe.direction === 'like')?.answers,
     }));
     const matchIds = new Set(matches.map((match) => match.id));
-    res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), likesRemaining: likesRemainingToday(db.swipes, viewer.id) });
+    res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), calls: db.calls.filter((call) => matchIds.has(call.matchId)), likesRemaining: likesRemainingToday(db.swipes, viewer.id) });
   } catch (error) { next(error); }
 });
 
@@ -1093,6 +1096,7 @@ app.post('/api/swipes/undo', async (req, res, next) => {
       const removedIds = new Set(removedMatches.map((m) => m.id));
       db.matches = db.matches.filter((m) => !removedIds.has(m.id));
       db.messages = db.messages.filter((msg) => !removedIds.has(msg.matchId));
+      db.calls = db.calls.filter((c) => !removedIds.has(c.matchId));
       return { undone: { targetId: last.targetId, targetType: last.targetType, direction: last.direction }, likesRemaining: likesRemainingToday(db.swipes, actorId) };
     });
     res.json(result);
@@ -1134,6 +1138,29 @@ app.post('/api/messages', async (req, res, next) => {
       return item;
     });
     res.status(201).json(message);
+  } catch (error) { next(error); }
+});
+
+// Recruiter proposes a specific call time for a match; candidates see it read-only.
+app.post('/api/calls', async (req, res, next) => {
+  try {
+    const matchId = reqString(req.body, 'matchId', { max: 128 });
+    const createdBy = resolveActor(req, reqString(req.body, 'createdBy', { max: 128 }));
+    const title = reqString(req.body, 'title', { max: 160 });
+    const startAt = Number(req.body.startAt);
+    if (!Number.isFinite(startAt)) throw new ValidationError('startAt', 'startAt must be a timestamp (ms)');
+    const durationMinutes = Number.isFinite(Number(req.body.durationMinutes)) ? Math.min(240, Math.max(15, Number(req.body.durationMinutes))) : 30;
+    const notes = typeof req.body.notes === 'string' ? req.body.notes.slice(0, 1000).trim() || undefined : undefined;
+    const call = await store.transaction((db) => {
+      const match = db.matches.find((item) => item.id === matchId);
+      if (!match) { const error = new Error('Match not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, createdBy);
+      if (createdBy !== match.employerId) { const error = new Error('Only the recruiter on this match can schedule a call'); error.status = 403; throw error; }
+      const item = { id: crypto.randomUUID(), matchId, createdBy, title, startAt, durationMinutes, notes, createdAt: Date.now() };
+      db.calls.push(item);
+      return item;
+    });
+    res.status(201).json(call);
   } catch (error) { next(error); }
 });
 

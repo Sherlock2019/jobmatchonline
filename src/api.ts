@@ -1,4 +1,4 @@
-import type { AuthConfig, Bootstrap, EmployerKind, InterviewKit, InterviewPrep, Job, JobDraft, JobMatch, Message, Person, ResumeMeta, Review, Role, ScreeningAnswer, SessionUser, WeightedSkill } from './types';
+import type { AuthConfig, Bootstrap, EmployerKind, InterviewKit, InterviewPrep, Job, JobDraft, JobMatch, Message, Person, ResumeMeta, Review, Role, ScheduledCall, ScreeningAnswer, SessionUser, WeightedSkill } from './types';
 
 export const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
@@ -61,4 +61,5 @@ export const api = {
   undoSwipe: (actorId: string) => request<{ undone: { targetId: string; targetType: string; direction: string } | null; likesRemaining?: number }>('/api/swipes/undo', { method: 'POST', body: JSON.stringify({ actorId }) }),
   updateStage: (id: string, stage: string) => request<JobMatch>(`/api/matches/${id}`, { method: 'PATCH', body: JSON.stringify({ stage }) }),
   message: (payload: { matchId: string; senderId: string; text: string }) => request<Message>('/api/messages', { method: 'POST', body: JSON.stringify(payload) }),
+  scheduleCall: (payload: { matchId: string; createdBy: string; title: string; startAt: number; durationMinutes: number; notes?: string }) => request<ScheduledCall>('/api/calls', { method: 'POST', body: JSON.stringify(payload) }),
 };

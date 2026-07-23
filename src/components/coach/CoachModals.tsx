@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { BookOpen, BriefcaseBusiness, Check, ClipboardList, GraduationCap, Loader2, MapPin, MessageSquareText, Plus, Sparkles, Wallet, X } from 'lucide-react';
 import { api } from '../../api';
 import type { InterviewKit, InterviewPrep, Job, JobMatch, Person, ScreeningAnswer } from '../../types';
+import { JobCards } from '../jobs/JobCards';
 
 function CoachModalShell({ onClose, children, wide }: { onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
@@ -35,10 +36,7 @@ export function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void
     </div>
     {tab === 'overview' && <div className="coach-body">
       <p className="coach-description">{job.description}</p>
-      {job.responsibilities && job.responsibilities.length > 0 && <><span className="card-label">Responsibilities</span><ul className="coach-list">{job.responsibilities.map((line) => <li key={line}>{line}</li>)}</ul></>}
-      {job.interviewProcess && job.interviewProcess.length > 0 && <><span className="card-label">Interview process</span><div className="coach-steps">{job.interviewProcess.map((step, index) => <span key={step}><b>{index + 1}</b>{step}</span>)}</div></>}
-      <span className="card-label">Required skills</span>
-      <div className="skill-list">{job.requiredSkills.map((skill) => <span key={skill}>{skill}</span>)}</div>
+      <JobCards job={job} unlocked />
     </div>}
     {tab === 'prepare' && <div className="coach-body">
       {loading && <div className="resume-loading"><Loader2 size={20} className="spin" /> Building your prep list…</div>}

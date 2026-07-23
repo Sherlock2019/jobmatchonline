@@ -9,7 +9,6 @@
 **A two-sided, mutual-intent hiring platform — swipe-to-match discovery, explainable fit scores, and salary-up-front transparency, so a conversation only opens when _both_ sides choose.**
 
 [![Live](https://img.shields.io/badge/Live-jobsmatchnow.com-fd267a?style=for-the-badge)](https://jobsmatchnow.com)
-[![Web app](https://img.shields.io/badge/Web_app-/app-007AFF?style=for-the-badge)](https://jobsmatchnow.com/app/)
 
 ![React 19](https://img.shields.io/badge/React-19-32ADE6?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-007AFF?logo=typescript&logoColor=white)
@@ -166,7 +165,6 @@ server/              Express API
   profile.js jobs.js  profile & job models
   resume*.js coaching.js  parsing + coaching (Claude-optional)
   integrations/       Google/LinkedIn OIDC adapters
-marketing/           standalone marketing site (jobsmatchnow.com)
 mobile-expo/         Expo QR preview launcher
 deploy/              AWS + EC2 deployment scripts
 ```
@@ -180,7 +178,7 @@ Two tiers, same codebase, no rebuild:
 - **Cheap MVP tier** — everything on a single EC2 (nginx + systemd API + local PostgreSQL + daily backups). ~$10/mo.
 - **Managed production tier** — CloudFront + S3 web, ECS Fargate API, RDS PostgreSQL, Secrets Manager. Scripts in `deploy/aws/`.
 
-Live at **[jobsmatchnow.com](https://jobsmatchnow.com)** · web app at **[/app](https://jobsmatchnow.com/app/)**.
+Live at **[jobsmatchnow.com](https://jobsmatchnow.com)**.
 
 ---
 

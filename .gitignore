@@ -10,10 +10,6 @@ data/db.json
 data/*.tmp
 server/uploads/
 releases/
-marketing/node_modules/
-marketing/dist/
-marketing/build/
-marketing/.wrangler/
 mobile-expo/node_modules/
 mobile-expo/.expo/
 android/app/build/

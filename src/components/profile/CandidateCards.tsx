@@ -158,7 +158,7 @@ export function CandidateCards({ person: p, match, onEdit, unlocked = false }: {
       </Card></div>
 
       {/* ---------- Card 5 — Reviews ---------- */}
-      <div className="tcard-slide"><Card label="Recommendations" icon={Star} step={3} onEdit={onEdit}>
+      <div className="tcard-slide"><Card label="Recommendations" icon={Star} step={5} onEdit={onEdit}>
         {avgRating !== undefined && <div className="tcard-rating"><strong>{avgRating.toFixed(1)}</strong><div className="tcard-stars">{[1, 2, 3, 4, 5].map((n) => <Star key={n} size={14} className={n <= Math.round(avgRating) ? 'on' : ''} />)}</div><small>{p.recommendations!.length} recommendation{p.recommendations!.length > 1 ? 's' : ''}</small></div>}
         {p.recommendations?.length ? <ul className="tcard-recs">{p.recommendations.map((r, i) => <li key={i}>
           <div className="trec-head">{r.photo && <img src={r.photo} alt="" />}<div><strong>{r.recruiterName}{r.verified && <BadgeCheck size={13} className="verified-mark" />}</strong>{(r.role || r.company) && <small>{[r.role, r.company].filter(Boolean).join(' · ')}</small>}{r.relationship && <em className="trec-rel">{r.relationship}</em>}</div></div>

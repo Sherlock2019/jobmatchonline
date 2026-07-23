@@ -64,9 +64,7 @@ echo
 echo "════════ 5. LOCAL REPO HEALTH ════════"
 npm run lint >/dev/null 2>&1 && ok "typecheck clean" || no "typecheck"
 npm test >/dev/null 2>&1 && ok "API unit tests" || no "API unit tests"
-(cd marketing && npm test >/dev/null 2>&1) && ok "marketing rendered-html tests" || no "marketing tests"
 [ -z "$(git status --porcelain)" ] && ok "git tree clean (root)" || no "uncommitted changes (root)"
-(cd marketing && [ -z "$(git status --porcelain)" ]) && ok "git tree clean (marketing)" || no "uncommitted changes (marketing)"
 bash -n startdemo.sh && bash -n deploy/deploy-production.sh && bash -n deploy/aws/00-cheap-mvp-ec2.sh && ok "all launcher/deploy scripts parse" || no "script syntax"
 
 echo

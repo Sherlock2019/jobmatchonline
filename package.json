@@ -9,7 +9,7 @@
     "mobile": "node server/mobile-launcher.js",
     "expo:mobile": "node server/expo-launcher.js",
     "build": "vite build",
-    "build:web:production": "VITE_BASE_PATH=/app/ vite build",
+    "build:web:production": "vite build",
     "start": "NODE_ENV=production node server/index.js",
     "preview": "vite preview",
     "lint": "tsc --noEmit",

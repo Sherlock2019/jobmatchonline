@@ -36,7 +36,7 @@ export interface Person {
   languageDetail?: LanguageTag[]; yearsExperience?: number; seniority?: Seniority; skillsDetail?: SkillTag[];
   industries?: string[]; workExperience?: WorkExperience[]; education?: Education[]; certifications?: string[];
   links?: { github?: string; portfolio?: string; website?: string; linkedin?: string };
-  presentation?: string; mindset?: string[]; humanSkills?: string[]; workingPrefer?: string[]; workingAvoid?: string[];
+  presentation?: string; aboutMeArchetype?: string; mindset?: string[]; humanSkills?: string[]; workingPrefer?: string[]; workingAvoid?: string[];
   interests?: string[]; motto?: string; favoriteSong?: string; recommendations?: Recommendation[];
   preferences?: CandidatePreferences; documents?: { resume?: ResumeMeta; coverLetter?: string }; privacy?: PrivacySettings;
   // Recruiter profile model (item 5)
@@ -64,7 +64,19 @@ export interface Job {
   demo?: boolean;
   superLikedYou?: boolean;
   verified?: boolean;
+  // Card-mirroring fields (job profile = 5 cards, like the candidate)
+  openings?: number; urgency?: string; deadline?: string; // card 1
+  successMeasures?: string[]; // card 2
+  benefits?: string[]; workingHours?: string; flexibleHours?: string; probation?: string; // card 3
+  bonus?: string; equity?: string; salaryNegotiable?: boolean; hybridDays?: number;
+  visaSponsorship?: boolean; relocationSupport?: boolean; travel?: string; onCall?: string;
+  teamSize?: string; teamComposition?: string[]; teamLocations?: string; // card 4
+  managerName?: string; managerTitle?: string; managerStyle?: string;
+  managementStyleTags?: string[]; teamStyle?: string[]; values?: string[]; teamSong?: string;
+  hiringTimeline?: string; backgroundCheck?: boolean; referenceCheck?: boolean; // card 5
+  companyRating?: number; reviewCount?: number; companyReviews?: JobReview[];
 }
+export interface JobReview { author?: string; role?: string; text: string; verified?: boolean; rating?: number; date?: string }
 
 export interface SkillQuestions { skill: string; questions: string[] }
 export interface InterviewPrep { generator: string; topics: string[]; skillQuestions: SkillQuestions[]; askThem: string }
@@ -73,7 +85,8 @@ export interface ScreeningAnswer { question: string; answer: string }
 export type JobDraft = Partial<Omit<Job, 'id' | 'match'>>;
 export interface JobMatch { id: string; candidateId: string; employerId: string; jobId: string; stage: string; createdAt: number; stageChangedAt?: number; candidate: Person; job: Job; screeningAnswers?: ScreeningAnswer[] }
 export interface Message { id: string; matchId: string; senderId: string; text: string; createdAt: number }
-export interface Bootstrap { viewer: Person; jobs: Job[]; candidates: Person[]; matches: JobMatch[]; messages: Message[]; likesRemaining: number }
+export interface ScheduledCall { id: string; matchId: string; createdBy: string; title: string; startAt: number; durationMinutes: number; notes?: string; createdAt: number }
+export interface Bootstrap { viewer: Person; jobs: Job[]; candidates: Person[]; matches: JobMatch[]; messages: Message[]; calls: ScheduledCall[]; likesRemaining: number }
 
 /** Minimal identity persisted for the demo session. */
 export interface SessionUser { id: string; role: Role; kind?: EmployerKind; name: string; email?: string; photo?: string; provider?: string; isNew?: boolean; demo?: boolean; title?: string; company?: string; emailVerified?: boolean }
