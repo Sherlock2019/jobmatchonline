@@ -1,5 +1,5 @@
 export type Role = 'candidate' | 'employer';
-export type View = 'discover' | 'matches' | 'messages' | 'pipeline' | 'jobs' | 'analytics' | 'profile';
+export type View = 'home' | 'discover' | 'matches' | 'messages' | 'pipeline' | 'jobs' | 'analytics' | 'profile';
 export type EmployerKind = 'company' | 'headhunter';
 export type ProviderId = 'linkedin' | 'google' | 'email' | 'demo';
 
@@ -28,7 +28,7 @@ export interface PrivacySettings { visibility?: 'all' | 'after-swipe' | 'paused'
 export interface Person {
   id: string; role: Role; kind?: EmployerKind; name: string; email?: string; provider?: string; title: string;
   location?: string; distanceKm?: number; company?: string; photo: string; skills: string[]; languages: string[];
-  experienceLevel: string; completeness?: number; availability?: string; match?: MatchEvidence; onboarding?: boolean; salaryHidden?: boolean; demo?: boolean; superLikedYou?: boolean; verified?: boolean;
+  experienceLevel: string; completeness?: number; availability?: string; match?: MatchEvidence; onboarding?: boolean; salaryHidden?: boolean; demo?: boolean; superLikedYou?: boolean; likedYou?: boolean; viewedYou?: boolean; verified?: boolean;
   // Candidate profile model (item 4)
   headline?: string; phone?: string; city?: string; country?: string; distanceRangeKm?: number;
   birthdate?: string; discloseAge?: boolean; agePrivacy?: AgePrivacy; nationality?: string; contactChannels?: ContactChannel[];
@@ -63,6 +63,7 @@ export interface Job {
   screeningQuestions?: string[];
   demo?: boolean;
   superLikedYou?: boolean;
+  likedYou?: boolean;
   verified?: boolean;
   // Card-mirroring fields (job profile = 5 cards, like the candidate)
   openings?: number; urgency?: string; deadline?: string; // card 1
@@ -86,7 +87,8 @@ export type JobDraft = Partial<Omit<Job, 'id' | 'match'>>;
 export interface JobMatch { id: string; candidateId: string; employerId: string; jobId: string; stage: string; createdAt: number; stageChangedAt?: number; candidate: Person; employer?: Person; job: Job; screeningAnswers?: ScreeningAnswer[] }
 export interface Message { id: string; matchId: string; senderId: string; text: string; createdAt: number }
 export interface ScheduledCall { id: string; matchId: string; createdBy: string; title: string; startAt: number; durationMinutes: number; notes?: string; createdAt: number }
-export interface Bootstrap { viewer: Person; jobs: Job[]; candidates: Person[]; matches: JobMatch[]; messages: Message[]; calls: ScheduledCall[]; bookmarkedIds: string[]; likesRemaining: number }
+export interface RoleMatchGroup { job: Job; candidates: Person[]; interestedCount: number; newCount: number }
+export interface Bootstrap { viewer: Person; jobs: Job[]; candidates: Person[]; roleMatches?: RoleMatchGroup[]; matches: JobMatch[]; messages: Message[]; calls: ScheduledCall[]; bookmarkedIds: string[]; likesRemaining: number }
 
 /** Minimal identity persisted for the demo session. */
 export interface SessionUser { id: string; role: Role; kind?: EmployerKind; name: string; email?: string; photo?: string; provider?: string; isNew?: boolean; demo?: boolean; title?: string; company?: string; emailVerified?: boolean }

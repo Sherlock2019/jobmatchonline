@@ -36,7 +36,7 @@ function Card({ label, icon: Icon, step, onEdit, children, tone }: { label: stri
   </div>;
 }
 
-const NAV = [{ icon: User, label: 'Profile' }, { icon: Code2, label: 'Technical' }, { icon: Target, label: 'Preferences' }, { icon: Brain, label: 'Human' }, { icon: Star, label: 'Reviews' }];
+const NAV = [{ icon: User, label: 'Profile' }, { icon: Code2, label: 'Technical' }, { icon: Target, label: 'Preferences' }, { icon: Brain, label: 'Human Stack' }, { icon: Star, label: 'Reviews' }];
 
 /**
  * The candidate as a horizontal deck of five Tinder-style cards with a 5-icon
@@ -44,10 +44,10 @@ const NAV = [{ icon: User, label: 'Profile' }, { icon: Code2, label: 'Technical'
  * a recruiter viewing a candidate (match set → skill split + %, unlocked only
  * after a mutual match, so name and contacts stay masked until then).
  */
-export function CandidateCards({ person: p, match, onEdit, unlocked = false }: { person: Person; match?: MatchEvidence; onEdit?: (step: number) => void; unlocked?: boolean }) {
+export function CandidateCards({ person: p, match, onEdit, unlocked = false, visibilityInspector = false, initialCard = 0, onActiveChange }: { person: Person; match?: MatchEvidence; onEdit?: (step: number) => void; unlocked?: boolean; visibilityInspector?: boolean; initialCard?: number; onActiveChange?: (card: number) => void }) {
   const m = match || p.match;
   const deckRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(initialCard);
 
   const goTo = (i: number) => {
     const deck = deckRef.current; if (!deck) return;
@@ -55,10 +55,22 @@ export function CandidateCards({ person: p, match, onEdit, unlocked = false }: {
   };
   useEffect(() => {
     const deck = deckRef.current; if (!deck) return;
-    const onScroll = () => setActive(Math.round(deck.scrollLeft / deck.clientWidth));
+    deck.scrollLeft = initialCard * deck.clientWidth;
+    const onScroll = () => {
+      const next = Math.max(0, Math.min(4, Math.round(deck.scrollLeft / deck.clientWidth)));
+      setActive(next);
+      onActiveChange?.(next);
+    };
     deck.addEventListener('scroll', onScroll, { passive: true });
     return () => deck.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [initialCard, onActiveChange]);
+
+  const onDeckKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'ArrowLeft') { event.preventDefault(); goTo(Math.max(0, active - 1)); }
+    if (event.key === 'ArrowRight') { event.preventDefault(); goTo(Math.min(4, active + 1)); }
+    if (event.key === 'Home') { event.preventDefault(); goTo(0); }
+    if (event.key === 'End') { event.preventDefault(); goTo(4); }
+  };
 
   const showAge = p.birthdate && (p.agePrivacy === 'public' || p.discloseAge || (p.agePrivacy === 'after-match' && unlocked));
   const age = showAge ? ageFrom(p.birthdate) : undefined;
@@ -78,7 +90,8 @@ export function CandidateCards({ person: p, match, onEdit, unlocked = false }: {
   const song = songLabel(p.favoriteSong);
 
   return <div className="tcards">
-    <div className="tcards-deck" ref={deckRef}>
+    {visibilityInspector && <div className="tcards-inspector" role="status"><span>Public</span><span>After mutual match</span><span>Private</span></div>}
+    <div className="tcards-deck" ref={deckRef} tabIndex={0} onKeyDown={onDeckKeyDown} aria-label={`Candidate profile card ${active + 1} of 5`}>
       {/* ---------- Card 1 — Snapshot ---------- */}
       <div className="tcard-slide">
         <div className="tcard tcard-hero" style={p.photo ? { backgroundImage: `url(${p.photo})` } : undefined}>
@@ -104,7 +117,7 @@ export function CandidateCards({ person: p, match, onEdit, unlocked = false }: {
                   ? <>{p.email && <a href={`mailto:${p.email}`} className="tcard-contact"><Send size={13} /> {p.email}</a>}
                     {(p.contactChannels || []).map((c, i) => { const Meta = CONTACT_META[c.type] || CONTACT_META.other; return <span key={i} className="tcard-contact"><Meta.icon size={13} /> {Meta.label}: {c.value}</span>; })}</>
                   : <span className="tcard-contact muted"><Phone size={13} /> No contact details added</span>
-                : <span className="tcard-contact locked"><Lock size={13} /> Email & contacts unlock on a mutual match</span>}
+                : <span className="tcard-contact locked"><Lock size={13} /> Contact details available after mutual match {visibilityInspector && <b className="visibility-tag">After mutual match</b>}</span>}
             </div>
           </div>
         </div>
@@ -171,7 +184,7 @@ export function CandidateCards({ person: p, match, onEdit, unlocked = false }: {
 
     {/* ---------- Navigator ---------- */}
     <nav className="tcards-nav" aria-label="Profile cards">
-      {NAV.map((item, i) => { const Icon = item.icon; return <button key={item.label} className={i === active ? 'on' : ''} onClick={() => goTo(i)} aria-label={item.label} aria-current={i === active}><Icon size={16} /><i /></button>; })}
+      {NAV.map((item, i) => { const Icon = item.icon; return <button key={item.label} className={i === active ? 'on' : ''} onClick={() => goTo(i)} aria-label={item.label} aria-current={i === active ? 'page' : undefined}><Icon size={16} /><span>{item.label}</span><i /></button>; })}
     </nav>
   </div>;
 }

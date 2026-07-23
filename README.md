@@ -18,7 +18,7 @@
 
 <br />
 
-<img src="public/hero-phone.png" alt="It's a Match — JobsMatchNow product preview" width="320" />
+<img src="src/assets/match-mockup.png" alt="It's a Match — JobsMatchNow product preview" width="320" />
 
 </div>
 

@@ -11,7 +11,11 @@ echo "════════ 1. CHEAP TIER — https://jobsmatchnow.com (EC2) 
 chk "site" "$(curl -s -o /dev/null -m 15 -w '%{http_code}' https://jobsmatchnow.com)" "200"
 chk "www redirect" "$(curl -s -o /dev/null -m 15 -w '%{http_code}' https://www.jobsmatchnow.com)" "301"
 chk "web app" "$(curl -s -o /dev/null -m 15 -w '%{http_code}' https://jobsmatchnow.com/app/)" "200"
-chk "exact mockup image" "$(curl -s -o /dev/null -m 15 -w '%{http_code}' https://jobsmatchnow.com/hero-phone.png)" "200"
+MAIN_JS=$(curl -s -m 15 https://jobsmatchnow.com | grep -o 'src="[^"]*index[^"]*\.js"' | head -1 | sed 's/src="//;s/"$//')
+MOCKUP_ASSET=$(curl -s -m 15 "https://jobsmatchnow.com$MAIN_JS" | grep -o 'assets/match-mockup-[^"]*\.png' | head -1)
+[ -n "$MOCKUP_ASSET" ] \
+  && chk "content-hashed mockup image" "$(curl -s -o /dev/null -m 15 -w '%{http_code}' "https://jobsmatchnow.com/$MOCKUP_ASSET")" "200" \
+  || no "content-hashed mockup image (asset URL missing from bundle)"
 chk "APK download" "$(curl -s -o /dev/null -m 15 -r 0-99 -w '%{http_code}' https://jobsmatchnow.com/downloads/JobsMatchNow-android-debug.apk)" "206"
 H=$(curl -s -m 15 https://jobsmatchnow.com | grep -c "Stop chasing jobs and candidates")
 [ "$H" -ge 1 ] && ok "hero headline present" || no "hero headline missing"

@@ -13,6 +13,8 @@ import { CandidateWizard } from './components/profile/CandidateWizard';
 import { CandidateProfilePage } from './components/profile/CandidateProfilePage';
 import { RecruiterWizard } from './components/profile/RecruiterWizard';
 import { RecruiterProfilePage } from './components/profile/RecruiterProfilePage';
+import { CandidateCards } from './components/profile/CandidateCards';
+import { CandidateHome, RecruiterHome } from './components/home/MatchHome';
 // Lazy-loaded: pulls in pdf.js only when a resume is actually opened.
 const ResumeViewerModal = lazy(() => import('./components/ResumeViewerModal').then((m) => ({ default: m.ResumeViewerModal })));
 import { JobEditor } from './components/jobs/JobEditor';
@@ -27,10 +29,10 @@ import { loadSession, saveSession } from './lib/auth';
 import type { Bootstrap, Job, JobMatch, Message, Person, Role, SessionUser, View } from './types';
 
 const candidateNav: { view: View; label: string; icon: typeof Compass }[] = [
-  { view: 'discover', label: 'Discover', icon: Compass }, { view: 'matches', label: 'Matches', icon: Heart }, { view: 'messages', label: 'Messages', icon: MessageCircle }, { view: 'profile', label: 'My profile', icon: Users },
+  { view: 'home', label: 'Home', icon: Compass }, { view: 'discover', label: 'Jobs Chasing You', icon: BriefcaseBusiness }, { view: 'matches', label: 'Matches', icon: Heart }, { view: 'messages', label: 'Conversations', icon: MessageCircle }, { view: 'profile', label: 'My Profile', icon: Users },
 ];
 const employerNav: { view: View; label: string; icon: typeof Compass }[] = [
-  { view: 'discover', label: 'Talent', icon: Compass }, { view: 'pipeline', label: 'Pipeline', icon: Layers3 }, { view: 'messages', label: 'Messages', icon: MessageCircle }, { view: 'jobs', label: 'Jobs', icon: BriefcaseBusiness }, { view: 'analytics', label: 'Insights', icon: BarChart3 }, { view: 'profile', label: 'My profile', icon: Users },
+  { view: 'home', label: 'Home', icon: Compass }, { view: 'jobs', label: 'My Jobs', icon: BriefcaseBusiness }, { view: 'discover', label: 'Candidates', icon: Users }, { view: 'messages', label: 'Conversations', icon: MessageCircle }, { view: 'pipeline', label: 'Pipeline', icon: Layers3 }, { view: 'analytics', label: 'Reports', icon: BarChart3 }, { view: 'profile', label: 'Company Profile', icon: Target },
 ];
 
 async function connectLinkedIn() {
@@ -131,13 +133,14 @@ function Feature({ icon: Icon, title, text }: { icon: typeof Target; title: stri
 }
 
 function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; onSwitchUser: (user: SessionUser) => void; onExit: () => void }) {
-  // After ANY login the user lands on their own profile page first.
-  const [view, setView] = useState<View>('profile');
+  const [view, setView] = useState<View>('home');
   const [data, setData] = useState<Bootstrap | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [mobileNav, setMobileNav] = useState(false);
   const [editStep, setEditStep] = useState<number | null>(null);
+  const [profileCard, setProfileCard] = useState(0);
+  const [profileSaved, setProfileSaved] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const role: Role = data?.viewer.role ?? session.role;
@@ -164,7 +167,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   return <div className={`app-shell role-${role}`}>
     <aside className={mobileNav ? 'sidebar open' : 'sidebar'}><div className="sidebar-head"><Brand /><button className="mobile-close" onClick={() => setMobileNav(false)} aria-label="Close menu"><X /></button></div>
       <div className="workspace-switch"><span>Workspace</span><button onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}><div className="avatar-mini">{initials}</div><div><strong>{data?.viewer.name || session.name}</strong><small>{role === 'candidate' ? 'Candidate' : 'Recruiter'}</small></div><ChevronDown size={15} /></button></div>
-      <nav className="sidebar-nav">{nav.map(({ view: itemView, label, icon: Icon }) => <button key={itemView} className={view === itemView ? 'active' : ''} onClick={() => { setView(itemView); setMobileNav(false); }}><Icon size={19} /><span>{label}</span>{label === 'Messages' && <em>2</em>}</button>)}</nav>
+      <nav className="sidebar-nav">{nav.map(({ view: itemView, label, icon: Icon }) => <button key={itemView} className={view === itemView ? 'active' : ''} onClick={() => { setView(itemView); setMobileNav(false); }}><Icon size={19} /><span>{label}</span>{label === 'Conversations' && notifications.length > 0 && <em>{Math.min(notifications.length, 9)}</em>}</button>)}</nav>
       <div className="sidebar-bottom"><button><CircleHelp size={18} />Help center</button><button onClick={() => setSettingsOpen(true)}><Settings size={18} />Settings</button><button className="logout-button" onClick={onExit}><LogOut size={18} />Log out</button><button className="profile-button" onClick={() => { setView('profile'); setMobileNav(false); }}><img src={data?.viewer.photo} /><div><strong>{data?.viewer.name || 'Loading'}</strong><small>View my profile</small></div><MoreHorizontal size={17} /></button></div>
     </aside>
     {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
@@ -173,26 +176,31 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
         (data.viewer.onboarding || editStep !== null)
           ? (data.viewer.role === 'candidate'
               ? <CandidateWizard viewer={data.viewer} initialStep={editStep ?? 0}
-                  onDone={() => { setEditStep(null); setView('profile'); load(); }}
+                  onDone={() => { setEditStep(null); setView('profile'); setProfileSaved(true); window.setTimeout(() => setProfileSaved(false), 2600); load(); }}
                   onCancel={data.viewer.onboarding ? undefined : () => setEditStep(null)} />
               : <RecruiterWizard viewer={data.viewer} initialStep={editStep ?? 0}
-                  onDone={() => { setEditStep(null); setView('profile'); load(); }}
+                  onDone={() => { setEditStep(null); setView('profile'); setProfileSaved(true); window.setTimeout(() => setProfileSaved(false), 2600); load(); }}
                   onCancel={data.viewer.onboarding ? undefined : () => setEditStep(null)} />)
-          : <ViewRouter view={view} role={role} data={data} setData={setData} navigate={setView} onEditProfile={setEditStep} reload={load} />
+          : <ViewRouter view={view} role={role} data={data} setData={setData} navigate={setView} onEditProfile={setEditStep} profileCard={profileCard} onProfileCardChange={setProfileCard} reload={load} />
       )}
     </section>
+    {profileSaved && <div className="profile-saved-toast" role="status"><Check size={15} /> Profile updated. Recruiter view refreshed.</div>}
+    <nav className="mobile-bottom-nav" aria-label="Primary navigation">{nav.slice(0, 5).map(({ view: itemView, label, icon: Icon }) => <button key={itemView} className={view === itemView ? 'active' : ''} onClick={() => setView(itemView)}><Icon size={19} /><span>{label === 'Jobs Chasing You' ? 'Jobs' : label}</span></button>)}</nav>
     <AnimatePresence>{settingsOpen && <SettingsModal user={session} onClose={() => setSettingsOpen(false)} onDeleted={() => { setSettingsOpen(false); onExit(); }} />}</AnimatePresence>
   </div>;
 }
 
-function ViewRouter({ view, role, data, setData, navigate, onEditProfile, reload }: { view: View; role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void; onEditProfile: (step: number) => void; reload: () => void }) {
+function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profileCard, onProfileCardChange, reload }: { view: View; role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void; onEditProfile: (step: number) => void; profileCard: number; onProfileCardChange: (card: number) => void; reload: () => void }) {
+  if (view === 'home') return role === 'candidate'
+    ? <CandidateHome data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} />
+    : <RecruiterHome data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} />;
   if (view === 'discover') return <Discover role={role} data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} />;
   if (view === 'pipeline') return <Pipeline data={data} setData={setData} />;
   if (view === 'messages') return <Messages role={role} data={data} setData={setData} />;
   if (view === 'analytics') return <Analytics data={data} />;
   if (view === 'jobs') return <Jobs data={data} reload={reload} />;
   if (view === 'matches') return <Matches data={data} navigate={navigate} />;
-  if (role === 'candidate') return <CandidateProfilePage viewer={data.viewer} onEdit={onEditProfile} />;
+  if (role === 'candidate') return <CandidateProfilePage viewer={data.viewer} jobs={data.jobs} onEdit={onEditProfile} initialCard={profileCard} onCardChange={onProfileCardChange} />;
   return <RecruiterProfilePage viewer={data.viewer} onEdit={onEditProfile} />;
 }
 
@@ -336,6 +344,9 @@ function Discover({ role, data, setData, navigate, onEditProfile }: { role: Role
 function SwipeCard({ item, role, onSwipe, onOpenResume, resumeUnlocked, onOpenJob, gapViewer, onSkillAdded, bookmarked, onToggleBookmark }: { item: Job | Person; role: Role; onSwipe: (direction: 'like' | 'pass') => void; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean; onOpenJob?: (job: Job) => void; gapViewer?: Person; onSkillAdded?: () => void; bookmarked?: boolean; onToggleBookmark?: () => void }) {
   const [flipped, setFlipped] = useState(false);
   const x = useMotionValue(0); const rotate = useTransform(x, [-220, 220], [-8, 8]); const likeOpacity = useTransform(x, [20, 120], [0, 1]); const passOpacity = useTransform(x, [-120, -20], [1, 0]);
+  if (role === 'employer') return <motion.article className="swipe-card canonical-candidate-card">
+    <CandidateCards person={item as Person} match={item.match} unlocked={resumeUnlocked} />
+  </motion.article>;
   return <motion.article className="swipe-card" style={{ x, rotate }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.85} onDragEnd={(_, info) => { if (info.offset.x > 110) onSwipe('like'); else if (info.offset.x < -110) onSwipe('pass'); }}>
     <motion.div className="swipe-stamp like-stamp" style={{ opacity: likeOpacity }}>INTERESTED</motion.div><motion.div className="swipe-stamp pass-stamp" style={{ opacity: passOpacity }}>PASS</motion.div>
     {item.superLikedYou && <div className="superlike-ribbon"><Star size={12} fill="currentColor" /> Super Liked you</div>}

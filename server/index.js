@@ -1007,6 +1007,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
     const matchedCandidateIds = new Set(db.matches.filter((match) => match.employerId === viewer.id).map((match) => match.candidateId));
     // Incoming super-likes: who signalled strong interest in the viewer already?
     const employerIdsWhoSuperLikedMe = new Set(db.swipes.filter((s) => s.superLike && s.targetType === 'candidate' && s.targetId === viewer.id).map((s) => s.actorId));
+    const employerIdsWhoLikedMe = new Set(db.swipes.filter((s) => s.direction === 'like' && s.targetType === 'candidate' && s.targetId === viewer.id).map((s) => s.actorId));
     const viewerJobIds = new Set(db.jobs.filter((job) => job.employerId === viewer.id).map((job) => job.id));
     const candidatesWhoSuperLikedMyJobs = new Set(db.swipes.filter((s) => s.superLike && s.targetType === 'job' && viewerJobIds.has(s.targetId)).map((s) => s.actorId));
     const scoredJobs = db.jobs.map((job) => {
@@ -1018,7 +1019,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
         delete withDistance.salary; delete withDistance.salaryRange;
         withDistance.salaryHidden = true;
       }
-      return { ...withDistance, match, superLikedYou: employerIdsWhoSuperLikedMe.has(job.employerId), verified: verifiedUser(db.users.find((u) => u.id === job.employerId)) };
+      return { ...withDistance, match, likedYou: employerIdsWhoLikedMe.has(job.employerId), superLikedYou: employerIdsWhoSuperLikedMe.has(job.employerId), verified: verifiedUser(db.users.find((u) => u.id === job.employerId)) };
     });
     // Score candidates against this recruiter's own (first active) job when possible.
     const referenceJob = db.jobs.find((job) => job.employerId === viewer.id && String(job.status).toLowerCase() === 'active')
@@ -1034,8 +1035,31 @@ app.get('/api/bootstrap', async (req, res, next) => {
         withDistance.preferences = { ...withDistance.preferences, salary: undefined };
         withDistance.salaryHidden = true;
       }
-      return { ...withDistance, match, superLikedYou: candidatesWhoSuperLikedMyJobs.has(candidate.id), verified: verifiedUser(candidate) };
+      const unlockedContacts = matchedCandidateIds.has(candidate.id) ? { email, phone, contactChannels } : {};
+      return { ...withDistance, ...unlockedContacts, match, superLikedYou: candidatesWhoSuperLikedMyJobs.has(candidate.id), verified: verifiedUser(candidate) };
     });
+    // Every recruiter role receives its own correctly scored candidate list.
+    // Candidate contact details remain stripped because these objects reuse the
+    // same recruiter-safe payload as the discovery deck.
+    const roleMatches = role === 'employer' ? db.jobs
+      .filter((job) => job.employerId === viewer.id && String(job.status).toLowerCase() === 'active')
+      .map((job) => {
+        const likedCandidateIds = new Set(db.swipes
+          .filter((swipe) => swipe.direction === 'like' && swipe.targetType === 'job' && swipe.targetId === job.id)
+          .map((swipe) => swipe.actorId));
+        const ranked = scoredCandidates.map((candidate) => ({
+          ...candidate,
+          likedYou: likedCandidateIds.has(candidate.id),
+          match: scoreCandidateForJob(candidate, { ...job, distanceKm: candidate.distanceKm }),
+        })).sort((a, b) => Number(b.likedYou) - Number(a.likedYou) || (b.match?.score || 0) - (a.match?.score || 0));
+        const interested = ranked.filter((candidate) => candidate.likedYou);
+        return {
+          job: { ...job, match: scoreCandidateForJob(viewer, job) },
+          candidates: interested.length ? interested : ranked,
+          interestedCount: interested.length,
+          newCount: interested.slice(0, 4).length,
+        };
+      }) : [];
     const matches = db.matches.filter((match) => role === 'candidate' ? match.candidateId === viewer.id : match.employerId === viewer.id).map((match) => ({
       ...match,
       candidate: db.users.find((user) => user.id === match.candidateId),
@@ -1045,7 +1069,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
     }));
     const matchIds = new Set(matches.map((match) => match.id));
     const bookmarkedIds = db.bookmarks.filter((b) => b.userId === viewer.id).map((b) => b.targetId);
-    res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), calls: db.calls.filter((call) => matchIds.has(call.matchId)), bookmarkedIds, likesRemaining: likesRemainingToday(db.swipes, viewer.id) });
+    res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, roleMatches, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), calls: db.calls.filter((call) => matchIds.has(call.matchId)), bookmarkedIds, likesRemaining: likesRemainingToday(db.swipes, viewer.id) });
   } catch (error) { next(error); }
 });
 

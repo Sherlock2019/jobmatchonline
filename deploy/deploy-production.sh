@@ -12,6 +12,8 @@ STAGE=/tmp/jobsmatchnow-release-$STAMP
 
 echo "== 1/4 build web app"
 npm run build >/dev/null
+MATCH_ASSET=$(find dist/assets -maxdepth 1 -type f -name 'match-mockup-*.png' -printf '%f\n' | head -1)
+[ -n "$MATCH_ASSET" ] || { echo "match mockup asset missing from production build"; exit 1; }
 
 echo "== 2/4 assemble release in $STAGE"
 rm -rf "$STAGE"; mkdir -p "$STAGE/downloads"
@@ -39,7 +41,8 @@ sleep 2
 for u in "https://jobsmatchnow.com" "https://jobsmatchnow.com/api/health"; do
   printf '   %-42s HTTP %s\n' "$u" "$(curl -s -o /dev/null -m 15 -w '%{http_code}' "$u")"
 done
-curl -s -m 15 https://jobsmatchnow.com | grep -o "chase you\|hero-phone.png" | head -2 \
-  && echo "   HERO LIVE" || { echo "   ⚠ hero copy/mockup not found on live page"; exit 1; }
+curl -s -m 15 https://jobsmatchnow.com | grep -q "chase you" \
+  && curl -s -o /dev/null -m 15 -f "https://jobsmatchnow.com/assets/$MATCH_ASSET" \
+  && echo "   HERO + HASHED MOCKUP LIVE" || { echo "   hero copy/mockup not found on live page"; exit 1; }
 rm -rf "$STAGE"
 echo "DEPLOY COMPLETE: release $STAMP"

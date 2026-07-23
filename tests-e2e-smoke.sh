@@ -52,7 +52,7 @@ ck "bad message rejected (unknown match)" "$(j -o /dev/null -w '%{http_code}' -X
 echo "== 6. exact mockup + carousel shipped in app bundle =="
 A=$(curl -s $B/ | grep -o 'src="[^"]*index[^"]*\.js"' | head -1 | sed 's/src="//;s/"$//')
 BUN=$(curl -s "$B$A")
-for m in "hero-phone.png" "Register free" "CANDIDATE PROFILE" "mutually matched"; do
+for m in "match-mockup-" "Register free" "CANDIDATE PROFILE" "mutually matched"; do
   echo "$BUN" | grep -q "$m" && { echo "  PASS bundle has: $m"; pass=$((pass+1)); } || { echo "  FAIL bundle missing: $m"; fail=$((fail+1)); }
 done
 
