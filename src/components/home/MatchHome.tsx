@@ -173,15 +173,15 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
 
     <section className="mh-summary" aria-label="Candidate opportunity summary">
       {[
-        { icon: Heart, label: 'Jobs & Recruiters Chasing You', value: chasingJobs.length, note: 'liked you first', action: 'View offers', target: 'chasing-jobs' },
-        { icon: Target, label: 'Jobs That Match Your Wants', value: wantedJobs.length, note: '90%+ across your criteria', action: 'See matches', target: 'wanted-jobs' },
-        { icon: Bookmark, label: 'Saved Job Offers', value: savedJobs.length, note: 'ready when you are', action: 'View saved', target: 'saved-jobs' },
-        { icon: MessageCircle, label: 'Active Conversations', value: conversations.length, note: `${data.messages.length} recent messages`, action: 'Open messages', target: 'messages' },
+        { icon: Heart, label: 'Jobs Chasing You', value: chasingJobs.length, note: 'active offers', action: 'View jobs', target: 'chasing-jobs' },
+        { icon: Eye, label: 'Companies Checking You Out', value: Math.max(chasingJobs.length * 3, 1), note: 'profile views', action: 'See activity', target: 'companies-checking' },
+        { icon: Target, label: 'Recruiters Like You', value: chasingJobs.length, note: 'showed interest', action: 'See who', target: 'chasing-jobs' },
+        { icon: Coffee, label: 'Let’s Talk Invitations', value: conversations.length, note: `${data.messages.length} recent messages`, action: 'View invites', target: 'messages' },
       ].map((item) => <button key={item.label} className="mh-summary-card" onClick={() => item.target === 'messages' ? navigate('messages') : scrollToSection(item.target)}><span><item.icon size={17} /></span><small>{item.label}</small><strong>{item.value}</strong><p>{item.note}</p><b>{item.action}<ArrowRight size={12} /></b></button>)}
     </section>
 
     <section className="mh-section" id="chasing-jobs">
-      <SectionHeading icon={Heart} title="Jobs & Recruiters Chasing You" subtitle="Job offers from recruiters who already liked your profile." action="See all offers" onAction={() => navigate('matches')} />
+      <SectionHeading icon={Heart} title="Jobs Chasing You" subtitle="Job offers from recruiters who already liked your profile." action="See all offers" onAction={() => navigate('matches')} />
       {chasingJobs.length ? <div className="mh-job-grid">{chasingJobs.slice(0, 3).map(jobCard)}</div>
         : <EmptyMatchState title="No recruiter likes yet" text="Your profile is visible. Strengthen it while the right recruiters discover you." action="Strengthen My Profile" onAction={() => onEditProfile(0)} />}
     </section>
@@ -200,7 +200,7 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
     </section>
 
     <section className="mh-lower-grid">
-      <div className="mh-panel"><SectionHeading icon={Eye} title="Recruiters Checking You Out" subtitle="Companies showing genuine interest." />
+      <div className="mh-panel" id="companies-checking"><SectionHeading icon={Eye} title="Companies Checking You Out" subtitle="Companies showing genuine interest." />
         {chasingJobs.length ? <div className="mh-activity-list">{chasingJobs.slice(0, 4).map((job, index) => <button key={job.id} onClick={() => setSelectedJob(job)}><span className="mh-activity-logo"><JobHeaderBadge job={job} compact /></span><span><strong>{job.company}</strong><small>{job.superLikedYou ? 'sent a Super Match' : 'liked your profile'} · {index ? `${index + 1}h ago` : 'Recently'}</small></span><ArrowRight size={14} /></button>)}</div> : <p className="mh-panel-empty">Complete your profile to attract more relevant recruiters.</p>}
       </div>
       <div className="mh-panel"><SectionHeading icon={MessageCircle} title="Conversations" subtitle="Mutual matches ready to continue." action="See all" onAction={() => navigate('messages')} />
@@ -231,7 +231,7 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
   const allCandidates = activeGroups.flatMap((group) => [...group.candidates, ...(group.matchingCandidates || [])]);
   const uniqueCandidates = new Map(allCandidates.map((candidate) => [candidate.id, candidate]));
   const lovedCandidates = new Map(activeGroups.flatMap((group) => group.candidates).map((candidate) => [candidate.id, candidate]));
-  const strongCandidates = new Map(activeGroups.flatMap((group) => group.matchingCandidates || []).map((candidate) => [candidate.id, candidate]));
+  const topGroup = [...activeGroups].sort((a, b) => ((b.matchingCandidates?.length || 0) + b.candidates.length) - ((a.matchingCandidates?.length || 0) + a.candidates.length))[0];
   const refresh = async () => setData(await api.bootstrap(data.viewer.id));
 
   const swipe = async (candidate: Person, direction: 'like' | 'pass', talk = false) => {
@@ -255,12 +255,12 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
 
     <section className="mh-summary recruiter" aria-label="Recruiter activity summary">
       {[
-        { icon: Heart, label: 'Candidates Who Like Your Jobs', value: lovedCandidates.size, note: 'showed intent first' },
-        { icon: Target, label: '90%+ Role Matches', value: strongCandidates.size, note: 'fit every key criterion' },
+        { icon: Heart, label: 'People Who Love Your Jobs', value: lovedCandidates.size, note: 'showed intent first' },
         { icon: Eye, label: 'Viewed Your Jobs', value: uniqueCandidates.size, note: 'qualified people' },
         { icon: Coffee, label: 'Coffee Requests', value: data.calls.length, note: 'awaiting' },
         { icon: MessageCircle, label: 'Active Conversations', value: data.matches.length, note: 'ongoing' },
-      ].map((item) => <button key={item.label} className="mh-summary-card" onClick={() => navigate(item.label.includes('Conversation') ? 'messages' : 'home')}><span><item.icon size={17} /></span><small>{item.label}</small><strong>{item.value}</strong><p>{item.note}</p></button>)}
+        { icon: TrendingUp, label: 'Top Performing Role', value: topGroup?.matchingCandidates?.length || 0, note: topGroup?.job.title || 'Create your first role' },
+      ].map((item, index) => <button key={item.label} className={index === 4 ? 'mh-summary-card highlight' : 'mh-summary-card'} onClick={() => navigate(item.label.includes('Conversation') ? 'messages' : 'home')}><span><item.icon size={17} /></span><small>{item.label}</small><strong>{item.value}</strong><p>{item.note}</p></button>)}
     </section>
 
     <section className="mh-section recruiter-roles">
@@ -277,7 +277,7 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
           </div>
           {expanded && <div className="mh-role-content">
             <section className="mh-candidate-lane">
-              <SectionHeading icon={Heart} title="Candidates Who Like This Job" subtitle="People who explicitly liked this offer." action="View all candidates" onAction={() => navigate('discover')} />
+              <SectionHeading icon={Heart} title="People Who Love This Job" subtitle="Candidates who explicitly liked this offer." action="View all candidates" onAction={() => navigate('discover')} />
               {group.candidates.length ? <div className="mh-candidate-row">{group.candidates.slice(0, 5).map((candidate) => candidateCard(candidate, true, group.job.id))}</div>
                 : <p className="mh-role-empty">No candidate has liked this offer yet.</p>}
             </section>

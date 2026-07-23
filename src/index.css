@@ -1532,6 +1532,9 @@ button { cursor:pointer; }
 .mh-summary-card>span { width:28px; height:28px; border-radius:8px; }
 .mh-summary-card small { margin-top:8px; font-size:8px; }
 .mh-summary-card strong { font-size:23px; }
+.role-employer .mh-summary-card.highlight { border-color:#ddd5ff; background:linear-gradient(135deg,#fff,#f0ecff); }
+.role-employer .mh-summary-card.highlight>span { color:#6c52e5; background:#e8e2ff; }
+.role-employer .mh-summary-card.highlight p { max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .mh-section { margin-top:30px; scroll-margin-top:86px; }
 .mh-section-head { margin-bottom:12px; }
 .mh-section-head h2 { font-size:17px; }
