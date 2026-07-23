@@ -14,6 +14,7 @@ type HomeProps = {
   setData: (data: Bootstrap) => void;
   navigate: (view: View) => void;
   onEditProfile: (step: number) => void;
+  onAddJobs?: () => void;
 };
 
 function firstName(name = 'there') {
@@ -197,7 +198,7 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
   </main>;
 }
 
-export function RecruiterHome({ data, setData, navigate }: HomeProps) {
+export function RecruiterHome({ data, setData, navigate, onAddJobs }: HomeProps) {
   const [selected, setSelected] = useState<Person | null>(null);
   const [expandedId, setExpandedId] = useState('');
   const [bestMatchFirst, setBestMatchFirst] = useState(true);
@@ -247,7 +248,7 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
   return <main className="td-dashboard td-recruiter">
     <header className="td-recruiter-head">
       <div><h1>Good morning, {firstName(data.viewer.name)} <span>👋</span></h1><p>Here’s who loves your jobs today.</p></div>
-      <button className="primary-button" onClick={() => navigate('jobs')}>+ Create a New Job</button>
+      <button className="primary-button" onClick={onAddJobs}>+ Add New Job Offers</button>
     </header>
 
     <section className="td-metrics recruiter" aria-label="Recruiter summary">

@@ -1,4 +1,4 @@
-import type { AuthConfig, Bootstrap, EmployerKind, InterviewKit, InterviewPrep, Job, JobDraft, JobMatch, Message, Person, ResumeMeta, Review, Role, ScheduledCall, ScreeningAnswer, SessionUser, WeightedSkill } from './types';
+import type { AuthConfig, Bootstrap, EmployerKind, InterviewKit, InterviewPrep, Job, JobDraft, JobImportResult, JobMatch, Message, Person, ResumeMeta, Review, Role, ScheduledCall, ScreeningAnswer, SessionUser, WeightedSkill } from './types';
 
 export const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
@@ -38,6 +38,14 @@ export const api = {
     await fetch(`${apiBase}/api/users/${encodeURIComponent(userId)}/resume/thumbnail`, { method: 'POST', headers: { 'Content-Type': 'image/png' }, body: blob });
   },
   createJob: (payload: JobDraft & { employerId: string }) => request<{ job: Job }>('/api/jobs', { method: 'POST', body: JSON.stringify(payload) }),
+  importJobFile: async (employerId: string, sourceSystem: string, file: File): Promise<JobImportResult> => {
+    const params = new URLSearchParams({ employerId, sourceSystem });
+    const response = await fetch(`${apiBase}/api/jobs/import-file?${params}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/octet-stream', 'X-Filename': encodeURIComponent(file.name) }, body: file });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || 'Could not import that file');
+    return body as JobImportResult;
+  },
+  importLinkedInJobs: (employerId: string, jobs: { url: string; title?: string; description: string }[]) => request<JobImportResult>('/api/jobs/import-linkedin', { method: 'POST', body: JSON.stringify({ employerId, jobs }) }),
   updateJob: (id: string, payload: JobDraft) => request<{ job: Job }>(`/api/jobs/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   uploadJobCover: async (jobId: string, file: File): Promise<{ coverImage: string }> => {
     const response = await fetch(`${apiBase}/api/jobs/${encodeURIComponent(jobId)}/cover`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': file.type }, body: file });

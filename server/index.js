@@ -6,6 +6,7 @@ import { JsonStore } from './store.js';
 import { PgStore } from './store-pg.js';
 import { createSeed } from './seed.js';
 import { matchingPool, targetIsInMatchingPool } from './matching-pool.js';
+import { importMetadata, normalizeLinkedInImports, parseJobImportFile } from './job-import.js';
 import { detectMutualMatch, isStrongRoleMatch, likesRemainingToday, scoreCandidateForJob, ValidationError, reqString, optString, oneOf } from './matching.js';
 import { applyCandidateProfile, applyRecruiterProfile, candidateCompleteness, recruiterCompleteness } from './profile.js';
 import { anonymizeText, convertDocxToPdf, detectTools, docxToHtml, extractDocxText, extractPdfText, makeSimplePdf, pdfThumbnail } from './resume.js';
@@ -842,6 +843,111 @@ app.post('/api/users/:id/resume/autofill', async (req, res, next) => {
 // ---------------------------------------------------------------------------
 
 const JOB_ACCENTS = ['#3d5afe', '#ff5a5f', '#00a884', '#8b5cf6', '#f59e0b', '#0ea5e9', '#e11d48'];
+const importedJobMissing = (job) => [
+  !job.salaryRange && 'salary',
+  !job.workMode && 'work mode',
+  (!job.location || job.location === 'Review location') && 'location',
+  !job.requiredSkillsDetail?.length && 'skills',
+  !job.culture?.length && 'culture',
+  !job.interviewProcess?.length && 'hiring process',
+].filter(Boolean);
+
+async function importJobDrafts(employerId, sourceSystem, entries) {
+  const prepared = [];
+  for (let index = 0; index < entries.length; index += 4) {
+    const batch = await Promise.all(entries.slice(index, index + 4).map(async (entry) => {
+      const result = await parseJobText(entry.rawText, entry.url);
+      const parsed = { ...result.parsed, title: result.parsed.title || entry.title, externalUrl: entry.url || result.parsed.externalUrl };
+      const missing = [
+        !parsed.salaryRange && 'salary',
+        !parsed.workMode && 'work mode',
+        !parsed.location && 'location',
+        !parsed.requiredSkillsDetail?.length && 'skills',
+        !parsed.culture?.length && 'culture',
+        !parsed.interviewProcess?.length && 'hiring process',
+      ].filter(Boolean);
+      return { entry, parsed, missing, metadata: importMetadata(sourceSystem, entry) };
+    }));
+    prepared.push(...batch);
+  }
+
+  return store.transaction((db) => {
+    const employer = db.users.find((user) => user.id === employerId && user.role === 'employer');
+    if (!employer) throw new ValidationError('employerId', 'Unknown recruiter account');
+    const jobs = [];
+    let skipped = 0;
+    for (const item of prepared) {
+      const duplicate = db.jobs.find((job) => job.employerId === employerId
+        && job.sourceSystem === item.metadata.sourceSystem
+        && job.sourceJobId === item.metadata.sourceJobId);
+      if (duplicate) { skipped += 1; continue; }
+      const job = {
+        id: `j-${crypto.randomUUID().slice(0, 8)}`,
+        employerId,
+        company: employer.company || employer.name,
+        logo: (employer.company || employer.name || '?').trim()[0].toUpperCase(),
+        accent: JOB_ACCENTS[db.jobs.length % JOB_ACCENTS.length],
+        requiredSkills: [],
+        requiredSkillsDetail: [],
+        requiredLanguages: [],
+        culture: [],
+        mission: employer.about ? employer.about.slice(0, 80) : 'Imported for review.',
+        responseTime: '< 1 week',
+        applicants: 0,
+        status: 'draft',
+        type: 'Full-time',
+        workMode: 'Flexible',
+        location: 'Review location',
+        salary: 'Review salary',
+        experienceLevel: 'mid',
+        description: item.parsed.description || item.entry.rawText.slice(0, 1200),
+        createdAt: Date.now(),
+      };
+      applyJob(job, item.parsed);
+      Object.assign(job, item.metadata, { internalJobId: job.id, importNeedsReview: item.missing });
+      if (!job.screeningQuestions?.length && job.requiredSkillsDetail?.length) job.screeningQuestions = suggestScreeningQuestions(job);
+      if (!job.geo && employer.geo) job.geo = employer.geo;
+      db.jobs.push(job);
+      jobs.push(job);
+    }
+    return { jobs, skipped };
+  });
+}
+
+app.post('/api/jobs/import-file', express.raw({ type: 'application/octet-stream', limit: '3mb' }), async (req, res, next) => {
+  try {
+    const employerId = resolveActor(req, reqString(req.query, 'employerId', { max: 128 }));
+    const filename = decodeURIComponent(reqString(req.headers, 'x-filename', { max: 200 }));
+    const sourceSystem = optString(req.query, 'sourceSystem', { max: 40 }) || 'file';
+    if (!/^[a-z0-9_-]+$/i.test(sourceSystem)) throw new ValidationError('sourceSystem', 'Choose a valid source');
+    if (!Buffer.isBuffer(req.body) || !req.body.length) throw new ValidationError('file', 'Choose a job feed file');
+    const db = await store.read();
+    const employer = db.users.find((user) => user.id === employerId && user.role === 'employer');
+    if (!employer) throw new ValidationError('employerId', 'Unknown recruiter account');
+    assertDemoActor(req, db, employerId);
+    let entries;
+    try { entries = parseJobImportFile(req.body.toString('utf8'), filename, sourceSystem); }
+    catch (error) { throw new ValidationError('file', error.message); }
+    if (!entries.length) throw new ValidationError('file', 'No jobs were found in that file');
+    const result = await importJobDrafts(employerId, sourceSystem, entries.slice(0, 50));
+    res.status(201).json({ ...result, found: entries.length });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/jobs/import-linkedin', async (req, res, next) => {
+  try {
+    const employerId = resolveActor(req, reqString(req.body, 'employerId', { max: 128 }));
+    const db = await store.read();
+    const employer = db.users.find((user) => user.id === employerId && user.role === 'employer');
+    if (!employer) throw new ValidationError('employerId', 'Unknown recruiter account');
+    assertDemoActor(req, db, employerId);
+    let entries;
+    try { entries = normalizeLinkedInImports(req.body.jobs); }
+    catch (error) { throw new ValidationError('jobs', error.message); }
+    const result = await importJobDrafts(employerId, 'linkedin_manual', entries);
+    res.status(201).json({ ...result, found: entries.length });
+  } catch (error) { next(error); }
+});
 
 app.post('/api/jobs', async (req, res, next) => {
   try {
@@ -878,7 +984,9 @@ app.patch('/api/jobs/:id', async (req, res, next) => {
       if (!item) { const error = new Error('Job not found'); error.status = 404; throw error; }
       if (session && item.employerId !== session.sub) { const error = new Error('You can only edit your own postings'); error.status = 403; throw error; }
       assertDemoActor(req, db, item.employerId); // a real user's posting needs their session
-      return applyJob(item, req.body);
+      const updated = applyJob(item, req.body);
+      if (updated.sourceSystem) updated.importNeedsReview = importedJobMissing(updated);
+      return updated;
     });
     res.json({ job });
   } catch (error) { next(error); }

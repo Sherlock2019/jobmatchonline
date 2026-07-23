@@ -18,6 +18,7 @@ import { CandidateHome, RecruiterHome } from './components/home/MatchHome';
 // Lazy-loaded: pulls in pdf.js only when a resume is actually opened.
 const ResumeViewerModal = lazy(() => import('./components/ResumeViewerModal').then((m) => ({ default: m.ResumeViewerModal })));
 import { JobEditor } from './components/jobs/JobEditor';
+import { JobImportModal } from './components/jobs/JobImportModal';
 import { CompanyLogoMark, JobHeaderBadge } from './components/jobs/JobHeaderBadge';
 import { GapCoach, JobDetailModal, MatchDetailModal, ScreeningModal } from './components/coach/CoachModals';
 import { CandidateStarters, RecruiterStarters } from './components/messages/ConversationStarters';
@@ -143,6 +144,8 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   const [profileSaved, setProfileSaved] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [jobImportOpen, setJobImportOpen] = useState(false);
+  const [manualJobRequest, setManualJobRequest] = useState(0);
   const role: Role = data?.viewer.role ?? session.role;
   const notifications = useMemo(() => {
     if (!data) return [] as { id: string; kind: 'match' | 'msg'; text: string; at: number }[];
@@ -181,25 +184,26 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
               : <RecruiterWizard viewer={data.viewer} initialStep={editStep ?? 0}
                   onDone={() => { setEditStep(null); setView('profile'); setProfileSaved(true); window.setTimeout(() => setProfileSaved(false), 2600); load(); }}
                   onCancel={data.viewer.onboarding ? undefined : () => setEditStep(null)} />)
-          : <ViewRouter view={view} role={role} data={data} setData={setData} navigate={setView} onEditProfile={setEditStep} profileCard={profileCard} onProfileCardChange={setProfileCard} reload={load} />
+          : <ViewRouter view={view} role={role} data={data} setData={setData} navigate={setView} onEditProfile={setEditStep} profileCard={profileCard} onProfileCardChange={setProfileCard} reload={load} onAddJobs={() => setJobImportOpen(true)} manualJobRequest={manualJobRequest} />
       )}
     </section>
     {profileSaved && <div className="profile-saved-toast" role="status"><Check size={15} /> Profile updated. Recruiter view refreshed.</div>}
+    {jobImportOpen && data && <JobImportModal viewer={data.viewer} onClose={() => setJobImportOpen(false)} onImported={() => { setJobImportOpen(false); setView('jobs'); load(); }} onManual={() => { setJobImportOpen(false); setView('jobs'); setManualJobRequest((value) => value + 1); }} />}
     <nav className="mobile-bottom-nav" aria-label="Primary navigation">{nav.slice(0, 5).map(({ view: itemView, label, icon: Icon }) => <button key={itemView} className={view === itemView ? 'active' : ''} onClick={() => setView(itemView)}><Icon size={19} /><span>{label === 'Roles Matching You' ? 'Roles' : label === 'Jobs & Recruiters' ? 'Love You' : label}</span></button>)}</nav>
     <AnimatePresence>{settingsOpen && <SettingsModal user={session} onClose={() => setSettingsOpen(false)} onDeleted={() => { setSettingsOpen(false); onExit(); }} />}</AnimatePresence>
   </div>;
 }
 
-function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profileCard, onProfileCardChange, reload }: { view: View; role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void; onEditProfile: (step: number) => void; profileCard: number; onProfileCardChange: (card: number) => void; reload: () => void }) {
+function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profileCard, onProfileCardChange, reload, onAddJobs, manualJobRequest }: { view: View; role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void; onEditProfile: (step: number) => void; profileCard: number; onProfileCardChange: (card: number) => void; reload: () => void; onAddJobs: () => void; manualJobRequest: number }) {
   if (view === 'home') return role === 'candidate'
     ? <CandidateHome data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} />
-    : <RecruiterHome data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} />;
+    : <RecruiterHome data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} onAddJobs={onAddJobs} />;
   if (view === 'discover') return <Discover role={role} data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} />;
   if (view === 'companies') return <Companies data={data} navigate={navigate} />;
   if (view === 'pipeline') return <Pipeline data={data} setData={setData} />;
   if (view === 'messages') return <Messages role={role} data={data} setData={setData} />;
   if (view === 'analytics') return <Analytics data={data} />;
-  if (view === 'jobs') return <Jobs data={data} reload={reload} />;
+  if (view === 'jobs') return <Jobs data={data} reload={reload} onAddJobs={onAddJobs} manualJobRequest={manualJobRequest} />;
   if (view === 'matches') return <Matches data={data} navigate={navigate} />;
   if (role === 'candidate') return <CandidateProfilePage viewer={data.viewer} jobs={data.jobs} onEdit={onEditProfile} initialCard={profileCard} onCardChange={onProfileCardChange} />;
   return <RecruiterProfilePage viewer={data.viewer} onEdit={onEditProfile} />;
@@ -667,11 +671,15 @@ function Companies({ data, navigate }: { data: Bootstrap; navigate: (v: View) =>
   return <div className="page"><div className="page-title"><div><span className="overline">Companies</span><h1>Companies checking you out</h1><p>Explore teams with relevant opportunities.</p></div></div><div className="jobs-table">{companies.map((job) => <div className="job-row" key={job.company}><div><JobHeaderBadge job={job} compact /></div><span>{job.workMode}</span><span>{job.location}</span><span>{job.requiredSkills.length} matching signals</span><span>{job.salary}</span><button aria-label={`Explore ${job.company}`} onClick={() => navigate('discover')}><ArrowRight size={16} /></button></div>)}</div></div>;
 }
 
-function Jobs({ data, reload }: { data: Bootstrap; reload: () => void }) {
+function Jobs({ data, reload, onAddJobs, manualJobRequest }: { data: Bootstrap; reload: () => void; onAddJobs: () => void; manualJobRequest: number }) {
   const [editing, setEditing] = useState<Job | 'new' | null>(null);
+  useEffect(() => { if (manualJobRequest > 0) setEditing('new'); }, [manualJobRequest]);
   if (editing) return <JobEditor viewer={data.viewer} job={editing === 'new' ? undefined : editing} onSaved={() => { setEditing(null); reload(); }} onCancel={() => setEditing(null)} />;
   const mine = data.jobs.filter((j) => j.employerId === data.viewer.id);
-  return <div className="page"><div className="page-title"><div><span className="overline">Recruiting</span><h1>Open roles</h1><p>Manage jobs, recommendations, and candidate interest.</p></div><button className="primary-button small" onClick={() => setEditing('new')}>+ Create job</button></div><div className="channel-bar"><div className="linkedin-mark"><Linkedin size={18} fill="currentColor" /></div><section><strong>LinkedIn Talent Solutions ready</strong><p>Sync job lifecycle and Apply Connect data after partner approval.</p></section><span>Adapter configured</span><button className="secondary-button">Integration settings</button></div><div className="jobs-table"><header><span>Role</span><span>Status</span><span>Salary</span><span>Applicants</span><span>Skills</span><span /></header>{mine.map((job) => <div className="job-row" key={job.id}><div><JobHeaderBadge job={job} compact /></div><span className={`status status-${job.status.toLowerCase()}`}><i />{job.status[0].toUpperCase()}{job.status.slice(1)}</span><span>{job.salary}</span><span>{job.applicants}</span><span>{job.requiredSkills.length} weighted</span><button aria-label={`Edit ${job.title}`} onClick={() => setEditing(job)}><MoreHorizontal /></button></div>)}{mine.length === 0 && <div className="job-row"><div><section><strong>No postings yet</strong><small>Create one or use Demo import to fill the form instantly.</small></section></div></div>}</div><div className="job-empty"><div><Sparkles /></div><section><h3>Reach the right people, not the most people.</h3><p>JobsMatchNow recommends your role only to candidates with meaningful fit and verified intent.</p></section><button className="secondary-button" onClick={() => setEditing('new')}>Create your first posting</button></div></div>;
+  return <div className="page"><div className="page-title"><div><span className="overline">Recruiting</span><h1>My Job Offers</h1><p>Import, review, and manage every role in one place.</p></div><button className="primary-button small" onClick={onAddJobs}>+ Add New Job Offers</button></div>
+    <section className="job-add-banner"><span><Sparkles size={19} /></span><div><strong>Add jobs in minutes</strong><p>Use an ATS feed, paste LinkedIn descriptions, or create an offer manually.</p></div><div className="job-add-methods"><small>CSV / XML / JSON</small><small>LinkedIn links</small><small>Manual</small></div><button className="secondary-button" onClick={onAddJobs}>Choose a method <ArrowRight size={15} /></button></section>
+    <div className="channel-bar"><div className="linkedin-mark"><BriefcaseBusiness size={18} /></div><section><strong>JobMatchNow is your job hub</strong><p>Imported offers become reviewable five-card drafts. Nothing is scraped or published automatically.</p></section><span>Recruiter controlled</span></div>
+    <div className="jobs-table"><header><span>Role</span><span>Status</span><span>Salary</span><span>Applicants</span><span>Skills</span><span /></header>{mine.map((job) => <div className="job-row" key={job.id}><div><JobHeaderBadge job={job} compact />{job.importNeedsReview?.length ? <small className="job-review-note">Review {job.importNeedsReview.join(', ')}</small> : null}</div><span className={`status status-${job.status.toLowerCase()}`}><i />{job.status[0].toUpperCase()}{job.status.slice(1)}</span><span>{job.salary}</span><span>{job.applicants}</span><span>{job.requiredSkills.length} weighted</span><button aria-label={`Edit ${job.title}`} onClick={() => setEditing(job)}><MoreHorizontal /></button></div>)}{mine.length === 0 && <div className="job-row"><div><section><strong>No job offers yet</strong><small>Add your first role using the simplest method for you.</small></section></div></div>}</div><div className="job-empty"><div><Sparkles /></div><section><h3>Reach the right people, not the most people.</h3><p>JobsMatchNow recommends your role only to candidates with meaningful fit and verified intent.</p></section><button className="secondary-button" onClick={onAddJobs}>Add your first job offers</button></div></div>;
 }
 
 function Analytics({ data }: { data: Bootstrap }) {
