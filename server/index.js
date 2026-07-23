@@ -1034,7 +1034,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
         delete withDistance.salary; delete withDistance.salaryRange;
         withDistance.salaryHidden = true;
       }
-      const incomingLike = incomingEmployerLikes.find((swipe) => swipe.actorId === job.employerId && (!swipe.jobId || swipe.jobId === job.id));
+      const incomingLike = incomingEmployerLikes.find((swipe) => swipe.actorId === job.employerId && swipe.jobId === job.id);
       return { ...withDistance, companyLogo: employer?.companyLogo, match, likedYou: Boolean(incomingLike), superLikedYou: Boolean(incomingLike?.superLike), verified: verifiedUser(employer) };
     });
     // Score candidates against this recruiter's own (first active) job when possible.
