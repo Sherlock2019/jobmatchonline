@@ -2339,8 +2339,26 @@ button { cursor:pointer; }
   color:#667188;
 }
 .td-person-actions button:first-child { color:#ff2e6d; }
-.td-matching-lane { margin-top:10px; padding-top:10px; border-top:1px solid #e3e8ef; }
-.td-matching-lane .td-section-title strong { font-size:11px; }
+.td-matching-toggle {
+  width:100%;
+  min-height:36px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:8px;
+  padding:0 8px;
+  border:0;
+  border-top:1px solid #e3e8ef;
+  background:none;
+  color:#0f1d3a;
+  text-align:left;
+}
+.td-matching-toggle>span { display:flex; align-items:center; gap:5px; font-size:8px; font-weight:800; }
+.td-matching-toggle>span svg { color:#7a52dc; }
+.td-matching-toggle>small { margin-left:auto; color:#168052; font-size:6px; }
+.td-matching-toggle>svg { color:#6b7588; transition:.2s; }
+.td-matching-toggle>svg.open { transform:rotate(180deg); }
+.td-matching-lane { padding-top:8px; border-top:1px solid #e3e8ef; }
 
 @media(max-width:1100px){
   .td-dashboard { padding-inline:20px; }
@@ -2392,4 +2410,53 @@ button { cursor:pointer; }
   .td-section-title { align-items:flex-start; }
   .td-section-title>button { font-size:0; }
   .td-section-title>button svg { width:17px; height:17px; }
+}
+
+/* Final template scale: screenshots are reduced previews, so dashboard type
+   remains readable at the real desktop viewport. */
+@media(min-width:761px){
+  .td-metrics>button small { font-size:10px; }
+  .td-metrics>button strong { font-size:24px; }
+  .td-metrics>button p,.td-metrics>button b { font-size:9px; }
+  .td-section-title strong { font-size:16px; }
+  .td-section-title small { font-size:10px; }
+  .td-section-title>button { font-size:9px; }
+
+  .td-role-section {
+    padding:14px;
+    border:1px solid #e2e7ef;
+    border-radius:10px;
+    background:#fff;
+    box-shadow:0 7px 20px rgba(31,47,80,.045);
+  }
+  .td-role-section>.td-section-title { margin-bottom:12px; }
+  .td-role { box-shadow:none; }
+  .td-role-head>.job-header-badge .job-header-copy h2 { font-size:12px; }
+  .td-role-head>.job-header-badge .job-header-copy strong { font-size:9px; }
+  .td-role-head>span,.td-role-head>b { font-size:9px; }
+
+  .td-people-row { gap:10px; }
+  .td-person-card { padding:12px; }
+  .td-person-photo { width:84px; height:84px; margin-top:8px; }
+  .td-score { padding:4px 7px; font-size:9px; }
+  .td-person-card>strong { font-size:12px; }
+  .td-person-card>small { font-size:9px; }
+  .td-person-card>b { font-size:8px; }
+  .td-person-card>p { font-size:8px; }
+  .td-person-skills span { font-size:7px; }
+  .td-person-actions button { width:30px; height:30px; }
+  .td-matching-toggle { min-height:42px; }
+  .td-matching-toggle>span { font-size:10px; }
+  .td-matching-toggle>small { font-size:8px; }
+
+  .td-job-identity strong { font-size:12px; }
+  .td-job-identity small { font-size:9px; }
+  .td-job-facts span { font-size:9px; }
+  .td-recruiter-line strong { font-size:9px; }
+  .td-recruiter-line small { font-size:8px; }
+  .td-job-actions button { font-size:9px; }
+
+  .td-list-panel .td-section-title strong { font-size:13px; }
+  .td-list-panel>button strong { font-size:10px; }
+  .td-list-panel>button small { font-size:8px; }
 }

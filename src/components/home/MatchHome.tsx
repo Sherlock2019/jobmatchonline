@@ -210,6 +210,7 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
   const [selected, setSelected] = useState<Person | null>(null);
   const [expandedId, setExpandedId] = useState('');
   const [bestMatchFirst, setBestMatchFirst] = useState(true);
+  const [matchingRoleId, setMatchingRoleId] = useState('');
   const groups: RoleMatchGroup[] = data.roleMatches?.length
     ? data.roleMatches
     : data.jobs.filter((job) => job.employerId === data.viewer.id).map((job) => ({
@@ -275,10 +276,12 @@ export function RecruiterHome({ data, setData, navigate }: HomeProps) {
             </button>
             {open && <div className="td-role-body">
               {personCards(group.candidates, true)}
-              <div className="td-matching-lane">
-                <DashboardTitle icon={TrendingUp} title="Candidates Matching This Role" subtitle="90%+ match across skills, salary, location, and work mode." />
-                {personCards(precise)}
-              </div>
+              <button className="td-matching-toggle" onClick={() => setMatchingRoleId(matchingRoleId === group.job.id ? '' : group.job.id)}>
+                <span><TrendingUp size={13} /> Candidates Matching This Role</span>
+                <small>{precise.length} candidates at 90%+</small>
+                <ChevronDown className={matchingRoleId === group.job.id ? 'open' : ''} size={15} />
+              </button>
+              {matchingRoleId === group.job.id && <div className="td-matching-lane">{personCards(precise)}</div>}
             </div>}
           </article>;
         })}
