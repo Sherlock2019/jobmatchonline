@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowRight, BriefcaseBusiness, Check, FileText, Heart, Loader2, LogIn, MapPin, MessageCircle, PenLine, Send, Sparkles, Star, UserPlus, X } from 'lucide-react';
-import { api, apiBase } from '../api';
-import { appleColor, appleGradient } from '../lib/colors';
+import { api } from '../api';
+import { appleColor } from '../lib/colors';
 import type { Job, Person, Review } from '../types';
+import { JobHeaderBadge } from './jobs/JobHeaderBadge';
 
 // Apple iOS system colors, one per step.
 const JOURNEY = [
@@ -52,10 +53,7 @@ export function LatestShowcase({ onRegister, onLogin }: { onRegister?: () => voi
     </div>
     {tab === 'jobs' ? <div className="showcase-grid">
       {jobs.map((job) => <article className="showcase-job clickable" key={job.id} role="button" tabIndex={0} onClick={() => setDetail({ kind: 'job', job })} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetail({ kind: 'job', job }); } }}>
-        <div className="showcase-job-hero" style={job.coverImage ? { backgroundImage: `linear-gradient(transparent 45%, rgba(0,0,0,.8)), url(${apiBase}${job.coverImage})` } : { background: appleGradient(job.id) }}>
-          {!job.coverImage && <span className="showcase-job-logo">{job.logo}</span>}
-          <div className="showcase-job-cap"><strong>{job.title}</strong><span>{job.company}</span></div>
-        </div>
+        <JobHeaderBadge job={job} />
         <div className="showcase-job-body">
           <div className="showcase-meta"><span><MapPin size={13} />{job.location}</span><span className="mode-badge">{workModeShort(job)}</span></div>
           <div className="showcase-skills">{job.requiredSkills.slice(0, 4).map((skill) => <span key={skill}>{skill}</span>)}</div>
@@ -81,17 +79,14 @@ function ShowcaseDetailModal({ detail, onClose, onRegister, onLogin }: { detail:
   const isJob = detail.kind === 'job';
   const job = isJob ? detail.job : undefined;
   const person = !isJob ? detail.person : undefined;
-  const heroStyle = isJob
-    ? (job!.coverImage ? { backgroundImage: `linear-gradient(transparent 40%, rgba(0,0,0,.85)), url(${apiBase}${job!.coverImage})` } : { background: appleGradient(job!.id) })
-    : { backgroundImage: `linear-gradient(transparent 42%, rgba(0,0,0,.85)), url(${person!.photo})` };
+  const heroStyle = { backgroundImage: `linear-gradient(transparent 42%, rgba(0,0,0,.85)), url(${person?.photo || ''})` };
   const cta = () => { onClose(); (onRegister || (() => undefined))(); };
   return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
     <motion.div className="showcase-modal" initial={{ y: 26, scale: .97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 18, scale: .97 }} onClick={(e) => e.stopPropagation()}>
       <button className="modal-close showcase-modal-close" onClick={onClose} aria-label="Close"><X /></button>
-      <div className="showcase-modal-hero" style={heroStyle}>
-        {isJob && !job!.coverImage && <span className="showcase-job-logo">{job!.logo}</span>}
-        <div className="showcase-modal-cap"><span>{isJob ? job!.company : person!.title}</span><h2>{isJob ? job!.title : person!.name}</h2></div>
-      </div>
+      {isJob ? <JobHeaderBadge job={job!} className="showcase-detail-job-header" /> : <div className="showcase-modal-hero" style={heroStyle}>
+        <div className="showcase-modal-cap"><span>{person!.title}</span><h2>{person!.name}</h2></div>
+      </div>}
       <div className="showcase-modal-body">
         <div className="showcase-meta big">
           <span><MapPin size={14} />{isJob ? job!.location : person!.location}</span>

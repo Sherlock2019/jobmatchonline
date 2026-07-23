@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import {
-  ArrowRight, Bookmark, BriefcaseBusiness, Building2, Check, Coffee, Eye,
+  ArrowRight, Bookmark, BriefcaseBusiness, Check, Coffee, Eye,
   Heart, MapPin, MessageCircle, Pencil, Sparkles, Star, Target, TrendingUp, X,
 } from 'lucide-react';
 import { api } from '../../api';
 import type { Bootstrap, Job, MatchEvidence, Person, RoleMatchGroup, View } from '../../types';
 import { CandidateCards } from '../profile/CandidateCards';
 import { JobDetailModal } from '../coach/CoachModals';
+import { CompanyLogoMark, JobHeaderBadge } from '../jobs/JobHeaderBadge';
 
 type HomeProps = {
   data: Bootstrap;
@@ -63,21 +64,9 @@ function JobMatchCard({ job, featured, saved, onSave, onLike, onPass, onView, on
   job: Job; featured?: boolean; saved: boolean; onSave: () => void; onLike: () => void; onPass: () => void; onView: () => void; onTalk: () => void;
 }) {
   const matched = job.match?.matchedSkills?.length || 0;
-  const newJob = Boolean(job.createdAt && Date.now() - job.createdAt < 72 * 60 * 60 * 1000);
   return <article className={featured ? 'mh-job-card featured' : 'mh-job-card'}>
-    <div className="mh-job-top">
-      <span className="mh-company-logo" style={{ background: job.accent }}>{job.logo || job.company.slice(0, 2).toUpperCase()}</span>
-      <div><strong>{job.company}</strong><small>{job.status?.toLowerCase() === 'active' ? 'Actively hiring' : job.status}</small></div>
-      <button className={saved ? 'mh-icon-btn saved' : 'mh-icon-btn'} onClick={onSave} aria-label={saved ? `Remove ${job.title} from saved jobs` : `Save ${job.title}`}><Bookmark size={17} fill={saved ? 'currentColor' : 'none'} /></button>
-    </div>
-    <h3>{job.title}</h3>
-    <div className="mh-score-row"><MatchScore score={job.match?.score} /><MatchStars score={job.match?.score} />{newJob && <span className="mh-new">New</span>}</div>
-    <dl className="mh-facts">
-      <div><MapPin size={14} /><span>{job.location}</span></div>
-      <div><Building2 size={14} /><span>{job.workMode}{job.hybridDays ? ` · ${job.hybridDays} days/week` : ''}</span></div>
-      <div><BriefcaseBusiness size={14} /><span>{job.salaryHidden ? 'Salary unlocks after mutual match' : job.salary}</span></div>
-      <div><Check size={14} /><span>{matched} matching skill{matched === 1 ? '' : 's'}</span></div>
-    </dl>
+    <JobHeaderBadge job={job} actions={<button className={saved ? 'mh-icon-btn saved' : 'mh-icon-btn'} onClick={onSave} aria-label={saved ? `Remove ${job.title} from saved jobs` : `Save ${job.title}`}><Bookmark size={17} fill={saved ? 'currentColor' : 'none'} /></button>} />
+    <div className="mh-score-row"><MatchStars score={job.match?.score} /><span>{matched} matching skill{matched === 1 ? '' : 's'}</span></div>
     {(job.requiredSkills || []).length > 0 && <div className="mh-skill-row">{job.requiredSkills.slice(0, 3).map((skill) => <span key={skill}>{skill}</span>)}</div>}
     <div className="mh-card-actions">
       <button className="secondary-button" onClick={onView}>View Match</button>
@@ -177,7 +166,7 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
     <section className="mh-lower-grid">
       <div className="mh-panel">
         <SectionHeading icon={Eye} title="Recruiters Checking You Out" subtitle="Companies showing genuine interest." />
-        {lovedJobs.length ? <div className="mh-activity-list">{lovedJobs.slice(0, 4).map((job, index) => <button key={job.id} onClick={() => setSelectedJob(job)}><span className="mh-company-logo small" style={{ background: job.accent }}>{job.logo}</span><span><strong>{job.company}</strong><small>{job.superLikedYou ? 'sent you a Super Match' : 'liked your profile'} · {index ? `${index + 1}h ago` : 'Recently'}</small></span><ArrowRight size={14} /></button>)}</div>
+        {lovedJobs.length ? <div className="mh-activity-list">{lovedJobs.slice(0, 4).map((job, index) => <button key={job.id} onClick={() => setSelectedJob(job)}><CompanyLogoMark job={job} small /><span><strong>{job.company}</strong><small>{job.superLikedYou ? 'sent you a Super Match' : 'liked your profile'} · {index ? `${index + 1}h ago` : 'Recently'}</small></span><ArrowRight size={14} /></button>)}</div>
           : <p className="mh-panel-empty">A stronger profile helps the right recruiters discover you.</p>}
       </div>
       <div className="mh-panel">

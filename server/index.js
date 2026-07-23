@@ -163,7 +163,10 @@ app.get('/api/showcase', async (_req, res, next) => {
     const jobs = db.jobs
       .filter((job) => job.demo || String(job.status).toLowerCase() === 'active')
       .slice(-10).reverse()
-      .map((job) => ({ id: job.id, title: job.title, company: job.company, logo: job.logo, accent: job.accent, location: job.location, workMode: job.workMode, remoteScope: job.remoteScope, country: job.country, salary: job.salary, type: job.type, department: job.department, requiredSkills: (job.requiredSkills || []).slice(0, 8), description: job.description, responsibilities: (job.responsibilities || []).slice(0, 5), coverImage: job.coverImage }));
+      .map((job) => {
+        const employer = db.users.find((user) => user.id === job.employerId);
+        return { id: job.id, employerId: job.employerId, title: job.title, company: job.company, companyLogo: employer?.companyLogo, logo: job.logo, accent: job.accent, location: job.location, workMode: job.workMode, remoteScope: job.remoteScope, country: job.country, salary: job.salary, type: job.type, department: job.department, status: job.status, createdAt: job.createdAt, requiredSkills: (job.requiredSkills || []).slice(0, 8), description: job.description, responsibilities: (job.responsibilities || []).slice(0, 5), coverImage: job.coverImage, verified: verifiedUser(employer) };
+      });
     const candidates = db.users
       .filter((user) => user.role === 'candidate' && user.demo)
       .slice(0, 10)
@@ -1011,6 +1014,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
     const viewerJobIds = new Set(db.jobs.filter((job) => job.employerId === viewer.id).map((job) => job.id));
     const candidatesWhoSuperLikedMyJobs = new Set(db.swipes.filter((s) => s.superLike && s.targetType === 'job' && viewerJobIds.has(s.targetId)).map((s) => s.actorId));
     const scoredJobs = db.jobs.map((job) => {
+      const employer = db.users.find((user) => user.id === job.employerId);
       // Real haversine distance when both sides have coordinates; else demo fallback.
       const realDist = haversineKm(viewer.geo, job.geo);
       const withDistance = { ...job, distanceKm: realDist ?? job.distanceKm ?? demoDistances[job.id] };
@@ -1019,7 +1023,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
         delete withDistance.salary; delete withDistance.salaryRange;
         withDistance.salaryHidden = true;
       }
-      return { ...withDistance, match, likedYou: employerIdsWhoLikedMe.has(job.employerId), superLikedYou: employerIdsWhoSuperLikedMe.has(job.employerId), verified: verifiedUser(db.users.find((u) => u.id === job.employerId)) };
+      return { ...withDistance, companyLogo: employer?.companyLogo, match, likedYou: employerIdsWhoLikedMe.has(job.employerId), superLikedYou: employerIdsWhoSuperLikedMe.has(job.employerId), verified: verifiedUser(employer) };
     });
     // Score candidates against this recruiter's own (first active) job when possible.
     const referenceJob = db.jobs.find((job) => job.employerId === viewer.id && String(job.status).toLowerCase() === 'active')
@@ -1055,7 +1059,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
         const interested = ranked.filter((candidate) => candidate.likedYou);
         const matchingCandidates = ranked.filter((candidate) => isStrongRoleMatch(candidate.match));
         return {
-          job: { ...job, match: scoreCandidateForJob(viewer, job) },
+          job: { ...job, companyLogo: viewer.companyLogo, match: scoreCandidateForJob(viewer, job) },
           candidates: interested,
           matchingCandidates,
           interestedCount: interested.length,
@@ -1066,7 +1070,11 @@ app.get('/api/bootstrap', async (req, res, next) => {
       ...match,
       candidate: db.users.find((user) => user.id === match.candidateId),
       employer: db.users.find((user) => user.id === match.employerId),
-      job: db.jobs.find((job) => job.id === match.jobId),
+      job: (() => {
+        const job = db.jobs.find((item) => item.id === match.jobId);
+        const employer = db.users.find((user) => user.id === match.employerId);
+        return job ? { ...job, companyLogo: employer?.companyLogo } : job;
+      })(),
       screeningAnswers: db.swipes.find((swipe) => swipe.actorId === match.candidateId && swipe.targetId === match.jobId && swipe.direction === 'like')?.answers,
     }));
     const matchIds = new Set(matches.map((match) => match.id));

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Award, BadgeCheck, BriefcaseBusiness, CalendarClock, CheckCircle2, Clock3, Coffee, Home, Layers, Lock, MapPin, Music2, Pencil, Plane, PlusCircle, Quote, ShieldCheck, Sparkles, Star, Target, Users, Wallet, XCircle } from 'lucide-react';
 import type { Job } from '../../types';
+import { JobHeaderBadge } from './JobHeaderBadge';
 
 function Card({ label, icon: Icon, step, onEdit, children, tone }: { label: string; icon: typeof Star; step?: number; onEdit?: (step: number) => void; children: React.ReactNode; tone?: string }) {
   return <div className={tone ? `tcard tcard-${tone}` : 'tcard'}>
@@ -57,28 +58,19 @@ export function JobCards({ job: j, onEdit, unlocked = false }: { job: Job; onEdi
     <div className="tcards-deck" ref={deckRef}>
       {/* ---------- Card 1 — Snapshot ---------- */}
       <div className="tcard-slide">
-        <div className="tcard tcard-hero" style={j.coverImage ? { backgroundImage: `url(${j.coverImage})` } : { background: j.accent }}>
+        <div className="tcard tcard-job-snapshot">
           {onEdit && <button className="tcard-edit on-photo" onClick={() => onEdit(0)} aria-label="Edit snapshot"><Pencil size={14} /></button>}
-          {m && <span className="tcard-matchpct"><Sparkles size={13} /> {m.score}% match{requiredCount ? <b>{m.matchedSkills.length} of {requiredCount} skills</b> : null}</span>}
-          <div className="tcard-hero-overlay">
-            <h2>{j.title}{j.verified && <BadgeCheck size={20} className="verified-mark" />}</h2>
-            <p className="tcard-hero-title"><BriefcaseBusiness size={14} /> {j.company}</p>
-            <div className="tcard-hero-meta">
-              {j.location && <span><MapPin size={13} /> {j.location}</span>}
-              {workMode && <span><Home size={13} /> {workMode}</span>}
-              {j.type && <span>{j.type}</span>}
-              {j.experienceLevel && <span>{j.experienceLevel}</span>}
-            </div>
-            <div className="tcard-hero-meta">
+          <JobHeaderBadge job={{ ...j, salaryHidden: !showSalary }} />
+          <div className="tcard-job-summary">
+            {m && <span className="tcard-matchpct"><Sparkles size={13} /> {m.score}% match{requiredCount ? <b>{m.matchedSkills.length} of {requiredCount} skills</b> : null}</span>}
+            <div className="tcard-snapshot-facts">
+              {j.experienceLevel && <span>{j.experienceLevel} experience</span>}
               {j.openings !== undefined && <span>{j.openings} opening{j.openings === 1 ? '' : 's'}</span>}
-              {j.urgency && <span className="avail"><i /> {j.urgency}</span>}
               {j.deadline && <span><CalendarClock size={13} /> Apply by {j.deadline}</span>}
-            </div>
-            <div className="tcard-hero-meta">
-              {showSalary ? <span><Wallet size={13} /> {j.salary}</span> : <span className="locked"><Lock size={13} /> Salary revealed on mutual match</span>}
               <span>{j.applicants} applicant{j.applicants === 1 ? '' : 's'}</span>
               {j.responseTime && <span>{j.responseTime} response</span>}
             </div>
+            {j.description && <p>{j.description}</p>}
           </div>
         </div>
       </div>

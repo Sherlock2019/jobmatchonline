@@ -18,13 +18,13 @@ import { CandidateHome, RecruiterHome } from './components/home/MatchHome';
 // Lazy-loaded: pulls in pdf.js only when a resume is actually opened.
 const ResumeViewerModal = lazy(() => import('./components/ResumeViewerModal').then((m) => ({ default: m.ResumeViewerModal })));
 import { JobEditor } from './components/jobs/JobEditor';
+import { CompanyLogoMark, JobHeaderBadge } from './components/jobs/JobHeaderBadge';
 import { GapCoach, JobDetailModal, MatchDetailModal, ScreeningModal } from './components/coach/CoachModals';
 import { CandidateStarters, RecruiterStarters } from './components/messages/ConversationStarters';
 import { ScheduleCallModal } from './components/messages/ScheduleCallModal';
 import { googleCalendarUrl, icsDataUrl, outlookCalendarUrl } from './lib/calendar';
 import type { ScreeningAnswer } from './types';
 import { comparisonRows } from './content/landingContent';
-import { appleColor, appleGradient } from './lib/colors';
 import { loadSession, saveSession } from './lib/auth';
 import type { Bootstrap, Job, JobMatch, Message, Person, Role, SessionUser, View } from './types';
 
@@ -457,21 +457,12 @@ function BookmarkButton({ active, onToggle }: { active: boolean; onToggle: () =>
 function CardSummary({ item, role, detailed = false, onOpenResume, resumeUnlocked = false, onOpenJob, gapViewer, onSkillAdded, bookmarked, onToggleBookmark }: { item: Job | Person; role: Role; detailed?: boolean; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean; onOpenJob?: (job: Job) => void; gapViewer?: Person; onSkillAdded?: () => void; bookmarked?: boolean; onToggleBookmark?: () => void }) {
   if (role === 'candidate') {
     const job = item as Job;
-    const heroStyle = job.coverImage ? { backgroundImage: `linear-gradient(transparent 38%, rgba(0,0,0,.82)), url(${apiBase}${job.coverImage})` } : { background: appleGradient(job.id) };
     const missing = job.match?.missingSkills?.length ?? 0;
     const matched = job.match?.matchedSkills?.length ?? 0;
     const topSkills = job.requiredSkills.slice(0, 4);
     const moreSkills = job.requiredSkills.length - topSkills.length;
     return <>
-      <div className="card-hero" style={heroStyle}>
-        {!job.coverImage && <span className="card-hero-logo" aria-hidden="true">{job.logo}</span>}
-        <div className="card-hero-top"><div className="fit-badge"><span>{job.match.score}%</span> match</div>{onToggleBookmark && <BookmarkButton active={Boolean(bookmarked)} onToggle={onToggleBookmark} />}{job.demo && <span className="demo-badge">Demo</span>}</div>
-        <div className="card-hero-overlay">
-          <div className="card-hero-eyebrow">{job.company}{job.verified && <BadgeCheck size={14} className="verified-mark" />}{job.verified && <span className="top-company-pill">Top Company</span>}</div>
-          <h2>{job.title}</h2>
-          <div className="card-hero-meta"><span><MapPin size={14} />{job.location}</span><span className="mode-badge">{workModeLabel(job)}</span>{showsCommute(job) && <span className="distance-badge">{job.distanceKm} km · ≈ {motorbikeMinutes(job.distanceKm!)} min</span>}</div>
-        </div>
-      </div>
+      <JobHeaderBadge job={job} className="swipe-job-header" actions={<>{onToggleBookmark && <BookmarkButton active={Boolean(bookmarked)} onToggle={onToggleBookmark} />}{job.demo && <span className="demo-badge">Demo</span>}</>} />
       <div className="card-body">
         <div className="job-meta"><span><BriefcaseBusiness size={15} />{job.type}</span>{job.salaryHidden ? <SalaryBadge status={job.match?.salaryStatus} /> : <span>{job.salary}</span>}{job.status?.toLowerCase() === 'active' && <span className="hiring-pill"><i />Actively hiring</span>}</div>
         <div className="job-meta soft"><span>{job.experienceLevel} exp</span>{job.responseTime && <span>{job.responseTime} response</span>}</div>
@@ -556,9 +547,9 @@ function MatchModal({ match, viewer, onClose, onMessage }: { match: JobMatch; vi
         <div className="match-face"><img src={match.candidate?.photo || viewer.photo} alt="" /><strong>{candidateName}</strong><span>{match.candidate?.title || viewer.title}</span></div>
         <span className="match-heart-mid"><Heart size={20} fill="currentColor" /></span>
         <div className="match-face">
-          {match.employer?.photo ? <img src={match.employer.photo} alt="" /> : <div className="match-face-logo" style={{ background: match.job ? appleColor(match.job.id) : 'var(--blue)' }}>{match.job?.logo || counterpart[0]}</div>}
+          {match.employer?.photo ? <img src={match.employer.photo} alt="" /> : match.job ? <CompanyLogoMark job={match.job} /> : <div className="match-face-logo"><BriefcaseBusiness /></div>}
           <strong>{match.employer?.name || match.job?.company || counterpart}</strong>
-          {match.employer && match.job ? <div className="match-badge" style={{ background: match.job.accent || appleColor(match.job.id) }}><b>{match.job.logo}</b><span>{match.employer.title || `Recruiter at ${match.job.company}`}</span></div> : match.job?.title && <span>{match.job.title}</span>}
+          {match.employer && match.job ? <div className="match-badge job-match-badge"><CompanyLogoMark job={match.job} small /><span>{match.employer.title || `Recruiter at ${match.job.company}`}</span></div> : match.job?.title && <span>{match.job.title}</span>}
           {match.employer && <em className="match-tag"><b>Role</b> &middot; Recruiter</em>}
         </div>
       </div>
@@ -622,13 +613,13 @@ function Messages({ role, data, setData }: { role: Role; data: Bootstrap; setDat
       {data.matches.map((item) => {
         const label = role === 'candidate' ? item.job?.company : item.candidate?.name;
         return <button className={item.id === match?.id ? 'thread active' : 'thread'} key={item.id} onClick={() => setSelectedMatchId(item.id)}>
-          {role === 'candidate' ? <div className="company-logo small" style={{ background: item.job?.accent }}>{item.job?.logo}</div> : <img src={item.candidate?.photo} />}
+          {role === 'candidate' && item.job ? <CompanyLogoMark job={item.job} small /> : <img src={item.candidate?.photo} />}
           <div><div><strong>{label}</strong></div><p>{item.job?.title}</p></div>
         </button>;
       })}
     </aside>
     <section className="conversation">{match ? <>
-      <header>{role === 'candidate' ? <div className="company-logo small" style={{ background: match.job?.accent }}>{match.job?.logo}</div> : <img src={match.candidate?.photo} />}
+      <header>{role === 'candidate' && match.job ? <CompanyLogoMark job={match.job} small /> : <img src={match.candidate?.photo} />}
         <div><strong>{otherName}</strong><span><i />{match.job?.title}</span></div>
         <button className={showStarters ? 'starter-toggle active' : 'starter-toggle'} onClick={() => setShowStarters((v) => !v)} title="Conversation starters — also handy to prep for a call"><Sparkles size={16} /></button>
         {role === 'employer' && <button className="starter-toggle" onClick={() => setScheduling(true)} title="Schedule a call"><Calendar size={16} /></button>}
@@ -659,7 +650,7 @@ function Messages({ role, data, setData }: { role: Role; data: Bootstrap; setDat
         onShareLink={async (shareText) => { const message = await api.message({ matchId: match.id, senderId: data.viewer.id, text: shareText }); setData({ ...data, messages: [...data.messages, message] }); setScheduling(false); }} />}
     </> : <EmptyState title="No conversations yet" />}</section>
     <aside className="context-panel">
-      {role === 'candidate' ? <div className="company-logo" style={{ background: match?.job?.accent }}>{match?.job?.logo}</div> : <img src={match?.candidate?.photo} />}
+      {role === 'candidate' && match?.job ? <CompanyLogoMark job={match.job} /> : <img src={match?.candidate?.photo} />}
       <h3>{otherName}</h3><p>{role === 'candidate' ? match?.job?.location : match?.candidate?.title}</p>
       <span className="fit-pill">{match?.candidate?.match?.score ?? 94}% role match</span>
       <div className="context-details"><label>Matched for</label><strong>{match?.job?.title}</strong><label>Location</label><strong>{match?.candidate?.location}</strong><label>Stage</label><strong>{match?.stage}</strong></div>
@@ -668,13 +659,13 @@ function Messages({ role, data, setData }: { role: Role; data: Bootstrap; setDat
   </div>;
 }
 
-function Matches({ data, navigate }: { data: Bootstrap; navigate: (v: View) => void }) { return <div className="page"><div className="page-title"><div><span className="overline">Mutual interest</span><h1>Your matches</h1><p>These teams chose you back. Start a conversation when you’re ready.</p></div></div><div className="match-grid">{data.matches.map((match) => <article key={match.id}><div className="match-company" style={{ background: match.job ? appleColor(match.job.id) : 'var(--blue)' }}>{match.job?.logo}</div><span className="fit-pill">{match.candidate?.match?.score || 94}% match</span><h2>{match.job?.title}</h2><p>{match.job?.company} · {match.job?.location}</p><div className="match-grid-actions"><button className="secondary-button">View role</button><button className="primary-button" onClick={() => navigate('messages')}><MessageCircle size={16} />Message</button></div></article>)}</div></div>; }
+function Matches({ data, navigate }: { data: Bootstrap; navigate: (v: View) => void }) { return <div className="page"><div className="page-title"><div><span className="overline">Mutual interest</span><h1>Your matches</h1><p>These teams chose you back. Start a conversation when you’re ready.</p></div></div><div className="match-grid">{data.matches.map((match) => <article key={match.id}>{match.job && <JobHeaderBadge job={match.job} />}<div className="match-grid-actions"><button className="secondary-button">View role</button><button className="primary-button" onClick={() => navigate('messages')}><MessageCircle size={16} />Message</button></div></article>)}</div></div>; }
 
 function Jobs({ data, reload }: { data: Bootstrap; reload: () => void }) {
   const [editing, setEditing] = useState<Job | 'new' | null>(null);
   if (editing) return <JobEditor viewer={data.viewer} job={editing === 'new' ? undefined : editing} onSaved={() => { setEditing(null); reload(); }} onCancel={() => setEditing(null)} />;
   const mine = data.jobs.filter((j) => j.employerId === data.viewer.id);
-  return <div className="page"><div className="page-title"><div><span className="overline">Recruiting</span><h1>Open roles</h1><p>Manage jobs, recommendations, and candidate interest.</p></div><button className="primary-button small" onClick={() => setEditing('new')}>+ Create job</button></div><div className="channel-bar"><div className="linkedin-mark"><Linkedin size={18} fill="currentColor" /></div><section><strong>LinkedIn Talent Solutions ready</strong><p>Sync job lifecycle and Apply Connect data after partner approval.</p></section><span>Adapter configured</span><button className="secondary-button">Integration settings</button></div><div className="jobs-table"><header><span>Role</span><span>Status</span><span>Salary</span><span>Applicants</span><span>Skills</span><span /></header>{mine.map((job) => <div className="job-row" key={job.id}><div><div className="company-logo small-logo" style={{ background: appleColor(job.id) }}>{job.logo}</div><section><strong>{job.title}</strong><small>{job.location}{job.department ? ` · ${job.department}` : ''}</small></section></div><span className={`status status-${job.status.toLowerCase()}`}><i />{job.status[0].toUpperCase()}{job.status.slice(1)}</span><span>{job.salary}</span><span>{job.applicants}</span><span>{job.requiredSkills.length} weighted</span><button aria-label={`Edit ${job.title}`} onClick={() => setEditing(job)}><MoreHorizontal /></button></div>)}{mine.length === 0 && <div className="job-row"><div><section><strong>No postings yet</strong><small>Create one or use Demo import to fill the form instantly.</small></section></div></div>}</div><div className="job-empty"><div><Sparkles /></div><section><h3>Reach the right people, not the most people.</h3><p>JobsMatchNow recommends your role only to candidates with meaningful fit and verified intent.</p></section><button className="secondary-button" onClick={() => setEditing('new')}>Create your first posting</button></div></div>;
+  return <div className="page"><div className="page-title"><div><span className="overline">Recruiting</span><h1>Open roles</h1><p>Manage jobs, recommendations, and candidate interest.</p></div><button className="primary-button small" onClick={() => setEditing('new')}>+ Create job</button></div><div className="channel-bar"><div className="linkedin-mark"><Linkedin size={18} fill="currentColor" /></div><section><strong>LinkedIn Talent Solutions ready</strong><p>Sync job lifecycle and Apply Connect data after partner approval.</p></section><span>Adapter configured</span><button className="secondary-button">Integration settings</button></div><div className="jobs-table"><header><span>Role</span><span>Status</span><span>Salary</span><span>Applicants</span><span>Skills</span><span /></header>{mine.map((job) => <div className="job-row" key={job.id}><div><JobHeaderBadge job={job} compact /></div><span className={`status status-${job.status.toLowerCase()}`}><i />{job.status[0].toUpperCase()}{job.status.slice(1)}</span><span>{job.salary}</span><span>{job.applicants}</span><span>{job.requiredSkills.length} weighted</span><button aria-label={`Edit ${job.title}`} onClick={() => setEditing(job)}><MoreHorizontal /></button></div>)}{mine.length === 0 && <div className="job-row"><div><section><strong>No postings yet</strong><small>Create one or use Demo import to fill the form instantly.</small></section></div></div>}</div><div className="job-empty"><div><Sparkles /></div><section><h3>Reach the right people, not the most people.</h3><p>JobsMatchNow recommends your role only to candidates with meaningful fit and verified intent.</p></section><button className="secondary-button" onClick={() => setEditing('new')}>Create your first posting</button></div></div>;
 }
 
 function Analytics({ data }: { data: Bootstrap }) {

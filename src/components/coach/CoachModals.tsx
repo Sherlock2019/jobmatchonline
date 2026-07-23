@@ -4,6 +4,7 @@ import { BookOpen, BriefcaseBusiness, Check, ClipboardList, GraduationCap, Loade
 import { api } from '../../api';
 import type { InterviewKit, InterviewPrep, Job, JobMatch, Person, ScreeningAnswer } from '../../types';
 import { JobCards } from '../jobs/JobCards';
+import { JobHeaderBadge } from '../jobs/JobHeaderBadge';
 
 function CoachModalShell({ onClose, children, wide }: { onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
@@ -26,10 +27,7 @@ export function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void
   }, [tab, prep, job.id]);
 
   return <CoachModalShell onClose={onClose} wide>
-    <header className="coach-head">
-      <div className="company-logo" style={{ background: job.accent }}>{job.logo}</div>
-      <div><span className="overline">{job.company}</span><h2>{job.title}</h2><p>{job.location} · {job.type} · {job.workMode === 'Remote' ? (job.remoteScope === 'country' ? `Remote (within ${job.country || 'country'})` : 'Remote (worldwide)') : job.workMode === 'Hybrid' && job.hiringRadiusKm ? `Hybrid (within ${job.hiringRadiusKm} km)` : job.workMode}</p></div>
-    </header>
+    <JobHeaderBadge job={job} className="coach-job-header" />
     <div className="coach-tabs" role="tablist">
       <button role="tab" aria-selected={tab === 'overview'} className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><BriefcaseBusiness size={14} /> Overview</button>
       <button role="tab" aria-selected={tab === 'prepare'} className={tab === 'prepare' ? 'active' : ''} onClick={() => setTab('prepare')}><GraduationCap size={14} /> Prepare</button>
