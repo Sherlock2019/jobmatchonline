@@ -208,9 +208,9 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
       </div>
       <div className="mh-panel mh-recommend"><SectionHeading icon={Sparkles} title="Make Your Profile Stronger" subtitle="Three quick improvements." />
         {[
-          { title: 'Add salary expectations', note: '+15% match clarity', step: 2 },
-          { title: 'Polish your technical stack', note: 'Show verified strengths', step: 1 },
-          { title: 'Add a recommendation', note: '+20% recruiter trust', step: 5 },
+          { title: 'Add salary expectations', note: '+15% match improvement', step: 2 },
+          { title: 'Record a 60-sec introduction', note: '+27% recruiter response rate', step: 3 },
+          { title: 'Add a recommendation', note: '+20% trust score', step: 5 },
         ].map((item) => <button key={item.title} onClick={() => onEditProfile(item.step)}><span><Pencil size={14} /></span><div><strong>{item.title}</strong><small>{item.note}</small></div><ArrowRight size={14} /></button>)}
         <button className="secondary-button" onClick={() => onEditProfile(0)}>Complete My Profile</button>
       </div>
