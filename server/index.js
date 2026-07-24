@@ -1213,7 +1213,8 @@ app.get('/api/bootstrap', async (req, res, next) => {
     });
     const matchIds = new Set(matches.map((match) => match.id));
     const bookmarkedIds = db.bookmarks.filter((b) => b.userId === viewer.id).map((b) => b.targetId);
-    res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, roleMatches, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), calls: db.calls.filter((call) => matchIds.has(call.matchId)), bookmarkedIds, likesRemaining: likesRemainingToday(pool.swipes, viewer.id) });
+    const notes = (db.notes || []).filter((note) => note.userId === viewer.id);
+    res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, roleMatches, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), calls: db.calls.filter((call) => matchIds.has(call.matchId)), notes, bookmarkedIds, likesRemaining: likesRemainingToday(pool.swipes, viewer.id) });
   } catch (error) { next(error); }
 });
 
@@ -1353,6 +1354,88 @@ app.post('/api/bookmarks/toggle', async (req, res, next) => {
       return true;
     });
     res.json({ bookmarked });
+  } catch (error) { next(error); }
+});
+
+// Private notes: a viewer's own scratchpad on a specific job or candidate —
+// before/after a conversation or interview. Visible only to their author.
+app.post('/api/notes', async (req, res, next) => {
+  try {
+    const userId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const targetId = reqString(req.body, 'targetId', { max: 128 });
+    const targetType = oneOf(req.body, 'targetType', ['job', 'candidate']);
+    const text = optString(req.body, 'text', { max: 4000 }) || '';
+    const note = await store.transaction((db) => {
+      assertDemoActor(req, db, userId);
+      if (!Array.isArray(db.notes)) db.notes = [];
+      const existing = db.notes.find((n) => n.userId === userId && n.targetId === targetId && n.targetType === targetType);
+      if (existing) { existing.text = text; existing.updatedAt = Date.now(); return existing; }
+      const item = { id: crypto.randomUUID(), userId, targetId, targetType, text, updatedAt: Date.now() };
+      db.notes.push(item);
+      return item;
+    });
+    res.json(note);
+  } catch (error) { next(error); }
+});
+
+// Named profile-variant presets: a candidate can snapshot their current
+// title/skills/desired-roles as a named preset (e.g. "Frontend Engineer"
+// vs "Product Manager") and switch which one is live later, instead of
+// hand-editing the same fields back and forth for every application type.
+app.post('/api/profile-variants', async (req, res, next) => {
+  try {
+    const userId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const name = reqString(req.body, 'name', { max: 80 });
+    const variant = await store.transaction((db) => {
+      const user = db.users.find((item) => item.id === userId);
+      if (!user) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, userId);
+      if (!Array.isArray(user.profileVariants)) user.profileVariants = [];
+      const item = {
+        id: crypto.randomUUID(), name,
+        title: user.title || '', skills: [...(user.skills || [])],
+        desiredRoles: [...(user.preferences?.desiredRoles || [])],
+        updatedAt: Date.now(),
+      };
+      user.profileVariants.push(item);
+      user.activeVariantId = item.id;
+      return item;
+    });
+    res.json(variant);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/profile-variants/:id/activate', async (req, res, next) => {
+  try {
+    const userId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const user = await store.transaction((db) => {
+      const item = db.users.find((entry) => entry.id === userId);
+      if (!item) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, userId);
+      const variant = (item.profileVariants || []).find((v) => v.id === req.params.id);
+      if (!variant) { const error = new Error('Profile variant not found'); error.status = 404; throw error; }
+      item.title = variant.title;
+      item.skills = [...variant.skills];
+      item.preferences = { ...(item.preferences || {}), desiredRoles: [...(variant.desiredRoles || [])] };
+      item.activeVariantId = variant.id;
+      if (item.role === 'candidate') item.completeness = candidateCompleteness(item);
+      return item;
+    });
+    res.json({ user });
+  } catch (error) { next(error); }
+});
+
+app.delete('/api/profile-variants/:id', async (req, res, next) => {
+  try {
+    const userId = resolveActor(req, reqString(req.query, 'userId', { max: 128 }));
+    await store.transaction((db) => {
+      const item = db.users.find((entry) => entry.id === userId);
+      if (!item) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, userId);
+      item.profileVariants = (item.profileVariants || []).filter((v) => v.id !== req.params.id);
+      if (item.activeVariantId === req.params.id) item.activeVariantId = undefined;
+    });
+    res.json({ ok: true });
   } catch (error) { next(error); }
 });
 

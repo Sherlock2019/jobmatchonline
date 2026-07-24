@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { BookOpen, BriefcaseBusiness, Check, ClipboardList, GraduationCap, Loader2, MapPin, MessageSquareText, Plus, Sparkles, Wallet, X } from 'lucide-react';
 import { api } from '../../api';
-import type { InterviewKit, InterviewPrep, Job, JobMatch, Person, ScreeningAnswer } from '../../types';
+import type { InterviewKit, InterviewPrep, Job, JobMatch, Note, Person, ScreeningAnswer } from '../../types';
 import { JobCards } from '../jobs/JobCards';
 import { JobHeaderBadge } from '../jobs/JobHeaderBadge';
+import { NotesBox } from '../NotesBox';
 
 function CoachModalShell({ onClose, children, wide }: { onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
@@ -16,7 +17,7 @@ function CoachModalShell({ onClose, children, wide }: { onClose: () => void; chi
 }
 
 /** Item 9: job detail with Overview + Prepare tabs (candidate side). */
-export function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void }) {
+export function JobDetailModal({ job, onClose, viewerId, notes, onNoteSaved }: { job: Job; onClose: () => void; viewerId?: string; notes?: Note[]; onNoteSaved?: (note: Note) => void }) {
   const [tab, setTab] = useState<'overview' | 'prepare'>('overview');
   const [prep, setPrep] = useState<InterviewPrep | null>(null);
   const [loading, setLoading] = useState(false);
@@ -35,6 +36,7 @@ export function JobDetailModal({ job, onClose }: { job: Job; onClose: () => void
     {tab === 'overview' && <div className="coach-body">
       <p className="coach-description">{job.description}</p>
       <JobCards job={job} unlocked />
+      {viewerId && notes && onNoteSaved && <NotesBox viewerId={viewerId} targetId={job.id} targetType="job" notes={notes} onSaved={onNoteSaved} />}
     </div>}
     {tab === 'prepare' && <div className="coach-body">
       {loading && <div className="resume-loading"><Loader2 size={20} className="spin" /> Building your prep list…</div>}

@@ -1,5 +1,5 @@
 export type Role = 'candidate' | 'employer';
-export type View = 'home' | 'discover' | 'matches' | 'companies' | 'messages' | 'pipeline' | 'jobs' | 'analytics' | 'profile' | 'meetings';
+export type View = 'home' | 'discover' | 'matches' | 'companies' | 'messages' | 'pipeline' | 'jobs' | 'analytics' | 'profile' | 'meetings' | 'saved';
 export type EmployerKind = 'company' | 'headhunter';
 export type ProviderId = 'linkedin' | 'google' | 'email' | 'demo';
 
@@ -25,6 +25,8 @@ export interface ResumeMeta { id: string; originalName: string; storedName?: str
 export interface CandidatePreferences { desiredRoles?: string[]; employmentTypes?: string[]; workMode?: { mode: 'remote' | 'hybrid' | 'onsite'; hybridDays?: number }; salary?: { min?: number; max?: number; currency?: string; period?: string; negotiable?: boolean }; availability?: string; noticePeriod?: string; travel?: string; relocate?: { open: boolean; locations?: string[] }; companySize?: string; industries?: string[]; workStyle?: string[] }
 export interface PrivacySettings { visibility?: 'all' | 'after-swipe' | 'paused'; blockedCompanies?: string[]; openToWork?: boolean }
 
+export interface ProfileVariant { id: string; name: string; title: string; skills: string[]; desiredRoles?: string[]; updatedAt: number }
+
 export interface Person {
   id: string; role: Role; kind?: EmployerKind; name: string; email?: string; provider?: string; title: string;
   demoOrder?: number;
@@ -40,6 +42,10 @@ export interface Person {
   presentation?: string; aboutMeArchetype?: string; mindset?: string[]; humanSkills?: string[]; workingPrefer?: string[]; workingAvoid?: string[];
   interests?: string[]; motto?: string; favoriteSong?: string; recommendations?: Recommendation[];
   preferences?: CandidatePreferences; documents?: { resume?: ResumeMeta; coverLetter?: string }; privacy?: PrivacySettings;
+  /** Named presets of title/skills/desired-roles a candidate can snapshot and
+   * switch between — e.g. a "Frontend Engineer" persona vs a "Product
+   * Manager" one — so the same account can present differently per job type. */
+  profileVariants?: ProfileVariant[]; activeVariantId?: string;
   // Recruiter profile model (item 5)
   geo?: { lat: number; lng: number };
   companyLogo?: string; website?: string; industry?: string; companySize?: string; headquarters?: string;
@@ -96,7 +102,9 @@ export interface JobMatch { id: string; candidateId: string; employerId: string;
 export interface Message { id: string; matchId: string; senderId: string; text: string; createdAt: number }
 export interface ScheduledCall { id: string; matchId: string; createdBy: string; title: string; startAt: number; durationMinutes: number; notes?: string; createdAt: number }
 export interface RoleMatchGroup { job: Job; candidates: Person[]; matchingCandidates?: Person[]; interestedCount: number; newCount: number }
-export interface Bootstrap { viewer: Person; jobs: Job[]; candidates: Person[]; roleMatches?: RoleMatchGroup[]; matches: JobMatch[]; messages: Message[]; calls: ScheduledCall[]; bookmarkedIds: string[]; likesRemaining: number }
+/** A viewer's private note about a specific job or candidate — visible only to its author. */
+export interface Note { id: string; userId: string; targetId: string; targetType: 'job' | 'candidate'; text: string; updatedAt: number }
+export interface Bootstrap { viewer: Person; jobs: Job[]; candidates: Person[]; roleMatches?: RoleMatchGroup[]; matches: JobMatch[]; messages: Message[]; calls: ScheduledCall[]; notes: Note[]; bookmarkedIds: string[]; likesRemaining: number }
 
 /** Minimal identity persisted for the demo session. */
 export interface SessionUser { id: string; role: Role; kind?: EmployerKind; name: string; email?: string; photo?: string; provider?: string; isNew?: boolean; demo?: boolean; title?: string; company?: string; emailVerified?: boolean }

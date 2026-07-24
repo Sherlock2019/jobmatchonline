@@ -15,7 +15,8 @@ import { RecruiterWizard } from './components/profile/RecruiterWizard';
 import { RecruiterProfilePage } from './components/profile/RecruiterProfilePage';
 import { CandidateCards } from './components/profile/CandidateCards';
 import { JobCards } from './components/jobs/JobCards';
-import { CandidateHome, DashboardTitle, EmptyRow, RecruiterHome } from './components/home/MatchHome';
+import { CandidateHome, CandidateProfileModal, DashboardTitle, EmptyRow, RecruiterHome } from './components/home/MatchHome';
+import { NotesBox } from './components/NotesBox';
 // Lazy-loaded: pulls in pdf.js only when a resume is actually opened.
 const ResumeViewerModal = lazy(() => import('./components/ResumeViewerModal').then((m) => ({ default: m.ResumeViewerModal })));
 import { JobEditor } from './components/jobs/JobEditor';
@@ -38,14 +39,17 @@ const candidateNav: NavItem[] = [
   { label: 'Job Matches', icon: Heart, anchor: 'td-matches' },
   { label: 'Jobs that like you', short: 'Likes You', icon: Target, anchor: 'td-chasing' },
   { label: 'Jobs You Should Consider', short: 'Swipe', icon: Sparkles, view: 'discover' },
+  { label: 'Saved', icon: BookmarkIcon, view: 'saved' },
   { label: 'Conversations', short: 'Chat', icon: MessageCircle, anchor: 'td-conversations' },
   { label: 'Meetings', icon: Calendar, view: 'meetings' },
+  { label: 'Reports', icon: BarChart3, view: 'analytics' },
 ];
 const employerNav: NavItem[] = [
   { label: 'Home', icon: Compass, view: 'home' },
   { label: 'My Jobs', icon: BriefcaseBusiness, anchor: 'td-roles' },
   { label: 'Job Matches', icon: Check, anchor: 'td-roles' },
   { label: 'Candidates', icon: Users, view: 'discover' },
+  { label: 'Saved', icon: BookmarkIcon, view: 'saved' },
   { label: 'Conversations', short: 'Chat', icon: MessageCircle, anchor: 'td-conversations' },
   { label: 'Meetings', icon: Calendar, view: 'meetings' },
   { label: 'Reports', icon: BarChart3, view: 'analytics' },
@@ -240,7 +244,8 @@ function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profil
   if (view === 'pipeline') return <Pipeline data={data} setData={setData} />;
   if (view === 'messages') return <Messages role={role} data={data} setData={setData} initialMatchId={openMatchId} />;
   if (view === 'meetings') return <Meetings role={role} data={data} setData={setData} onOpenMessages={onOpenMessages} />;
-  if (view === 'analytics') return <Analytics data={data} />;
+  if (view === 'saved') return <Saved role={role} data={data} setData={setData} navigate={navigate} />;
+  if (view === 'analytics') return <Analytics role={role} data={data} />;
   if (view === 'jobs') return <Jobs data={data} reload={reload} onAddJobs={onAddJobs} manualJobRequest={manualJobRequest} onOpenMessages={onOpenMessages} editJobId={editJobId} />;
   if (view === 'matches') return <Matches data={data} navigate={navigate} />;
   if (role === 'candidate') return <CandidateProfilePage viewer={data.viewer} jobs={data.jobs} onEdit={onEditProfile} initialCard={profileCard} onCardChange={onProfileCardChange} />;
@@ -646,6 +651,7 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
   const [showStarters, setShowStarters] = useState(thread.length === 0);
   useEffect(() => { setShowStarters(thread.length === 0); }, [match?.id]);
   const [scheduling, setScheduling] = useState(false);
+  const [viewingProfile, setViewingProfile] = useState(false);
   const calls = data.calls.filter((c) => c.matchId === match?.id).sort((a, b) => a.startAt - b.startAt);
   return <div className="messages-page">
     <aside className="threads">
@@ -665,7 +671,6 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
         <button className={showStarters ? 'starter-toggle active' : 'starter-toggle'} onClick={() => setShowStarters((v) => !v)} title="Conversation starters — also handy to prep for a call"><Sparkles size={16} /></button>
         <button className="starter-toggle" onClick={() => setScheduling(true)} title="Schedule a call"><Calendar size={16} /></button>
         {otherEmail && <a className="starter-toggle" href={`mailto:${otherEmail}`} title={`Email ${otherName || 'them'}`}><Mail size={16} /></a>}
-        <button><MoreHorizontal /></button>
       </header>
       <div className="conversation-body">
         <div className="date-divider">Today</div>
@@ -696,8 +701,13 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
       <h3>{otherName}</h3><p>{role === 'candidate' ? match?.job?.location : match?.candidate?.title}</p>
       <span className="fit-pill">{match?.candidate?.match?.score ?? 94}% role match</span>
       <div className="context-details"><label>Matched for</label><strong>{match?.job?.title}</strong><label>Location</label><strong>{match?.candidate?.location}</strong><label>Stage</label><strong>{match?.stage}</strong></div>
-      <button className="secondary-button">View full profile</button>
+      <button className="secondary-button" onClick={() => setViewingProfile(true)} disabled={!match}>View full profile</button>
     </aside>
+    {viewingProfile && match && (role === 'candidate' && match.job
+      ? <JobDetailModal job={match.job} onClose={() => setViewingProfile(false)} viewerId={data.viewer.id} notes={data.notes} onNoteSaved={(note) => setData({ ...data, notes: [...data.notes.filter((n) => n.id !== note.id), note] })} />
+      : match.candidate
+        ? <CandidateProfileModal candidate={match.candidate} onClose={() => setViewingProfile(false)} unlocked viewerId={data.viewer.id} notes={data.notes} onNoteSaved={(note) => setData({ ...data, notes: [...data.notes.filter((n) => n.id !== note.id), note] })} />
+        : null)}
   </div>;
 }
 
@@ -772,6 +782,53 @@ function Meetings({ role, data, setData, onOpenMessages }: { role: Role; data: B
   </div>;
 }
 
+/** Bookmarking (the bookmark icon on job/candidate cards) was fully wired
+ * end to end but had nowhere to review everything you'd saved — this is
+ * that list, for both roles. */
+function Saved({ role, data, setData, navigate }: { role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void }) {
+  const [detailJob, setDetailJob] = useState<Job | null>(null);
+  const [detailPerson, setDetailPerson] = useState<Person | null>(null);
+  const savedJobs = data.jobs.filter((job) => data.bookmarkedIds.includes(job.id));
+  const savedCandidates = data.candidates.filter((person) => data.bookmarkedIds.includes(person.id));
+  const unsave = async (targetId: string, targetType: 'job' | 'candidate') => {
+    await api.toggleBookmark({ userId: data.viewer.id, targetId, targetType });
+    setData({ ...data, bookmarkedIds: data.bookmarkedIds.filter((id) => id !== targetId) });
+  };
+  return <div className="page">
+    <div className="page-title"><div><span className="overline">{role === 'candidate' ? 'Saved for later' : 'Saved candidates'}</span><h1>Saved</h1><p>{role === 'candidate' ? 'Roles you bookmarked while browsing.' : 'Candidates you bookmarked while browsing.'}</p></div></div>
+    {role === 'candidate'
+      ? (savedJobs.length
+        ? <div className="jobs-table"><header><span>Role</span><span>Status</span><span>Salary</span><span>Skills</span><span /></header>
+          {savedJobs.map((job) => <div className="job-row job-row-clickable" key={job.id} role="button" tabIndex={0} onClick={() => setDetailJob(job)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setDetailJob(job); } }}>
+            <div><JobHeaderBadge job={job} compact /></div>
+            <span className={`status status-${job.status.toLowerCase()}`}><i />{job.status[0].toUpperCase()}{job.status.slice(1)}</span>
+            <span>{job.salaryHidden ? 'Hidden' : job.salary}</span>
+            <span>{job.requiredSkills.length} weighted</span>
+            <button aria-label={`Remove ${job.title} from saved`} onClick={(event) => { event.stopPropagation(); void unsave(job.id, 'job'); }}><BookmarkIcon fill="currentColor" /></button>
+          </div>)}</div>
+        : <EmptyState title="Nothing saved yet — bookmark a role from Discover to find it here." />)
+      : (savedCandidates.length
+        ? <div className="jobs-table"><header><span>Candidate</span><span>Fit</span><span>Location</span><span>Skills</span><span /></header>
+          {savedCandidates.map((person) => <div className="job-row job-row-clickable" key={person.id} role="button" tabIndex={0} onClick={() => setDetailPerson(person)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setDetailPerson(person); } }}>
+            <div className="td-recruiter-line"><img src={person.photo} alt="" /><span><strong>{person.name}</strong><small>{person.title}</small></span></div>
+            <span>{person.match?.score ?? 0}% match</span>
+            <span>{person.location}</span>
+            <span>{person.skills.length} skills</span>
+            <button aria-label={`Remove ${person.name} from saved`} onClick={(event) => { event.stopPropagation(); void unsave(person.id, 'candidate'); }}><BookmarkIcon fill="currentColor" /></button>
+          </div>)}</div>
+        : <EmptyState title="Nothing saved yet — bookmark a candidate from Discover to find them here." />)}
+    {detailJob && <JobDetailModal job={detailJob} onClose={() => setDetailJob(null)} viewerId={data.viewer.id} notes={data.notes} onNoteSaved={(note) => setData({ ...data, notes: [...data.notes.filter((n) => n.id !== note.id), note] })} />}
+    {detailPerson && <div className="mh-modal-scrim" role="presentation" onMouseDown={() => setDetailPerson(null)}>
+      <section className="mh-profile-modal" role="dialog" aria-modal="true" aria-label={`${detailPerson.name}'s profile`} onMouseDown={(event) => event.stopPropagation()}>
+        <header><div><span className="overline">Candidate profile</span><h2>{detailPerson.name}</h2></div><button onClick={() => setDetailPerson(null)} aria-label="Close profile"><X /></button></header>
+        <CandidateCards person={detailPerson} match={detailPerson.match} />
+        <NotesBox viewerId={data.viewer.id} targetId={detailPerson.id} targetType="candidate" notes={data.notes} onSaved={(note) => setData({ ...data, notes: [...data.notes.filter((n) => n.id !== note.id), note] })} />
+        <footer><button className="secondary-button" onClick={() => setDetailPerson(null)}>Close</button><button className="primary-button" onClick={() => navigate('discover')}>Go to Discover <ArrowRight size={15} /></button></footer>
+      </section>
+    </div>}
+  </div>;
+}
+
 function Matches({ data, navigate }: { data: Bootstrap; navigate: (v: View) => void }) { return <div className="page"><div className="page-title"><div><span className="overline">Mutual interest</span><h1>Your matches</h1><p>These teams chose you back. Start a conversation when you’re ready.</p></div></div><div className="match-grid">{data.matches.map((match) => <article key={match.id}>{match.job && <JobHeaderBadge job={match.job} />}<div className="match-grid-actions"><button className="secondary-button" onClick={() => navigate('discover')}>View role</button><button className="primary-button" onClick={() => navigate('messages')}><MessageCircle size={16} />Message</button></div></article>)}</div></div>; }
 
 function Companies({ data, navigate }: { data: Bootstrap; navigate: (v: View) => void }) {
@@ -830,15 +887,35 @@ function JobOfferDetail({ job, data, onBack, onEdit, onOpenMessages }: { job: Jo
   </div>;
 }
 
-function Analytics({ data }: { data: Bootstrap }) {
-  // Real figures derived from this recruiter's matches, pipeline, and messages.
+function Analytics({ role, data }: { role: Role; data: Bootstrap }) {
+  // Real figures derived from this viewer's matches and messages — same
+  // shape for both roles, just framed from whichever side is looking.
   const totalMatches = data.matches.length;
   const inConversation = data.matches.filter((m) => data.messages.some((msg) => msg.matchId === m.id)).length;
-  const replied = data.matches.filter((m) => data.messages.some((msg) => msg.matchId === m.id && msg.senderId === m.candidateId)).length;
-  const responseRate = inConversation ? Math.round((replied / inConversation) * 100) : 0;
-  const avgScore = totalMatches ? Math.round(data.matches.reduce((sum, m) => sum + (m.candidate?.match?.score ?? 80), 0) / totalMatches) : 0;
+  const otherReplied = data.matches.filter((m) => data.messages.some((msg) => msg.matchId === m.id && (role === 'candidate' ? msg.senderId !== data.viewer.id : msg.senderId === m.candidateId))).length;
+  const responseRate = inConversation ? Math.round((otherReplied / inConversation) * 100) : 0;
+  const avgScore = totalMatches ? Math.round(data.matches.reduce((sum, m) => sum + ((role === 'candidate' ? m.job?.match?.score : m.candidate?.match?.score) ?? 80), 0) / totalMatches) : 0;
   const interviewing = data.matches.filter((m) => m.stage === 'Interview' || m.stage === 'Offer').length;
-  return <div className="page"><div className="page-title"><div><span className="overline">Talent intelligence</span><h1>Hiring insights</h1><p>Signals that help your team improve quality, speed, and candidate experience.</p></div><button className="ghost-button">All time <ChevronDown size={15} /></button></div><div className="analytics-grid"><Metric label="Mutual matches" value={String(totalMatches)} change="live" /><Metric label="In conversation" value={String(inConversation)} change={`${totalMatches ? Math.round((inConversation / totalMatches) * 100) : 0}% of matches`} /><Metric label="Candidate response" value={`${responseRate}%`} change={`${replied}/${inConversation} replied`} /><Metric label="Interviewing +" value={String(interviewing)} change="Interview & offer" /></div><div className="chart-grid"><section className="chart-card wide"><header><div><strong>Matching funnel</strong><p>From recommendation to qualified conversation</p></div><button><MoreHorizontal /></button></header><div className="bar-chart">{[62, 78, 49, 86, 72, 94, 81, 68, 90, 76, 88, 96].map((height, i) => <div key={i}><i style={{ height: `${height}%` }} /><span>{i % 2 === 0 ? ['Jul 1', '5', '9', '13', '17', '21'][i / 2] : ''}</span></div>)}</div></section><section className="chart-card"><header><div><strong>Match quality</strong><p>Recommended candidates</p></div></header><div className="donut"><div><strong>{avgScore || 86}</strong><span>avg. score</span></div></div><div className="legend"><span><i className="excellent" />Excellent <b>54%</b></span><span><i className="good" />Good <b>32%</b></span><span><i className="fair" />Developing <b>14%</b></span></div></section></div><section className="insight-callout"><div><Sparkles /></div><section><span>Opportunity insight</span><h3>Add “Design systems” to the role’s must-have skills.</h3><p>High-performing matches mention it 2.4× more often, and your strongest current candidates all have verified experience.</p></section><button className="secondary-button">Review suggestion</button></section></div>; }
+  const copy = role === 'candidate'
+    ? {
+      overline: 'Career intelligence', title: 'Job search insights',
+      subtitle: 'Signals that help you understand your search and strengthen your profile.',
+      responseLabel: 'Recruiter response', funnelTitle: 'Application funnel', funnelSubtitle: 'From profile view to qualified conversation',
+      qualityTitle: 'Role fit quality', qualitySubtitle: 'Your job matches',
+      insightTitle: 'Add your salary expectations to your profile.',
+      insightBody: 'Candidates with a salary range set get 3× more recruiter replies, and your top-matching roles all list one.',
+      insightAction: 'Update preferences',
+    }
+    : {
+      overline: 'Talent intelligence', title: 'Hiring insights',
+      subtitle: 'Signals that help your team improve quality, speed, and candidate experience.',
+      responseLabel: 'Candidate response', funnelTitle: 'Matching funnel', funnelSubtitle: 'From recommendation to qualified conversation',
+      qualityTitle: 'Match quality', qualitySubtitle: 'Recommended candidates',
+      insightTitle: 'Add “Design systems” to the role’s must-have skills.',
+      insightBody: 'High-performing matches mention it 2.4× more often, and your strongest current candidates all have verified experience.',
+      insightAction: 'Review suggestion',
+    };
+  return <div className="page"><div className="page-title"><div><span className="overline">{copy.overline}</span><h1>{copy.title}</h1><p>{copy.subtitle}</p></div><button className="ghost-button">All time <ChevronDown size={15} /></button></div><div className="analytics-grid"><Metric label="Mutual matches" value={String(totalMatches)} change="live" /><Metric label="In conversation" value={String(inConversation)} change={`${totalMatches ? Math.round((inConversation / totalMatches) * 100) : 0}% of matches`} /><Metric label={copy.responseLabel} value={`${responseRate}%`} change={`${otherReplied}/${inConversation} replied`} /><Metric label="Interviewing +" value={String(interviewing)} change="Interview & offer" /></div><div className="chart-grid"><section className="chart-card wide"><header><div><strong>{copy.funnelTitle}</strong><p>{copy.funnelSubtitle}</p></div><button><MoreHorizontal /></button></header><div className="bar-chart">{[62, 78, 49, 86, 72, 94, 81, 68, 90, 76, 88, 96].map((height, i) => <div key={i}><i style={{ height: `${height}%` }} /><span>{i % 2 === 0 ? ['Jul 1', '5', '9', '13', '17', '21'][i / 2] : ''}</span></div>)}</div></section><section className="chart-card"><header><div><strong>{copy.qualityTitle}</strong><p>{copy.qualitySubtitle}</p></div></header><div className="donut"><div><strong>{avgScore || 86}</strong><span>avg. score</span></div></div><div className="legend"><span><i className="excellent" />Excellent <b>54%</b></span><span><i className="good" />Good <b>32%</b></span><span><i className="fair" />Developing <b>14%</b></span></div></section></div><section className="insight-callout"><div><Sparkles /></div><section><span>Opportunity insight</span><h3>{copy.insightTitle}</h3><p>{copy.insightBody}</p></section><button className="secondary-button">{copy.insightAction}</button></section></div>; }
 
 function timeAgo(ts: number) {
   const s = Math.floor((Date.now() - ts) / 1000);

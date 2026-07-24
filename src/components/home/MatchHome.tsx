@@ -4,10 +4,11 @@ import {
   Eye, Heart, MapPin, MessageCircle, Pencil, Sparkles, Star, Target, TrendingUp, User, X,
 } from 'lucide-react';
 import { api } from '../../api';
-import type { Bootstrap, Job, MatchEvidence, Person, RoleMatchGroup, View } from '../../types';
+import type { Bootstrap, Job, MatchEvidence, Note, Person, RoleMatchGroup, View } from '../../types';
 import { JobDetailModal } from '../coach/CoachModals';
 import { CandidateCards } from '../profile/CandidateCards';
 import { CompanyLogoMark, JobHeaderBadge } from '../jobs/JobHeaderBadge';
+import { NotesBox } from '../NotesBox';
 
 type HomeProps = {
   data: Bootstrap;
@@ -123,18 +124,34 @@ function CandidateRow({ person, matched, onView, onTalk }: { person: Person; mat
   </div>;
 }
 
-function CandidateProfileModal({ candidate, onClose, onTalk }: { candidate: Person; onClose: () => void; onTalk: () => void }) {
+export function CandidateProfileModal({ candidate, onClose, onTalk, viewerId, notes, onNoteSaved, unlocked }: {
+  candidate: Person; onClose: () => void; onTalk?: () => void; viewerId?: string; notes?: Note[]; onNoteSaved?: (note: Note) => void; unlocked?: boolean;
+}) {
   return <div className="mh-modal-scrim" role="presentation" onMouseDown={onClose}>
     <section className="mh-profile-modal" role="dialog" aria-modal="true" aria-label={`Recruiter view of ${candidate.name}`} onMouseDown={(event) => event.stopPropagation()}>
       <header><div><span className="overline">Canonical recruiter profile</span><h2>{candidate.name}</h2></div><button onClick={onClose} aria-label="Close profile"><X /></button></header>
-      <CandidateCards person={candidate} match={candidate.match} />
-      <footer><button className="secondary-button" onClick={onClose}>Back</button><button className="primary-button" onClick={onTalk}><Coffee size={16} /> Let’s Talk</button></footer>
+      <CandidateCards person={candidate} match={candidate.match} unlocked={unlocked} />
+      {viewerId && notes && onNoteSaved && <NotesBox viewerId={viewerId} targetId={candidate.id} targetType="candidate" notes={notes} onSaved={onNoteSaved} />}
+      <footer><button className="secondary-button" onClick={onClose}>Back</button>{onTalk && <button className="primary-button" onClick={onTalk}><Coffee size={16} /> Let’s Talk</button>}</footer>
+    </section>
+  </div>;
+}
+
+/** What a recruiter actually sees pre-match: same 5-card deck, unlocked=false
+ * so name/contact stay masked exactly as they would for a real recruiter. */
+function ProfilePreviewModal({ viewer, onClose }: { viewer: Person; onClose: () => void }) {
+  return <div className="mh-modal-scrim" role="presentation" onMouseDown={onClose}>
+    <section className="mh-profile-modal" role="dialog" aria-modal="true" aria-label="How recruiters see your profile" onMouseDown={(event) => event.stopPropagation()}>
+      <header><div><span className="overline">Recruiter preview</span><h2>{viewer.name}</h2></div><button onClick={onClose} aria-label="Close preview"><X /></button></header>
+      <CandidateCards person={viewer} unlocked={false} visibilityInspector />
+      <footer><button className="secondary-button" onClick={onClose}>Close preview</button></footer>
     </section>
   </div>;
 }
 
 export function CandidateHome({ data, setData, navigate, onEditProfile }: HomeProps) {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const jobs = useMemo(() => [...data.jobs].sort((a, b) => (b.match?.score || 0) - (a.match?.score || 0)), [data.jobs]);
   const matchedJobIds = new Set(data.matches.map((match) => match.jobId));
   const matchedJobs = jobs.filter((job) => matchedJobIds.has(job.id));
@@ -145,6 +162,16 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
   const completion = data.viewer.completeness || 0;
 
   const reload = async () => setData(await api.bootstrap(data.viewer.id));
+  const [addingVariant, setAddingVariant] = useState(false);
+  const [variantName, setVariantName] = useState('');
+  const activateVariant = async (id: string) => { await api.activateProfileVariant(id, data.viewer.id); await reload(); };
+  const removeVariant = async (id: string) => { await api.deleteProfileVariant(id, data.viewer.id); await reload(); };
+  const saveVariant = async () => {
+    if (!variantName.trim()) return;
+    await api.saveProfileVariant({ userId: data.viewer.id, name: variantName.trim() });
+    setVariantName(''); setAddingVariant(false);
+    await reload();
+  };
   const toggleSave = async (job: Job) => {
     await api.toggleBookmark({ userId: data.viewer.id, targetId: job.id, targetType: 'job' });
     await reload();
@@ -170,7 +197,7 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
         <h1>Good morning, {firstName(data.viewer.name)} <span>👋</span></h1>
         <h2>The right roles are already looking for you.</h2>
         <p>Your profile is {completion}% complete and already matching with {precise.length} relevant opportunities.</p>
-        <div><button className="primary-button" onClick={() => navigate('discover')}>Explore Matches</button><button className="secondary-button" onClick={() => navigate('profile')}>Preview as Recruiter</button></div>
+        <div><button className="primary-button" onClick={() => navigate('discover')}>Explore Matches</button><button className="secondary-button" onClick={() => setPreviewing(true)}>Preview as Recruiter</button></div>
       </div>
       <aside className="td-profile-strength">
         <div className="mh-ring" style={{ '--value': `${completion * 3.6}deg` } as React.CSSProperties}><strong>{completion}%</strong></div>
@@ -192,6 +219,22 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
           <div className="td-profile-card-meta"><span>{completion}% complete</span>{data.viewer.location && <span>{data.viewer.location}</span>}</div>
         </div>
         <button className="secondary-button small" onClick={() => navigate('profile')}>View profile</button>
+      </div>
+      <div className="td-profile-variants">
+        <span className="td-profile-variants-label">Profiles for different roles — switch which title/skills recruiters and matching see</span>
+        <div className="td-variant-pills">
+          {(data.viewer.profileVariants || []).map((variant) => <span key={variant.id} className={variant.id === data.viewer.activeVariantId ? 'td-variant-pill active' : 'td-variant-pill'}>
+            <button onClick={() => void activateVariant(variant.id)}>{variant.name}</button>
+            <button className="td-variant-remove" aria-label={`Delete ${variant.name}`} onClick={() => void removeVariant(variant.id)}><X size={11} /></button>
+          </span>)}
+          {addingVariant
+            ? <span className="td-variant-pill new">
+              <input value={variantName} onChange={(event) => setVariantName(event.target.value)} placeholder="e.g. Frontend Engineer" autoFocus onKeyDown={(event) => { if (event.key === 'Enter') void saveVariant(); if (event.key === 'Escape') setAddingVariant(false); }} />
+              <button onClick={() => void saveVariant()}>Save</button>
+              <button onClick={() => { setAddingVariant(false); setVariantName(''); }}>Cancel</button>
+            </span>
+            : <button className="td-variant-add" onClick={() => setAddingVariant(true)}>+ Save current as…</button>}
+        </div>
       </div>
     </section>
 
@@ -227,7 +270,8 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
 
     <div className="td-tip"><Sparkles size={13} /> Tip: Profiles with salary and work-mode preferences get 3× more matches.</div>
 
-    {selectedJob && <JobDetailModal job={selectedJob} onClose={() => setSelectedJob(null)} />}
+    {selectedJob && <JobDetailModal job={selectedJob} onClose={() => setSelectedJob(null)} viewerId={data.viewer.id} notes={data.notes} onNoteSaved={(note) => setData({ ...data, notes: [...data.notes.filter((n) => n.id !== note.id), note] })} />}
+    {previewing && <ProfilePreviewModal viewer={data.viewer} onClose={() => setPreviewing(false)} />}
   </main>;
 }
 
@@ -260,10 +304,11 @@ export function RecruiterHome({ data, setData, navigate, onAddJobs, onOpenMessag
     ? (a.demoOrder || 99) - (b.demoOrder || 99)
     : bestMatchFirst ? (b.match?.score || 0) - (a.match?.score || 0) : a.name.localeCompare(b.name);
 
+  const upcomingCalls = [...data.calls].filter((call) => call.startAt >= Date.now()).sort((a, b) => a.startAt - b.startAt);
   const metrics = [
     { icon: Heart, label: 'People Who Love Your Jobs', value: interested.length, note: 'candidates', target: 'td-roles' },
     { icon: Eye, label: 'Viewed Your Jobs', value: allPeople.length, note: 'today', target: 'td-recent' },
-    { icon: Coffee, label: 'Coffee Requests', value: data.calls.length, note: 'awaiting', target: 'td-coffee' },
+    { icon: Coffee, label: 'Coffee Requests', value: upcomingCalls.length, note: 'awaiting', target: 'td-coffee' },
     { icon: MessageCircle, label: 'Active Conversations', value: data.matches.length, note: 'ongoing', target: 'messages' },
     { icon: TrendingUp, label: topRole?.job.title || 'Top Performing Role', value: topRole?.matchingCandidates?.length || 0, note: 'perfect matches', target: 'td-roles' },
   ];
@@ -330,9 +375,21 @@ export function RecruiterHome({ data, setData, navigate, onAddJobs, onOpenMessag
 
     <section className="td-bottom-grid recruiter">
       <article className="td-list-panel" id="td-recent"><DashboardTitle icon={Eye} title="Recently Viewed Your Jobs" />{allPeople.slice(0, 4).map((person) => <button key={person.id} onClick={() => setSelected(person)}><img src={person.photo} alt="" /><span><strong>{person.name}</strong><small>Viewed a role recently</small></span><ArrowRight size={12} /></button>)}</article>
-      <article className="td-list-panel" id="td-coffee"><DashboardTitle icon={Coffee} title="Coffee Requests" />{data.matches.slice(0, 4).map((match) => <button key={match.id} onClick={() => navigate('messages')}><img src={match.candidate.photo} alt="" /><span><strong>{match.candidate.name}</strong><small>{match.job.title}</small></span><ArrowRight size={12} /></button>)}</article>
+      <article className="td-list-panel" id="td-coffee">
+        <DashboardTitle icon={Coffee} title="Coffee Requests" action="See all" onAction={() => navigate('meetings')} />
+        {upcomingCalls.length
+          ? upcomingCalls.slice(0, 4).map((call) => {
+            const match = data.matches.find((m) => m.id === call.matchId);
+            return <button key={call.id} onClick={() => navigate('meetings')}>
+              <img src={match?.candidate.photo} alt="" />
+              <span><strong>{match?.candidate.name}</strong><small>{new Date(call.startAt).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · {call.title}</small></span>
+              <ArrowRight size={12} />
+            </button>;
+          })
+          : <EmptyRow>No calls scheduled yet — propose one from a match.</EmptyRow>}
+      </article>
       <article className="td-list-panel" id="td-conversations"><DashboardTitle icon={MessageCircle} title="Active Conversations" />{data.matches.slice(0, 4).map((match) => <button key={match.id} onClick={() => navigate('messages')}><img src={match.candidate.photo} alt="" /><span><strong>{match.candidate.name}</strong><small>{data.messages.filter((message) => message.matchId === match.id).at(-1)?.text || match.job.title}</small></span><Bell size={12} /></button>)}</article>
     </section>
-    {selected && <CandidateProfileModal candidate={selected} onClose={() => setSelected(null)} onTalk={() => { const person = selected; setSelected(null); void talk(person); }} />}
+    {selected && <CandidateProfileModal candidate={selected} onClose={() => setSelected(null)} onTalk={() => { const person = selected; setSelected(null); void talk(person); }} viewerId={data.viewer.id} notes={data.notes} onNoteSaved={(note) => setData({ ...data, notes: [...data.notes.filter((n) => n.id !== note.id), note] })} />}
   </main>;
 }
