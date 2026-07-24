@@ -1396,7 +1396,7 @@ button { cursor:pointer; }
 .profile-topline h1{margin:2px 0 4px;font-size:1.5rem;}
 .profile-topline p{color:var(--muted,#6b7280);font-size:.9rem;max-width:46ch;}
 .tcards{--tc-accent:#ff3d6e;--tc-accent2:#ff6a5a;max-width:460px;margin:0 auto;}
-.tcards-deck{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:26px;scrollbar-width:none;-webkit-overflow-scrolling:touch;box-shadow:0 30px 60px rgba(15,17,21,.35);}
+.tcards-deck{position:relative;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:26px;scrollbar-width:none;-webkit-overflow-scrolling:touch;box-shadow:0 30px 60px rgba(15,17,21,.35);}
 .tcards-deck::-webkit-scrollbar{display:none;}
 .tcard-slide{flex:0 0 100%;scroll-snap-align:center;height:min(76vh,660px);}
 .tcard{height:100%;background:#0f1115;color:#f4f6f9;overflow:hidden;display:flex;flex-direction:column;position:relative;}
