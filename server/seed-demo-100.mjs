@@ -44,6 +44,15 @@ const OPENERS = [
   'Great to match with you. When works for a 20-minute chat this week?',
   'Your skills line up almost exactly with what we need. Coffee in your city?',
 ];
+const REVIEW_TEMPLATES = [
+  'Shipped ahead of schedule and left the codebase cleaner than they found it. Would hire again in a heartbeat.',
+  'Deep technical range paired with genuinely good communication — rare combination on our team.',
+  'Owned a messy migration end to end with zero drama. Calm under pressure.',
+  'Turned an ambiguous brief into a shipped result faster than anyone else on the team.',
+  'Mentored two juniors while carrying their own workload. Strong technical judgment.',
+  'The kind of teammate who flags risk early instead of after it becomes a fire.',
+];
+const REVIEW_ROLES = ['Engineering Manager', 'Senior Recruiter', 'Head of Talent', 'VP Engineering', 'Team Lead', 'Director of Product'];
 
 const now = Date.now();
 const day = 86400000;
@@ -56,6 +65,7 @@ for (let i = 1; i <= 100; i++) {
   const name = `${pick(FIRST)} ${pick(LAST)}`;
   /* mockup portrait photos: randomuser.me set (100 men + 100 women), deterministic per id */
   const photo = `https://randomuser.me/api/portraits/${i % 2 ? 'women' : 'men'}/${i % 100}.jpg`;
+  const reviewerName = `${pick(FIRST)} ${pick(LAST)}`;
   candidates.push({
     id: `dc-${i}`, role: 'candidate', demo: true, name,
     title: `${pick(fam.titles)}`, location: `${city}${rnd() < 0.35 ? ' · Open to remote' : ''}`,
@@ -63,6 +73,10 @@ for (let i = 1; i <= 100; i++) {
     photo, initials: name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase(),
     skills: pickN(fam.skills, 4), languages: ['English', ...pickN(LANGS.slice(1), rnd() < 0.7 ? 1 : 2)],
     experienceLevel: level, availability: pick(AVAIL), completeness: 70 + Math.floor(rnd() * 30),
+    recommendations: [{
+      recruiterName: reviewerName, role: pick(REVIEW_ROLES), text: pick(REVIEW_TEMPLATES),
+      verified: true, wouldWorkAgain: true,
+    }],
   });
   const company = `${pick(COMPANIES)}`;
   const hr = `${pick(FIRST)} ${pick(LAST)}`;

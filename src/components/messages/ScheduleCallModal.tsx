@@ -8,15 +8,17 @@ import type { JobMatch, Person, ScheduledCall } from '../../types';
 const DURATIONS = [15, 25, 30, 45, 60] as const;
 
 /**
- * Recruiter-only: propose a specific call time (persisted, shows to both sides with
- * add-to-calendar links), or — if the recruiter has a Calendly/cal.com link on their
- * profile — just share it so the candidate books directly on the recruiter's real
- * connected calendar. No OAuth: see src/lib/calendar.ts for why.
+ * Either side of a match can propose a specific call time (persisted, shows to
+ * both sides with add-to-calendar links), or — if the viewer has a Calendly/
+ * cal.com link on their profile — just share it so the other side books
+ * directly on the viewer's real connected calendar. No OAuth: see
+ * src/lib/calendar.ts for why.
  */
 export function ScheduleCallModal({ match, viewer, onClose, onScheduled, onShareLink }: {
   match: JobMatch; viewer: Person; onClose: () => void; onScheduled: (call: ScheduledCall) => void; onShareLink: (text: string) => void;
 }) {
-  const candidateFirst = match.candidate?.name?.split(' ')[0] || 'the candidate';
+  const otherParty = viewer.role === 'candidate' ? (match.job?.company || match.employer?.name || 'the team') : (match.candidate?.name || 'the candidate');
+  const otherFirst = otherParty.split(' ')[0];
   const [title, setTitle] = useState(`Intro call — ${match.job?.title || 'the role'}`);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -39,17 +41,17 @@ export function ScheduleCallModal({ match, viewer, onClose, onScheduled, onShare
 
   const shareBookingLink = () => {
     const link = /^https?:/.test(viewer.calendarLink || '') ? viewer.calendarLink! : `https://${viewer.calendarLink}`;
-    onShareLink(`Hi ${candidateFirst} — feel free to grab a time that works for you here: ${link}`);
+    onShareLink(`Hi ${otherFirst} — feel free to grab a time that works for you here: ${link}`);
   };
 
   return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
     <motion.div className="coach-modal" initial={{ y: 26, scale: .97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 18, scale: .97 }} onClick={(event) => event.stopPropagation()}>
       <button className="modal-close" onClick={onClose} aria-label="Close"><X /></button>
-      <header className="coach-head"><div><span className="overline">Schedule a call</span><h2>With {match.candidate?.name || candidateFirst}</h2></div></header>
+      <header className="coach-head"><div><span className="overline">Schedule a call</span><h2>With {otherParty}</h2></div></header>
       <div className="coach-body">
         {viewer.calendarLink && <div className="job-import-bar" style={{ marginBottom: 16 }}>
           <button type="button" className="secondary-button job-import-btn" onClick={shareBookingLink}><ExternalLink size={15} /> Share my booking link instead</button>
-          <span className="job-import-note">Lets {candidateFirst} pick a slot on your real connected calendar ({viewer.calendarLink}).</span>
+          <span className="job-import-note">Lets {otherFirst} pick a slot on your real connected calendar ({viewer.calendarLink}).</span>
         </div>}
         <Field label="Title" required><TextInput value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
         <div className="wz-row">

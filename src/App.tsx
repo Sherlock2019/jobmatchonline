@@ -28,7 +28,7 @@ import { googleCalendarUrl, icsDataUrl, outlookCalendarUrl } from './lib/calenda
 import type { ScreeningAnswer } from './types';
 import { comparisonRows } from './content/landingContent';
 import { loadSession, saveSession } from './lib/auth';
-import type { Bootstrap, Job, JobMatch, Message, Person, Role, SessionUser, View } from './types';
+import type { Bootstrap, Job, JobMatch, Message, Person, Role, ScheduledCall, SessionUser, View } from './types';
 
 // Nav items either open a dedicated view (`view`) or scroll to a section on the
 // home dashboard (`anchor`). `short` is the compact label for the mobile bar.
@@ -39,6 +39,7 @@ const candidateNav: NavItem[] = [
   { label: 'Jobs that like you', short: 'Likes You', icon: Target, anchor: 'td-chasing' },
   { label: 'Jobs You Should Consider', short: 'Swipe', icon: Sparkles, view: 'discover' },
   { label: 'Conversations', short: 'Chat', icon: MessageCircle, anchor: 'td-conversations' },
+  { label: 'Meetings', icon: Calendar, view: 'meetings' },
 ];
 const employerNav: NavItem[] = [
   { label: 'Home', icon: Compass, view: 'home' },
@@ -46,6 +47,7 @@ const employerNav: NavItem[] = [
   { label: 'Job Matches', icon: Check, anchor: 'td-roles' },
   { label: 'Candidates', icon: Users, view: 'discover' },
   { label: 'Conversations', short: 'Chat', icon: MessageCircle, anchor: 'td-conversations' },
+  { label: 'Meetings', icon: Calendar, view: 'meetings' },
   { label: 'Reports', icon: BarChart3, view: 'analytics' },
 ];
 
@@ -237,6 +239,7 @@ function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profil
   if (view === 'companies') return <Companies data={data} navigate={navigate} />;
   if (view === 'pipeline') return <Pipeline data={data} setData={setData} />;
   if (view === 'messages') return <Messages role={role} data={data} setData={setData} initialMatchId={openMatchId} />;
+  if (view === 'meetings') return <Meetings role={role} data={data} setData={setData} onOpenMessages={onOpenMessages} />;
   if (view === 'analytics') return <Analytics data={data} />;
   if (view === 'jobs') return <Jobs data={data} reload={reload} onAddJobs={onAddJobs} manualJobRequest={manualJobRequest} onOpenMessages={onOpenMessages} editJobId={editJobId} />;
   if (view === 'matches') return <Matches data={data} navigate={navigate} />;
@@ -659,7 +662,7 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
       <header>{role === 'candidate' && match.job ? <CompanyLogoMark job={match.job} small /> : <img src={match.candidate?.photo} />}
         <div><strong>{otherName}</strong><span><i />{match.job?.title}</span></div>
         <button className={showStarters ? 'starter-toggle active' : 'starter-toggle'} onClick={() => setShowStarters((v) => !v)} title="Conversation starters — also handy to prep for a call"><Sparkles size={16} /></button>
-        {role === 'employer' && <button className="starter-toggle" onClick={() => setScheduling(true)} title="Schedule a call"><Calendar size={16} /></button>}
+        <button className="starter-toggle" onClick={() => setScheduling(true)} title="Schedule a call"><Calendar size={16} /></button>
         <button><MoreHorizontal /></button>
       </header>
       <div className="conversation-body">
@@ -693,6 +696,76 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
       <div className="context-details"><label>Matched for</label><strong>{match?.job?.title}</strong><label>Location</label><strong>{match?.candidate?.location}</strong><label>Stage</label><strong>{match?.stage}</strong></div>
       <button className="secondary-button">View full profile</button>
     </aside>
+  </div>;
+}
+
+/** Every scheduled call across every match, in one place — plus a way to
+ * propose a time for any match that doesn't have one yet. Deliberately its
+ * own page (not folded into Conversations): meetings are a cross-match
+ * concept, so "what's on my calendar this week" shouldn't require opening
+ * every thread one by one to check. */
+function Meetings({ role, data, setData, onOpenMessages }: { role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; onOpenMessages: (matchId: string) => void }) {
+  const [schedulingFor, setSchedulingFor] = useState<JobMatch | null>(null);
+  const now = Date.now();
+  const upcoming = [...data.calls].filter((call) => call.startAt >= now).sort((a, b) => a.startAt - b.startAt);
+  const past = [...data.calls].filter((call) => call.startAt < now).sort((a, b) => b.startAt - a.startAt);
+  const scheduledMatchIds = new Set(data.calls.map((call) => call.matchId));
+  const unscheduled = data.matches.filter((match) => !scheduledMatchIds.has(match.id));
+
+  const otherParty = (match: JobMatch) => role === 'candidate'
+    ? { name: match.job?.company || match.employer?.name || 'Recruiter', sub: match.job?.title, photo: match.employer?.photo }
+    : { name: match.candidate?.name || 'Candidate', sub: match.job?.title, photo: match.candidate?.photo };
+
+  const CallCard = ({ call, past: isPast }: { call: ScheduledCall; past?: boolean }) => {
+    const match = data.matches.find((m) => m.id === call.matchId);
+    const other = match ? otherParty(match) : undefined;
+    const event = { title: call.title, description: call.notes, startAt: call.startAt, durationMinutes: call.durationMinutes };
+    return <div className="schedule-card" key={call.id}>
+      {other?.photo ? <img className="meeting-photo" src={other.photo} alt="" /> : <div><Calendar size={16} /></div>}
+      <section><span>{other?.name}{other?.sub ? ` · ${other.sub}` : ''}</span><strong>{call.title}</strong>
+        <p>{new Date(call.startAt).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · {call.durationMinutes} min</p>
+      </section>
+      {!isPast && <div className="schedule-card-links">
+        <a href={googleCalendarUrl(event)} target="_blank" rel="noreferrer" title="Add to Google Calendar"><ExternalLink size={14} /> Google</a>
+        <a href={outlookCalendarUrl(event)} target="_blank" rel="noreferrer" title="Add to Outlook"><ExternalLink size={14} /> Outlook</a>
+        <a href={icsDataUrl(event)} download={`${call.title}.ics`} title="Download .ics"><Download size={14} /> .ics</a>
+      </div>}
+      <button className="meeting-btn" onClick={() => onOpenMessages(call.matchId)}>Open chat</button>
+    </div>;
+  };
+
+  return <div className="page meetings-page">
+    <div className="page-title"><div><span className="overline">Calendar</span><h1>Meetings</h1><p>Every scheduled call across your matches, with one-click add to Google, Outlook, or Apple Calendar.</p></div></div>
+
+    <section className="td-section" id="meetings-upcoming">
+      <DashboardTitle icon={Calendar} title="Upcoming" subtitle={`${upcoming.length} scheduled`} />
+      {upcoming.length
+        ? <div className="meetings-list">{upcoming.map((call) => <CallCard call={call} key={call.id} />)}</div>
+        : <EmptyRow>No meetings scheduled yet — propose a time with a match below.</EmptyRow>}
+    </section>
+
+    <section className="td-section" id="meetings-schedule">
+      <DashboardTitle icon={Users} title="Schedule a meeting" subtitle="Pick a match to propose a time." />
+      {unscheduled.length
+        ? <div className="meetings-list">{unscheduled.map((match) => {
+          const other = otherParty(match);
+          return <div className="schedule-card" key={match.id}>
+            {other.photo ? <img className="meeting-photo" src={other.photo} alt="" /> : <div><Calendar size={16} /></div>}
+            <section><span>{other.sub}</span><strong>{other.name}</strong></section>
+            <button className="meeting-btn solid" onClick={() => setSchedulingFor(match)}><Calendar size={15} /> Schedule</button>
+          </div>;
+        })}</div>
+        : <EmptyRow>Every match already has a meeting on the calendar.</EmptyRow>}
+    </section>
+
+    {past.length > 0 && <section className="td-section" id="meetings-past">
+      <DashboardTitle icon={Clock3} title="Past meetings" subtitle={`${past.length} completed`} />
+      <div className="meetings-list">{past.map((call) => <CallCard call={call} past key={call.id} />)}</div>
+    </section>}
+
+    {schedulingFor && <ScheduleCallModal match={schedulingFor} viewer={data.viewer} onClose={() => setSchedulingFor(null)}
+      onScheduled={(call) => { setData({ ...data, calls: [...data.calls, call] }); setSchedulingFor(null); }}
+      onShareLink={async (shareText) => { const message = await api.message({ matchId: schedulingFor.id, senderId: data.viewer.id, text: shareText }); setData({ ...data, messages: [...data.messages, message] }); setSchedulingFor(null); }} />}
   </div>;
 }
 

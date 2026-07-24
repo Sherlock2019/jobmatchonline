@@ -747,6 +747,11 @@ img.avatar-mini { object-fit:cover; }
 .schedule-card-links { margin-left:auto; display:flex; flex-direction:column; gap:5px; flex:none; }
 .schedule-card-links a { display:flex; align-items:center; gap:5px; color:var(--green); font-size:8px; font-weight:800; text-decoration:none; white-space:nowrap; }
 .schedule-card-links a:hover { text-decoration:underline; }
+.meetings-list { display:flex; flex-direction:column; gap:10px; }
+.meetings-list .schedule-card { margin:0; max-width:none; width:100%; }
+.meeting-photo { width:34px; height:34px; border-radius:50%; object-fit:cover; flex:none; }
+.schedule-card button.meeting-btn { margin-left:auto; flex:none; border:1px solid var(--line); background:#fff; color:#0d1834; border-radius:8px; padding:7px 13px; font-size:9px; font-weight:800; }
+.schedule-card button.meeting-btn.solid { background:linear-gradient(135deg,#fd267a,#ff6036); color:#fff; border:0; }
 .starter-panel { border-top:1px solid var(--line); padding:14px 20px; display:flex; flex-direction:column; gap:9px; }
 .starter-panel-label { display:flex; align-items:center; gap:6px; font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--green); }
 .starter-tabs { display:flex; flex-wrap:wrap; gap:6px; }
