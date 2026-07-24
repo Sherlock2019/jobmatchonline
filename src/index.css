@@ -354,12 +354,12 @@ button { cursor:pointer; }
 .hero-copy .eyebrow { text-transform:none; letter-spacing:-.005em; font-size:15px; line-height:1.45; max-width:560px; align-items:flex-start; }
 .hero-copy .eyebrow svg { margin-top:3px; flex:none; }
 
-/* Hero Register / Log in ~2× bigger and bolder */
-.hero-actions { gap:16px; margin-top:40px; }
-.hero-actions .primary-button, .hero-actions .secondary-button { min-height:68px; font-size:20px; padding:0 40px; border-radius:999px; }
+/* Hero Register / Log in / Test demo matching — three actions, sized to fit on one row */
+.hero-actions { gap:14px; margin-top:40px; flex-wrap:wrap; }
+.hero-actions .primary-button, .hero-actions .secondary-button { min-height:58px; font-size:17px; padding:0 28px; border-radius:999px; white-space:nowrap; }
 .hero-actions .primary-button { box-shadow:0 16px 34px rgba(253,38,122,.32); }
-.hero-actions .primary-button svg, .hero-actions .secondary-button svg { width:22px; height:22px; }
-.hero-actions .demo-test-button { color:#0878d1; border-color:#afd7f5; background:#eef8ff; }
+.hero-actions .primary-button svg, .hero-actions .secondary-button svg { width:20px; height:20px; flex:none; }
+.hero-actions .demo-test-button { color:#0878d1; border-color:#afd7f5; background:#eef8ff; padding:0 22px; font-size:16px; }
 
 /* Add New Job Offers — simple recruiter-first import flow */
 .job-add-banner { display:grid; grid-template-columns:auto minmax(220px,1fr) auto auto; align-items:center; gap:16px; margin:0 0 18px; padding:17px 18px; border:1px solid #d9e6f4; border-radius:15px; background:linear-gradient(110deg,#f6fbff 0%,#fff 62%,#fff5f8 100%); box-shadow:0 9px 25px rgba(30,70,110,.05); }
@@ -786,6 +786,16 @@ button { cursor:pointer; }
 .jobs-table>header,.job-row { min-height:52px; display:grid; grid-template-columns:minmax(260px,2fr) .7fr .6fr .6fr .7fr 35px; align-items:center; gap:14px; padding:0 18px; }
 .jobs-table>header { background:#f4f6f3; color:#879189; text-transform:uppercase; letter-spacing:.08em; font-size:7px; font-weight:800; }
 .job-row { min-height:76px; border-top:1px solid var(--line); font-size:10px; }
+.job-row-clickable { cursor:pointer; transition:background .15s; }
+.job-row-clickable:hover { background:#fbfcfe; }
+.job-offer-detail .job-header-badge { margin:8px 0 26px; }
+.job-detail-threads { display:flex; flex-direction:column; }
+.job-detail-threads button { display:grid; grid-template-columns:34px 1fr 14px; align-items:center; gap:11px; width:100%; border:0; border-top:1px solid #edf0f4; background:none; padding:11px 4px; text-align:left; cursor:pointer; }
+.job-detail-threads button:first-child { border-top:0; }
+.job-detail-threads img { width:34px; height:34px; border-radius:50%; object-fit:cover; }
+.job-detail-threads span { min-width:0; display:flex; flex-direction:column; }
+.job-detail-threads strong { font-size:12px; color:#0d1834; }
+.job-detail-threads small { font-size:10px; color:#8890a0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .job-row>div:first-child { display:flex; align-items:center; gap:11px; }
 .small-logo { width:37px; height:37px; border-radius:10px; font-size:15px; }
 .job-row section { display:flex; flex-direction:column; }
@@ -2134,6 +2144,7 @@ button { cursor:pointer; }
 .td-metrics>button.highlight>span { background:#e8e2ff; color:#694ddb; }
 
 .td-section { margin-top:21px; scroll-margin-top:80px; }
+.td-list-panel[id], .td-bottom-grid[id] { scroll-margin-top:80px; }
 .td-section-title {
   min-height:28px;
   display:flex;

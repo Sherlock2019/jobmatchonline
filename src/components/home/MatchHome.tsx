@@ -15,6 +15,7 @@ type HomeProps = {
   navigate: (view: View) => void;
   onEditProfile: (step: number) => void;
   onAddJobs?: () => void;
+  onOpenMessages?: (matchId: string) => void;
 };
 
 function firstName(name = 'there') {
@@ -43,7 +44,7 @@ function Stars({ score = 0 }: { score?: number }) {
   </span>;
 }
 
-function DashboardTitle({ icon: Icon, title, subtitle, action, onAction }: {
+export function DashboardTitle({ icon: Icon, title, subtitle, action, onAction }: {
   icon: typeof Heart; title: string; subtitle?: string; action?: string; onAction?: () => void;
 }) {
   return <header className="td-section-title">
@@ -104,7 +105,7 @@ function PersonCard({ person, saved, liked, onSave, onView, onTalk }: {
   </article>;
 }
 
-function EmptyRow({ children }: { children: React.ReactNode }) {
+export function EmptyRow({ children }: { children: React.ReactNode }) {
   return <div className="td-empty"><Sparkles size={18} /><span>{children}</span></div>;
 }
 
@@ -187,7 +188,7 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
     </section>
 
     <section className="td-section" id="td-matches">
-      <DashboardTitle icon={Heart} title="Matches" subtitle="You and these teams both said yes — start the conversation." action={`See all (${matchedJobs.length})`} onAction={() => navigate('matches')} />
+      <DashboardTitle icon={Heart} title="Job Matches" subtitle="You and these teams both said yes — start the conversation." action={`See all (${matchedJobs.length})`} onAction={() => navigate('matches')} />
       {matchedJobs.length
         ? jobCards(matchedJobs)
         : <EmptyRow>No mutual matches yet. Like a role that likes you back and it lands here.</EmptyRow>}
@@ -199,7 +200,7 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
     </section>
 
     <section className="td-bottom-grid">
-      <article className="td-list-panel">
+      <article className="td-list-panel" id="td-conversations">
         <DashboardTitle icon={MessageCircle} title="Conversations" action="See all" onAction={() => navigate('messages')} />
         {conversations.map((match) => <button key={match.id} onClick={() => navigate('messages')}><img src={match.employer?.photo || data.viewer.photo} alt="" /><span><strong>{match.employer?.name || match.job.company}</strong><small>{data.messages.filter((message) => message.matchId === match.id).at(-1)?.text || match.job.title}</small></span></button>)}
       </article>
@@ -216,7 +217,7 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
   </main>;
 }
 
-export function RecruiterHome({ data, setData, navigate, onAddJobs }: HomeProps) {
+export function RecruiterHome({ data, setData, navigate, onAddJobs, onOpenMessages }: HomeProps) {
   const [selected, setSelected] = useState<Person | null>(null);
   const [expandedId, setExpandedId] = useState('');
   const [bestMatchFirst, setBestMatchFirst] = useState(true);
@@ -279,7 +280,7 @@ export function RecruiterHome({ data, setData, navigate, onAddJobs }: HomeProps)
               <div className="td-role-sublist">
                 <span className="td-sublabel"><Check size={12} /> Matches ({matchedForJob.length})</span>
                 {matchedForJob.length
-                  ? matchedForJob.map((match) => <CandidateRow key={match.id} person={match.candidate} matched onView={() => setSelected(match.candidate)} onTalk={() => navigate('messages')} />)
+                  ? matchedForJob.map((match) => <CandidateRow key={match.id} person={match.candidate} matched onView={() => setSelected(match.candidate)} onTalk={() => onOpenMessages ? onOpenMessages(match.id) : navigate('messages')} />)
                   : <EmptyRow>No mutual matches yet for this role.</EmptyRow>}
               </div>
               <div className="td-role-sublist">
@@ -292,6 +293,21 @@ export function RecruiterHome({ data, setData, navigate, onAddJobs }: HomeProps)
           </article>;
         })}
       </div>
+    </section>
+
+    <section className="td-section" id="td-job-matches">
+      <DashboardTitle icon={Check} title="Job Matches" subtitle="Every mutual match across all your roles." />
+      {data.matches.length
+        ? <div className="td-role-sublist">
+          {[...data.matches].sort((a, b) => (b.candidate.match?.score || 0) - (a.candidate.match?.score || 0)).map((match) => <div className="td-cand-row" key={match.id}>
+            <img src={match.candidate.photo} alt="" />
+            <div className="td-cand-row-info"><strong>{match.candidate.name}</strong><small>{match.job.title} · {match.job.company}</small></div>
+            <span className="td-cand-row-score">{match.candidate.match?.score || 0}%</span>
+            <button className="td-cand-row-view" onClick={() => setSelected(match.candidate)} aria-label={`View ${match.candidate.name}`}><Eye size={14} /></button>
+            <button className="td-cand-row-talk matched" onClick={() => onOpenMessages?.(match.id)}><MessageCircle size={13} /> Message</button>
+          </div>)}
+        </div>
+        : <EmptyRow>No mutual matches yet — they'll show up here the moment a candidate matches with one of your roles.</EmptyRow>}
     </section>
 
     <section className="td-metrics recruiter" aria-label="Recruiter summary">

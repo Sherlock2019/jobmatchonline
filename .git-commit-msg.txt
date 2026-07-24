@@ -1,0 +1,20 @@
+Sidebar nav scrolls to home sections; per-job detail page; hero CTA overflow fix
+
+- Sidebar nav items now scroll to a section on the Home dashboard (Matches,
+  Jobs that like you, Conversations, My Jobs, Job Matches) instead of always
+  opening a separate page; items that need a real page (Jobs You Should
+  Consider / Candidates, Profile, Reports) still navigate normally.
+- Candidate home: Job Matches section above Jobs that like you, same order
+  as the sidebar.
+- Recruiter home: added a "Job Matches" section (flat list of all mutual
+  matches across every role) right after My Jobs, matching a new "Job
+  Matches" sidebar item placed under My Jobs.
+- My Job Offers: clicking a job row now opens a dedicated job detail page
+  with "Job Matches" (mutual candidates for that role) and "Messages"
+  (threads for that role's matches, linking into the main Messages page
+  with the right thread pre-selected) instead of only the edit form.
+- Renamed: "Matches" -> "Job Matches", "Jobs matching your skills" / discover
+  page title -> "Jobs You Should Consider" (candidate side).
+- Fixed hero "Log in" button text wrapping: the 2-button oversized sizing
+  (68px/20px/40px padding) never got adjusted when a third "Test demo
+  matching" button was added; rescaled to fit three buttons on one row.
