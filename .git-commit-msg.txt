@@ -1,11 +1,12 @@
-Fix landing mockup coherence and remove duplicate recruiter matches list
+Restyle landing mockup profile/job screens to match the match-card look
 
-- Landing phone mockup: candidate profile screen now shows a male
-  photo for "Alex Martinez" (was mistakenly using the female stock
-  photo), matching the person shown in the "It's a Match" artwork.
-- Landing phone mockup: role/job screen now shows recruiter Sarah
-  Thompson's photo and title, same person as in the match artwork,
-  so all three carousel screens tell one coherent story.
-- Recruiter home: removed the flat "Job Matches" section duplicating
-  the per-job "Matches" sublist already shown inside each job row.
-  Sidebar "Job Matches" nav item now scrolls to "My Jobs" instead.
+- Cropped the real Alex Martinez and Sarah Thompson photos directly
+  out of the match-mockup artwork (same source pixels, not a stock
+  photo lookalike) and added them as new hashed assets.
+- Candidate profile screen: large circular Alex Martinez photo, dark
+  gradient background matching the "It's a Match" screen instead of
+  a plain white card.
+- Job/role screen: large circular Sarah Thompson photo (the hiring
+  contact), same dark styling, company/salary/blurb/skills retained.
+- All three carousel screens now share one consistent dark, large-
+  photo visual language and the same two people throughout.

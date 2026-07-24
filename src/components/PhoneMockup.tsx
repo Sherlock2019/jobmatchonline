@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /* Three-screen phone mockup: It's a Match -> candidate swipe card -> job swipe card.
-   Slide 1 uses the supplied match artwork; slides 2-3 remain live-rendered.
+   Slide 1 uses the supplied match artwork; slides 2-3 remain live-rendered but reuse the
+   exact same Alex/Sarah photos (cropped from the match artwork) and dark card styling so
+   all three screens read as one coherent story.
    Imported (not referenced from /public) so Vite content-hashes the filename —
    this busts the browser's 30-day immutable cache whenever the artwork changes. */
 import MATCH_MOCKUP from '../assets/match-mockup.png';
+import ALEX_PHOTO from '../assets/alex-martinez.png';
+import SARAH_PHOTO from '../assets/sarah-thompson.png';
 
-/* Same two people as the "It's a Match" artwork above, so all three screens read as one coherent story. */
-const CANDIDATE = { name: 'Alex Martinez', title: 'Senior Software Engineer', photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop', city: 'Singapore', km: 8, skills: ['TypeScript', 'React', 'AWS'], salary: '$120k–$150k', fit: 94 };
-const RECRUITER = { name: 'Sarah Thompson', title: 'Lead AI Engineer', photo: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=400&fit=crop' };
-const COMPANY = { name: 'AWS', logo: 'A', accent: '#3d5afe', city: 'Singapore', role: 'Senior Software Engineer', salary: '$120k–$150k', mode: 'Hybrid · Full-time', blurb: 'Own the matching platform end to end with a product-minded team.', skills: ['TypeScript', 'React', 'AWS'] };
+const CANDIDATE = { name: 'Alex Martinez', title: 'Senior Software Engineer', photo: ALEX_PHOTO, city: 'Singapore', km: 8, skills: ['TypeScript', 'React', 'AWS'], salary: '$120k–$150k', fit: 94 };
+const RECRUITER = { name: 'Sarah Thompson', title: 'Lead AI Engineer', photo: SARAH_PHOTO };
+const COMPANY = { name: 'AWS', city: 'Singapore', role: 'Senior Software Engineer', salary: '$120k–$150k', mode: 'Hybrid · Full-time', blurb: 'Own the matching platform end to end with a product-minded team.', skills: ['TypeScript', 'React', 'AWS'] };
 
 const SLIDES = [
   { kind: 'match', label: "It's a Match" },
@@ -31,7 +34,7 @@ function CandidateScreen() {
   return (
     <div className="pc-screen pc-screen-profile">
       <span className="pc-kicker">CANDIDATE PROFILE</span>
-      <img className="pc-avatar-photo big" src={CANDIDATE.photo} alt="" />
+      <img className="pc-photo-lg" src={CANDIDATE.photo} alt="" />
       <strong className="pc-name">{CANDIDATE.name}</strong>
       <span className="pc-role">{CANDIDATE.title}</span>
       <span className="pc-meta">📍 {CANDIDATE.city} · within {CANDIDATE.km} km · {CANDIDATE.salary}</span>
@@ -46,13 +49,12 @@ function JobScreen() {
   return (
     <div className="pc-screen pc-screen-job">
       <span className="pc-kicker">OPEN ROLE</span>
-      <span className="pc-logo" style={{ background: COMPANY.accent }}>{COMPANY.logo}</span>
-      <span className="pc-company">{COMPANY.name.toUpperCase()} · {COMPANY.city.toUpperCase()}</span>
+      <img className="pc-photo-lg" src={RECRUITER.photo} alt="" />
       <strong className="pc-name">{COMPANY.role}</strong>
-      <span className="pc-meta">{COMPANY.salary} · {COMPANY.mode}</span>
+      <span className="pc-role">{RECRUITER.name} · {RECRUITER.title}</span>
+      <span className="pc-meta">{COMPANY.name} · {COMPANY.city} · {COMPANY.salary}</span>
       <p className="pc-blurb">{COMPANY.blurb}</p>
       <div className="pc-chips">{COMPANY.skills.map((s) => <i key={s}>{s}</i>)}</div>
-      <div className="pc-recruiter-line"><img src={RECRUITER.photo} alt="" /><span><strong>{RECRUITER.name}</strong><small>{RECRUITER.title} · {COMPANY.name}</small></span></div>
       <div className="pc-actions"><button type="button" aria-label="Pass">×</button><button type="button" className="pc-like" aria-label="Interested">♥</button></div>
     </div>
   );
