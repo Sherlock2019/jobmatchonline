@@ -275,8 +275,10 @@ function Discover({ role, data, setData, navigate, onEditProfile }: { role: Role
   const [query, setQuery] = useState('');
   const [filterMode, setFilterMode] = useState('');
   const [filterType, setFilterType] = useState('');
-  const [minScore, setMinScore] = useState(0);
+  // Recruiters only see candidates worth considering by default — 80%+ fit.
+  const [minScore, setMinScore] = useState(role === 'employer' ? 80 : 0);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const scoreOptions = role === 'employer' ? [0, 50, 70, 80] : [0, 50, 70, 85];
   const filtersActive = Boolean(query.trim() || filterMode || filterType || minScore > 0);
   const rawDeck = role === 'candidate' ? data.jobs : data.candidates;
   // Remote roles are never gated by the distance slider — only place-based ones.
@@ -343,13 +345,13 @@ function Discover({ role, data, setData, navigate, onEditProfile }: { role: Role
     void commitSwipe('like', current, { answers: [{ question: 'A quick question before we match', answer: text }] });
   };
 
-  return <div className="page discover-page"><div className="page-title"><div><span className="overline">{role === 'candidate' ? 'For Candidates' : 'For Recruiters'}</span><h1>{role === 'candidate' ? 'Jobs You Should Consider' : 'Matching Candidates'}</h1><p>{role === 'candidate' ? 'Swipe roles that fit you — like to signal interest.' : 'Find the perfect talent for your team.'}</p></div>
+  return <div className="page discover-page"><div className="page-title"><div><span className="overline">{role === 'candidate' ? 'For Candidates' : 'For Recruiters'}</span><h1>{role === 'candidate' ? 'Jobs You Should Consider' : 'Candidates to be considered'}</h1><p>{role === 'candidate' ? 'Swipe roles that fit you — like to signal interest.' : 'Find the perfect talent for your team.'}</p></div>
     <div className="preference-chip"><small>{role === 'candidate' ? 'Your preferences' : "You're hiring for"}</small><strong>{role === 'candidate' ? [data.viewer.preferences?.desiredRoles?.[0], data.viewer.preferences?.workMode?.mode].filter(Boolean).join(' · ') || 'Any role' : data.jobs.find((j) => j.employerId === data.viewer.id)?.title || 'Open roles'}</strong><button onClick={() => role === 'candidate' ? onEditProfile(2) : navigate('jobs')} aria-label="Edit preferences"><ChevronDown size={13} style={{ transform: 'rotate(-90deg)' }} /></button></div>
     <div className="title-actions"><button className={filtersOpen ? 'ghost-button active' : 'ghost-button'} onClick={() => setFiltersOpen((v) => !v)}><SlidersHorizontal size={17} />Filters{filtersActive && <span>{[query.trim(), filterMode, filterType, minScore > 0].filter(Boolean).length}</span>}</button></div></div>
     {role === 'candidate' && <ReadyChecklist viewer={data.viewer} onEditProfile={onEditProfile} />}
     <div className="discover-search"><div className="ds-input"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={role === 'candidate' ? 'Search roles, companies, skills…' : 'Search talent by name, title, skills…'} aria-label="Search" />{query && <button className="ds-clear" onClick={() => setQuery('')} aria-label="Clear search"><X size={14} /></button>}</div></div>
     {filtersOpen && <div className="discover-filters">
-      <div className="df-group"><label>Minimum fit</label><div className="df-scores">{[0, 50, 70, 85].map((s) => <button key={s} className={minScore === s ? 'active' : ''} onClick={() => setMinScore(s)}>{s === 0 ? 'Any' : `${s}%+`}</button>)}</div></div>
+      <div className="df-group"><label>Minimum fit</label><div className="df-scores">{scoreOptions.map((s) => <button key={s} className={minScore === s ? 'active' : ''} onClick={() => setMinScore(s)}>{s === 0 ? 'Any' : `${s}%+`}</button>)}</div></div>
       {role === 'candidate' && <>
         <div className="df-group"><label>Work mode</label><div className="df-chips">{['Remote', 'Hybrid', 'On-site', 'Flexible'].map((m) => <button key={m} className={filterMode === m ? 'active' : ''} onClick={() => setFilterMode(filterMode === m ? '' : m)}>{m}</button>)}</div></div>
         <div className="df-group"><label>Type</label><div className="df-chips">{['Full-time', 'Part-time', 'Contract', 'Freelance'].map((t) => <button key={t} className={filterType === t ? 'active' : ''} onClick={() => setFilterType(filterType === t ? '' : t)}>{t}</button>)}</div></div>

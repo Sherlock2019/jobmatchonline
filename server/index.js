@@ -375,7 +375,7 @@ app.get('/api/auth/profiles', async (_req, res, next) => {
     const db = await store.read();
     res.json({
       profiles: db.users
-        .filter((user) => ['candidate-demo', 'employer-demo'].includes(user.id) && user.demoTemplate === true)
+        .filter((user) => user.demoTemplate === true && /^(candidate|employer)-demo(-\d+)?$/.test(user.id))
         .map((user) => ({ id: user.id, role: user.role, kind: user.kind, name: user.name, title: user.title, company: user.company, demo: true })),
     });
   } catch (error) { next(error); }
@@ -1197,17 +1197,20 @@ app.get('/api/bootstrap', async (req, res, next) => {
           newCount: interested.slice(0, 4).length,
         };
       }) : [];
-    const matches = pool.matches.filter((match) => role === 'candidate' ? match.candidateId === viewer.id : match.employerId === viewer.id).map((match) => ({
-      ...match,
-      candidate: pool.users.find((user) => user.id === match.candidateId),
-      employer: pool.users.find((user) => user.id === match.employerId),
-      job: (() => {
-        const job = pool.jobs.find((item) => item.id === match.jobId);
-        const employer = pool.users.find((user) => user.id === match.employerId);
-        return job ? { ...job, companyLogo: employer?.companyLogo } : job;
-      })(),
-      screeningAnswers: db.swipes.find((swipe) => swipe.actorId === match.candidateId && swipe.targetId === match.jobId && swipe.direction === 'like')?.answers,
-    }));
+    const matches = pool.matches.filter((match) => role === 'candidate' ? match.candidateId === viewer.id : match.employerId === viewer.id).map((match) => {
+      const candidateUser = pool.users.find((user) => user.id === match.candidateId);
+      const job = pool.jobs.find((item) => item.id === match.jobId);
+      const employer = pool.users.find((user) => user.id === match.employerId);
+      return {
+        ...match,
+        // Recruiter-side match rows show a real fit % — score the candidate against
+        // the specific job they matched on rather than leaving match undefined (0%).
+        candidate: candidateUser && job ? { ...candidateUser, match: scoreCandidateForJob(candidateUser, job) } : candidateUser,
+        employer,
+        job: job ? { ...job, companyLogo: employer?.companyLogo } : job,
+        screeningAnswers: db.swipes.find((swipe) => swipe.actorId === match.candidateId && swipe.targetId === match.jobId && swipe.direction === 'like')?.answers,
+      };
+    });
     const matchIds = new Set(matches.map((match) => match.id));
     const bookmarkedIds = db.bookmarks.filter((b) => b.userId === viewer.id).map((b) => b.targetId);
     res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, roleMatches, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), calls: db.calls.filter((call) => matchIds.has(call.matchId)), bookmarkedIds, likesRemaining: likesRemainingToday(pool.swipes, viewer.id) });

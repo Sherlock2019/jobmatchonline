@@ -1,6 +1,18 @@
-Fill out card-1 details on candidate/job landing mockup screens
+Expand demo roster; Sarah gets 10 jobs x 5 matches; recruiter Discover filters to 80%+
 
-Add the extra facts row each screen's real Card 1 (Snapshot) carries
-in the app so the mockup isn't sparse: candidate gets experience,
-work mode, and availability; job gets openings, applicants, and
-response time, styled as a dotted fact list above the description.
+- Add 5 more recruiter demo personas (Google, Stripe, Netflix, Spotify,
+  Shopify) and 3 more candidate demo personas, selectable right under
+  Sofia/Sarah in the "Test demo matching" picker. Each recruiter has
+  one live job posting; matching-pool isolation applies automatically
+  since they're all flagged demo:true like the existing cast.
+- Sarah Thompson (AWS) now has 10 job offers in "My Jobs" (added
+  Frontend, Backend, Security, Mobile, Product, QA roles), each with
+  the same 5-candidate mutual-match pool so every role shows 5 matches.
+- Fix recruiter-side match rows always showing 0% fit: the /api/bootstrap
+  matches join returned the raw candidate record with no computed match
+  score against the job. Now scores the candidate against the specific
+  job they matched on, same as the rest of the recruiter dashboard.
+- Recruiter "Discover" page renamed "Matching Candidates" -> "Candidates
+  to be considered", defaults to the 80%+ fit filter (candidates stay
+  at "Any"), and the quick-filter chips read 80%+ instead of 85%+ for
+  recruiters.
