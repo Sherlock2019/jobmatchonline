@@ -1145,7 +1145,9 @@ app.get('/api/bootstrap', async (req, res, next) => {
         withDistance.salaryHidden = true;
       }
       const incomingLike = incomingEmployerLikes.find((swipe) => swipe.actorId === job.employerId && swipe.jobId === job.id);
-      return { ...withDistance, companyLogo: employer?.companyLogo, match, likedYou: Boolean(incomingLike), superLikedYou: Boolean(incomingLike?.superLike), verified: verifiedUser(employer) };
+      // Public recruiter card shown on each role (photo/name/title only — no contact info pre-match).
+      const recruiter = employer ? { name: employer.name, title: employer.title, photo: employer.photo, company: employer.company } : undefined;
+      return { ...withDistance, companyLogo: employer?.companyLogo, recruiter, match, likedYou: Boolean(incomingLike), superLikedYou: Boolean(incomingLike?.superLike), verified: verifiedUser(employer) };
     });
     // Score candidates against this recruiter's own (first active) job when possible.
     const referenceJob = pool.jobs.find((job) => job.employerId === viewer.id && String(job.status).toLowerCase() === 'active')

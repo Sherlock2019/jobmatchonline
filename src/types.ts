@@ -81,6 +81,8 @@ export interface Job {
   sourceSystem?: string; sourceJobId?: string; sourceUrl?: string; sourceUpdatedAt?: string;
   internalJobId?: string; contentHash?: string; syncStatus?: string; lastImportedAt?: number;
   importNeedsReview?: string[];
+  /** Public recruiter/hiring-contact info shown on the role's Team & culture card (no contact details pre-match). */
+  recruiter?: { name?: string; title?: string; photo?: string; company?: string };
 }
 export interface JobReview { author?: string; role?: string; text: string; verified?: boolean; rating?: number; date?: string }
 

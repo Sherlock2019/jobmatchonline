@@ -109,6 +109,11 @@ export function JobCards({ job: j, onEdit, unlocked = false }: { job: Job; onEdi
 
       {/* ---------- Card 4 — Team & culture ---------- */}
       <div className="tcard-slide"><Card label="Team & culture" icon={Users} step={3} onEdit={onEdit} tone="human">
+        {j.recruiter?.name && <div className="tcard-recruiter">
+          {j.recruiter.photo ? <img src={j.recruiter.photo} alt="" /> : <span className="tcard-recruiter-fallback">{(j.recruiter.name || j.company).charAt(0)}</span>}
+          <div><strong>{j.recruiter.name}</strong><span>{j.recruiter.title || 'Hiring team'}{j.recruiter.company || j.company ? ` · ${j.recruiter.company || j.company}` : ''}</span></div>
+          <em>Your recruiter</em>
+        </div>}
         {j.mission ? <p className="tcard-presentation">{j.mission}</p> : onEdit ? <p className="tcard-empty">Add a mission statement — why this role matters.</p> : null}
         <dl className="tcard-dl">
           {j.teamSize ? <div><dt><Users size={12} /> Team size</dt><dd>{j.teamSize}</dd></div> : null}

@@ -14,6 +14,7 @@ import { CandidateProfilePage } from './components/profile/CandidateProfilePage'
 import { RecruiterWizard } from './components/profile/RecruiterWizard';
 import { RecruiterProfilePage } from './components/profile/RecruiterProfilePage';
 import { CandidateCards } from './components/profile/CandidateCards';
+import { JobCards } from './components/jobs/JobCards';
 import { CandidateHome, RecruiterHome } from './components/home/MatchHome';
 // Lazy-loaded: pulls in pdf.js only when a resume is actually opened.
 const ResumeViewerModal = lazy(() => import('./components/ResumeViewerModal').then((m) => ({ default: m.ResumeViewerModal })));
@@ -308,7 +309,7 @@ function Discover({ role, data, setData, navigate, onEditProfile }: { role: Role
     void commitSwipe('like', current, { answers: [{ question: 'A quick question before we match', answer: text }] });
   };
 
-  return <div className="page discover-page"><div className="page-title"><div><span className="overline">{role === 'candidate' ? 'For Candidates' : 'For Recruiters'}</span><h1>{role === 'candidate' ? 'Swipe Jobs' : 'Swipe Candidates'}</h1><p>{role === 'candidate' ? 'Discover opportunities that fit you.' : 'Find the perfect talent for your team.'}</p></div>
+  return <div className="page discover-page"><div className="page-title"><div><span className="overline">{role === 'candidate' ? 'For Candidates' : 'For Recruiters'}</span><h1>{role === 'candidate' ? 'Matching Roles' : 'Matching Candidates'}</h1><p>{role === 'candidate' ? 'Swipe roles that fit you — like to signal interest.' : 'Find the perfect talent for your team.'}</p></div>
     <div className="preference-chip"><small>{role === 'candidate' ? 'Your preferences' : "You're hiring for"}</small><strong>{role === 'candidate' ? [data.viewer.preferences?.desiredRoles?.[0], data.viewer.preferences?.workMode?.mode].filter(Boolean).join(' · ') || 'Any role' : data.jobs.find((j) => j.employerId === data.viewer.id)?.title || 'Open roles'}</strong><button onClick={() => role === 'candidate' ? onEditProfile(2) : navigate('jobs')} aria-label="Edit preferences"><ChevronDown size={13} style={{ transform: 'rotate(-90deg)' }} /></button></div>
     <div className="title-actions"><button className={filtersOpen ? 'ghost-button active' : 'ghost-button'} onClick={() => setFiltersOpen((v) => !v)}><SlidersHorizontal size={17} />Filters{filtersActive && <span>{[query.trim(), filterMode, filterType, minScore > 0].filter(Boolean).length}</span>}</button></div></div>
     {role === 'candidate' && <ReadyChecklist viewer={data.viewer} onEditProfile={onEditProfile} />}
@@ -328,7 +329,7 @@ function Discover({ role, data, setData, navigate, onEditProfile }: { role: Role
         <small>{Math.min(index + 1, deck.length)} / {deck.length}</small>
         <button className="undo-action" onClick={undo} disabled={busy || index === 0} aria-label="Undo last swipe" title="Rewind last swipe"><RotateCcw size={15} /></button>
       </div>
-      <div className="card-stack">{next && <div className="stack-card"><CardSummary item={next} role={role} /></div>}{current ? <SwipeCard key={current.id} item={current} role={role} onSwipe={act} onOpenResume={role === 'employer' ? setResumeFor : undefined} resumeUnlocked={role === 'employer' && matchedCandidateIds.has(current.id)} onOpenJob={role === 'candidate' ? setJobDetail : undefined} gapViewer={role === 'candidate' ? data.viewer : undefined} onSkillAdded={refreshScores} bookmarked={data.bookmarkedIds.includes(current.id)} onToggleBookmark={() => toggleBookmark(current)} /> : <EmptyDeck role={role} onReset={() => setIndex(0)} />}</div>
+      <div className="card-stack">{next && <div className="stack-card"><CardSummary item={next} role={role} /></div>}{current ? <SwipeCard key={current.id} item={current} role={role} resumeUnlocked={role === 'employer' && matchedCandidateIds.has(current.id)} /> : <EmptyDeck role={role} onReset={() => setIndex(0)} />}</div>
       {current && <div className="action-row five"><button onClick={() => act('pass')} disabled={busy} className="pass-action" aria-label="Pass"><X /></button><button onClick={() => act('like', true)} disabled={busy} className="superlike-action" aria-label="Super Like" title="Super Like — a stronger signal"><Star fill="currentColor" /></button><button onClick={() => setAsking(true)} disabled={busy} className="ask-action" aria-label="Ask" title="Ask a quick question"><MessageCircleQuestion /></button><button onClick={() => toggleBookmark(current)} disabled={busy} className={data.bookmarkedIds.includes(current.id) ? 'save-action active' : 'save-action'} aria-label="Save for later" title="Save for later"><BookmarkIcon fill={data.bookmarkedIds.includes(current.id) ? 'currentColor' : 'none'} /></button><button onClick={() => act('like')} disabled={busy} className="like-action" aria-label="Like"><Heart fill="currentColor" /></button></div>}
       <div className="keyboard-hint"><span><kbd>←</kbd> Pass</span><span>Swipe left or right</span><span><kbd>→</kbd> Like</span></div>
     </section><aside className="insight-panel"><div className="daily-card"><div><span>Today’s activity</span><strong>{data.likesRemaining}</strong><small>likes remaining</small></div><div className="ring" style={{ '--progress': `${data.likesRemaining * 2}%` } as React.CSSProperties}><Heart size={18} /></div></div><div className="tip-card"><div className="tip-icon"><Zap size={17} /></div><strong>{role === 'candidate' ? 'Complete your preferences' : 'Calibrate your search'}</strong><p>{role === 'candidate' ? 'Add your preferred team size to improve recommendations by up to 18%.' : 'Review five profiles to help JobsMatchNow learn what great looks like for this role.'}</p><button>{role === 'candidate' ? 'Update preferences' : 'View calibration'} <ArrowRight size={14} /></button></div><div className="quality-card"><div className="quality-head"><span>Match quality</span><strong>Excellent</strong></div><div className="quality-bar"><i /></div><p>Your recommendations use 12 verified profile signals.</p></div></aside></div>
@@ -346,22 +347,16 @@ function Discover({ role, data, setData, navigate, onEditProfile }: { role: Role
     </motion.div>}</AnimatePresence></div>;
 }
 
-function SwipeCard({ item, role, onSwipe, onOpenResume, resumeUnlocked, onOpenJob, gapViewer, onSkillAdded, bookmarked, onToggleBookmark }: { item: Job | Person; role: Role; onSwipe: (direction: 'like' | 'pass') => void; onOpenResume?: (person: Person) => void; resumeUnlocked?: boolean; onOpenJob?: (job: Job) => void; gapViewer?: Person; onSkillAdded?: () => void; bookmarked?: boolean; onToggleBookmark?: () => void }) {
-  const [flipped, setFlipped] = useState(false);
-  const x = useMotionValue(0); const rotate = useTransform(x, [-220, 220], [-8, 8]); const likeOpacity = useTransform(x, [20, 120], [0, 1]); const passOpacity = useTransform(x, [-120, -20], [1, 0]);
+function SwipeCard({ item, role, resumeUnlocked }: { item: Job | Person; role: Role; resumeUnlocked?: boolean }) {
+  // Both sides show the same 5-card deck for the item being reviewed — recruiters
+  // browse the candidate's deck, candidates browse the role's deck (Snapshot /
+  // Requirements / Compensation / Team & culture / Reviews). Like / Pass / Super
+  // Like / Ask / Save all happen via the action buttons below the deck.
   if (role === 'employer') return <motion.article className="swipe-card canonical-candidate-card">
     <CandidateCards person={item as Person} match={item.match} unlocked={resumeUnlocked} />
   </motion.article>;
-  return <motion.article className="swipe-card" style={{ x, rotate }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.85} onDragEnd={(_, info) => { if (info.offset.x > 110) onSwipe('like'); else if (info.offset.x < -110) onSwipe('pass'); }}>
-    <motion.div className="swipe-stamp like-stamp" style={{ opacity: likeOpacity }}>INTERESTED</motion.div><motion.div className="swipe-stamp pass-stamp" style={{ opacity: passOpacity }}>PASS</motion.div>
-    {item.superLikedYou && <div className="superlike-ribbon"><Star size={12} fill="currentColor" /> Super Liked you</div>}
-    <div className={flipped ? 'card-flip flipped' : 'card-flip'}>
-      <div className="card-face card-front">
-        <CardSummary item={item} role={role} detailed onOpenResume={onOpenResume} resumeUnlocked={resumeUnlocked} onOpenJob={onOpenJob} gapViewer={gapViewer} onSkillAdded={onSkillAdded} bookmarked={bookmarked} onToggleBookmark={onToggleBookmark} />
-        <button className="flip-button" onPointerDownCapture={(event) => event.stopPropagation()} onClick={() => setFlipped(true)}><Sparkles size={13} /> Why this match</button>
-      </div>
-      <div className="card-face card-back"><FitBreakdown item={item} role={role} onBack={() => setFlipped(false)} /></div>
-    </div>
+  return <motion.article className="swipe-card canonical-job-card">
+    <JobCards job={item as Job} />
   </motion.article>;
 }
 
