@@ -2315,29 +2315,25 @@ img.avatar-mini { object-fit:cover; }
 .td-list-panel .td-section-title { margin-bottom:2px; }
 .td-list-panel .td-section-title strong { font-size:11px; }
 
-/* Give every home-dashboard section its own solid iOS-system-color panel —
-   real color, not a faint tint — so sections are unmistakably separated.
-   Text/icon/action flip to white for contrast; inner content (job cards,
-   empty states) stays white so it still pops against the solid color. */
+/* Give every home-dashboard section a soft pastel tint + accent border so
+   sections read as separated panels without shouting. */
 .td-section { padding:16px 18px; border-radius:14px; border:1px solid transparent; }
-#td-profile .td-section-title strong, #td-company-profile .td-section-title strong, #td-matches .td-section-title strong, #td-chasing .td-section-title strong, #td-roles .td-section-title strong, #td-conversations .td-section-title strong, #td-recent .td-section-title strong, #td-coffee .td-section-title strong, .td-bottom-grid .td-improve .td-section-title strong { color:#fff; }
-#td-profile .td-section-title small, #td-company-profile .td-section-title small, #td-matches .td-section-title small, #td-chasing .td-section-title small, #td-roles .td-section-title small, #td-conversations .td-section-title small, #td-recent .td-section-title small, #td-coffee .td-section-title small, .td-bottom-grid .td-improve .td-section-title small { color:rgba(255,255,255,.85); }
-#td-profile .td-section-title>div>svg, #td-company-profile .td-section-title>div>svg, #td-matches .td-section-title>div>svg, #td-chasing .td-section-title>div>svg, #td-roles .td-section-title>div>svg, #td-conversations .td-section-title>div>svg, #td-recent .td-section-title>div>svg, #td-coffee .td-section-title>div>svg, .td-bottom-grid .td-improve .td-section-title>div>svg { color:#fff; }
-#td-profile .td-section-title>button, #td-company-profile .td-section-title>button, #td-matches .td-section-title>button, #td-chasing .td-section-title>button, #td-roles .td-section-title>button, #td-conversations .td-section-title>button, #td-recent .td-section-title>button, #td-coffee .td-section-title>button, .td-bottom-grid .td-improve .td-section-title>button { color:#fff; }
-#td-profile, #td-company-profile { background:#00C7BE; }
-#td-matches { background:#FF2D55; }
-#td-chasing { background:#007AFF; }
-#td-roles { background:#5856D6; }
-#td-conversations { background:#AF52DE; }
-.td-bottom-grid .td-improve { background:#FF9500; }
-#td-recent { background:#32ADE6; }
-#td-coffee { background:#A2845E; }
-/* These panels' rows sit directly on the solid color (no inner white card),
-   so their text/dividers/icon-chip need their own explicit light treatment. */
-#td-conversations>button strong, #td-recent>button strong, #td-coffee>button strong, .td-bottom-grid .td-improve>button strong { color:#fff; }
-#td-conversations>button small, #td-recent>button small, #td-coffee>button small, .td-bottom-grid .td-improve>button small { color:rgba(255,255,255,.85); }
-#td-conversations>button, #td-recent>button, #td-coffee>button, .td-bottom-grid .td-improve>button { border-top-color:rgba(255,255,255,.25); }
-.td-bottom-grid .td-improve>button>span:first-child { background:rgba(255,255,255,.22); color:#fff; }
+#td-profile, #td-company-profile { background:color-mix(in srgb, #00C7BE 8%, white); border-color:color-mix(in srgb, #00C7BE 25%, white); }
+#td-profile .td-section-title>div>svg, #td-company-profile .td-section-title>div>svg { color:#00C7BE; }
+#td-matches { background:color-mix(in srgb, #FF2D55 8%, white); border-color:color-mix(in srgb, #FF2D55 25%, white); }
+#td-matches .td-section-title>div>svg { color:#FF2D55; }
+#td-chasing { background:color-mix(in srgb, #007AFF 8%, white); border-color:color-mix(in srgb, #007AFF 25%, white); }
+#td-chasing .td-section-title>div>svg { color:#007AFF; }
+#td-roles { background:color-mix(in srgb, #5856D6 8%, white); border-color:color-mix(in srgb, #5856D6 25%, white); }
+#td-roles .td-section-title>div>svg { color:#5856D6; }
+#td-conversations { background:color-mix(in srgb, #AF52DE 8%, white); border-color:color-mix(in srgb, #AF52DE 25%, white); }
+#td-conversations .td-section-title>div>svg { color:#AF52DE; }
+.td-bottom-grid .td-improve { background:color-mix(in srgb, #FF9500 8%, white); border-color:color-mix(in srgb, #FF9500 25%, white); }
+.td-improve .td-section-title>div>svg { color:#FF9500; }
+#td-recent { background:color-mix(in srgb, #32ADE6 8%, white); border-color:color-mix(in srgb, #32ADE6 25%, white); }
+#td-recent .td-section-title>div>svg { color:#32ADE6; }
+#td-coffee { background:color-mix(in srgb, #A2845E 8%, white); border-color:color-mix(in srgb, #A2845E 25%, white); }
+#td-coffee .td-section-title>div>svg { color:#A2845E; }
 .td-list-panel>button:not(.secondary-button) {
   width:100%;
   min-height:43px;
