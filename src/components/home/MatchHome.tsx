@@ -134,7 +134,10 @@ function CandidateProfileModal({ candidate, onClose, onTalk }: { candidate: Pers
 export function CandidateHome({ data, setData, navigate, onEditProfile }: HomeProps) {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const jobs = useMemo(() => [...data.jobs].sort((a, b) => (b.match?.score || 0) - (a.match?.score || 0)), [data.jobs]);
-  const chasing = jobs.filter((job) => job.likedYou || job.superLikedYou);
+  const matchedJobIds = new Set(data.matches.map((match) => match.jobId));
+  const matchedJobs = jobs.filter((job) => matchedJobIds.has(job.id));
+  // Jobs whose recruiter liked this candidate but the candidate hasn't liked back yet.
+  const likesYou = jobs.filter((job) => (job.likedYou || job.superLikedYou) && !matchedJobIds.has(job.id));
   const precise = jobs.filter((job) => isPreciseMatch(job.match));
   const conversations = data.matches.slice(0, 3);
   const completion = data.viewer.completeness || 0;
@@ -154,9 +157,8 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
     : <EmptyRow>No recruiter offers yet. Your profile remains visible to matching teams.</EmptyRow>;
 
   const metrics = [
-    { icon: Heart, label: 'Jobs Chasing You', value: chasing.length, note: 'active matches', action: 'View jobs', target: 'td-chasing' },
-    { icon: Eye, label: 'Companies Checking You Out', value: Math.max(chasing.length * 3, 1), note: 'profile views', action: 'See activity', target: 'td-companies' },
-    { icon: Target, label: 'Recruiters Like You', value: chasing.length, note: 'interested', action: 'See who', target: 'td-chasing' },
+    { icon: Heart, label: 'Matches', value: matchedJobs.length, note: 'both said yes', action: 'View all', target: 'td-matches' },
+    { icon: Target, label: 'Jobs that like you', value: likesYou.length, note: 'liked your profile', action: 'See who', target: 'td-chasing' },
     { icon: Coffee, label: 'Let’s Talk Invitations', value: conversations.length, note: 'invitations', action: 'View invites', target: 'messages' },
   ];
 
@@ -171,8 +173,8 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
       <aside className="td-profile-strength">
         <div className="mh-ring" style={{ '--value': `${completion * 3.6}deg` } as React.CSSProperties}><strong>{completion}%</strong></div>
         <b>Profile strength</b>
-        <span><Eye size={11} /> {Math.max(chasing.length * 3, 1)} profile views this week</span>
-        <span><Heart size={11} /> {chasing.length} recruiters interested</span>
+        <span><Eye size={11} /> {Math.max(likesYou.length * 3, 1)} profile views this week</span>
+        <span><Heart size={11} /> {likesYou.length} recruiters interested</span>
         <small>● Visible to recruiters</small>
       </aside>
       <div className="td-hero-faces">{conversations.slice(0, 3).map((match) => <img key={match.id} src={match.employer?.photo || data.viewer.photo} alt="" />)}{conversations.length > 2 && <span>+{conversations.length}</span>}</div>
@@ -184,16 +186,19 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
       </button>)}
     </section>
 
+    <section className="td-section" id="td-matches">
+      <DashboardTitle icon={Heart} title="Matches" subtitle="You and these teams both said yes — start the conversation." action={`See all (${matchedJobs.length})`} onAction={() => navigate('matches')} />
+      {matchedJobs.length
+        ? jobCards(matchedJobs)
+        : <EmptyRow>No mutual matches yet. Like a role that likes you back and it lands here.</EmptyRow>}
+    </section>
+
     <section className="td-section" id="td-chasing">
-      <DashboardTitle icon={Heart} title="Jobs Chasing You" subtitle="Offers from recruiters who already liked your profile." action={`See all (${chasing.length})`} onAction={() => navigate('matches')} />
-      {jobCards(chasing)}
+      <DashboardTitle icon={Target} title="Jobs that like you" subtitle="Recruiters who liked your profile — like back to match." action={`See all (${likesYou.length})`} onAction={() => navigate('discover')} />
+      {jobCards(likesYou)}
     </section>
 
     <section className="td-bottom-grid">
-      <article className="td-list-panel" id="td-companies">
-        <DashboardTitle icon={Eye} title="Companies Checking You Out" />
-        {chasing.slice(0, 4).map((job, index) => <button key={job.id} onClick={() => setSelectedJob(job)}><CompanyLogoMark job={job} small /><span><strong>{job.company}</strong><small>{index ? `${index + 1} hours ago` : 'Viewed your profile recently'}</small></span></button>)}
-      </article>
       <article className="td-list-panel">
         <DashboardTitle icon={MessageCircle} title="Conversations" action="See all" onAction={() => navigate('messages')} />
         {conversations.map((match) => <button key={match.id} onClick={() => navigate('messages')}><img src={match.employer?.photo || data.viewer.photo} alt="" /><span><strong>{match.employer?.name || match.job.company}</strong><small>{data.messages.filter((message) => message.matchId === match.id).at(-1)?.text || match.job.title}</small></span></button>)}

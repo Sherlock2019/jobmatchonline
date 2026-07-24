@@ -31,7 +31,7 @@ import { loadSession, saveSession } from './lib/auth';
 import type { Bootstrap, Job, JobMatch, Message, Person, Role, SessionUser, View } from './types';
 
 const candidateNav: { view: View; label: string; icon: typeof Compass }[] = [
-  { view: 'home', label: 'Home', icon: Compass }, { view: 'matches', label: 'Jobs Chasing You', icon: Heart }, { view: 'discover', label: 'Matches', icon: Target }, { view: 'companies', label: 'Companies', icon: BriefcaseBusiness }, { view: 'messages', label: 'Conversations', icon: MessageCircle }, { view: 'profile', label: 'My Profile', icon: Users },
+  { view: 'home', label: 'Home', icon: Compass }, { view: 'matches', label: 'Matches', icon: Heart }, { view: 'discover', label: 'Jobs matching your skills', icon: Target }, { view: 'messages', label: 'Conversations', icon: MessageCircle }, { view: 'profile', label: 'My Profile', icon: Users },
 ];
 const employerNav: { view: View; label: string; icon: typeof Compass }[] = [
   { view: 'home', label: 'Home', icon: Compass }, { view: 'jobs', label: 'My Jobs', icon: BriefcaseBusiness }, { view: 'discover', label: 'Candidates', icon: Users }, { view: 'messages', label: 'Messages', icon: MessageCircle }, { view: 'analytics', label: 'Reports', icon: BarChart3 }, { view: 'profile', label: 'Company Profile', icon: Target },
