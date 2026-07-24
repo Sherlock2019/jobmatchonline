@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { PhoneMockup } from './components/PhoneMockup';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
-import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, Download, ExternalLink, Eye, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, Download, ExternalLink, Eye, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
 import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
@@ -639,6 +639,7 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
   // The person on the other side of this chat: for a candidate that's the employer/job, for an employer it's the candidate.
   const otherName = role === 'candidate' ? match?.job?.company : match?.candidate?.name;
   const otherPhoto = role === 'candidate' ? undefined : match?.candidate?.photo;
+  const otherEmail = role === 'candidate' ? match?.employer?.email : match?.candidate?.email;
   const send = async (event: React.FormEvent) => { event.preventDefault(); if (!text.trim() || !match) return; const message = await api.message({ matchId: match.id, senderId: data.viewer.id, text }); setData({ ...data, messages: [...data.messages, message] }); setText(''); };
   // Auto-open when the thread is empty (nothing to say yet); stays reachable via the header
   // toggle afterward so the same questions double as prep notes before a scheduled call.
@@ -663,6 +664,7 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
         <div><strong>{otherName}</strong><span><i />{match.job?.title}</span></div>
         <button className={showStarters ? 'starter-toggle active' : 'starter-toggle'} onClick={() => setShowStarters((v) => !v)} title="Conversation starters — also handy to prep for a call"><Sparkles size={16} /></button>
         <button className="starter-toggle" onClick={() => setScheduling(true)} title="Schedule a call"><Calendar size={16} /></button>
+        {otherEmail && <a className="starter-toggle" href={`mailto:${otherEmail}`} title={`Email ${otherName || 'them'}`}><Mail size={16} /></a>}
         <button><MoreHorizontal /></button>
       </header>
       <div className="conversation-body">
@@ -713,8 +715,8 @@ function Meetings({ role, data, setData, onOpenMessages }: { role: Role; data: B
   const unscheduled = data.matches.filter((match) => !scheduledMatchIds.has(match.id));
 
   const otherParty = (match: JobMatch) => role === 'candidate'
-    ? { name: match.job?.company || match.employer?.name || 'Recruiter', sub: match.job?.title, photo: match.employer?.photo }
-    : { name: match.candidate?.name || 'Candidate', sub: match.job?.title, photo: match.candidate?.photo };
+    ? { name: match.job?.company || match.employer?.name || 'Recruiter', sub: match.job?.title, photo: match.employer?.photo, email: match.employer?.email }
+    : { name: match.candidate?.name || 'Candidate', sub: match.job?.title, photo: match.candidate?.photo, email: match.candidate?.email };
 
   const CallCard = ({ call, past: isPast }: { call: ScheduledCall; past?: boolean }) => {
     const match = data.matches.find((m) => m.id === call.matchId);
@@ -730,6 +732,7 @@ function Meetings({ role, data, setData, onOpenMessages }: { role: Role; data: B
         <a href={outlookCalendarUrl(event)} target="_blank" rel="noreferrer" title="Add to Outlook"><ExternalLink size={14} /> Outlook</a>
         <a href={icsDataUrl(event)} download={`${call.title}.ics`} title="Download .ics"><Download size={14} /> .ics</a>
       </div>}
+      {other?.email && <a className="meeting-btn" href={`mailto:${other.email}`}>Email To</a>}
       <button className="meeting-btn" onClick={() => onOpenMessages(call.matchId)}>Open chat</button>
     </div>;
   };
