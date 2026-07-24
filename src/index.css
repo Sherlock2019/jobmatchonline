@@ -918,7 +918,12 @@ button { cursor:pointer; }
 .pc-kicker{font-size:9px;font-weight:800;letter-spacing:.08em;color:#a8adb8;margin-bottom:2px;}
 .pc-name{font-size:16px;color:#fff;}
 .pc-role{font-size:11px;color:#c7cbd6;margin-bottom:2px;}
-.pc-meta{font-size:9px;color:#9aa1b2;margin-bottom:8px;}
+.pc-meta{font-size:9px;color:#9aa1b2;margin-bottom:6px;}
+.pc-facts{display:flex;flex-wrap:wrap;justify-content:center;gap:5px 8px;font-size:8.5px;color:#c7cbd6;margin-bottom:8px;}
+.pc-facts span{position:relative;padding-left:9px;}
+.pc-facts span::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:3px;border-radius:50%;background:#fd267a;}
+.pc-facts span:first-child{padding-left:0;}
+.pc-facts span:first-child::before{display:none;}
 .pc-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-bottom:8px;}
 .pc-chips i{font-style:normal;background:rgba(255,255,255,.1);color:#fff;font-size:9px;padding:4px 9px;border-radius:999px;}
 .pc-fit{font-size:10px;color:#c7cbd6;margin-bottom:auto;}

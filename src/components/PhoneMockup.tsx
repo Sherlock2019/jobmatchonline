@@ -10,9 +10,9 @@ import MATCH_MOCKUP from '../assets/match-mockup.png';
 import ALEX_PHOTO from '../assets/alex-martinez.png';
 import SARAH_PHOTO from '../assets/sarah-thompson.png';
 
-const CANDIDATE = { name: 'Alex Martinez', title: 'Senior Software Engineer', photo: ALEX_PHOTO, city: 'Singapore', km: 8, skills: ['TypeScript', 'React', 'AWS'], salary: '$120k–$150k', fit: 94 };
+const CANDIDATE = { name: 'Alex Martinez', title: 'Senior Software Engineer', photo: ALEX_PHOTO, city: 'Singapore', km: 8, skills: ['TypeScript', 'React', 'AWS'], salary: '$120k–$150k', fit: 94, availability: '2 weeks', workMode: 'Hybrid', experience: '8 yrs experience' };
 const RECRUITER = { name: 'Sarah Thompson', title: 'Lead AI Engineer', photo: SARAH_PHOTO };
-const COMPANY = { name: 'AWS', city: 'Singapore', role: 'Senior Software Engineer', salary: '$120k–$150k', mode: 'Hybrid · Full-time', blurb: 'Own the matching platform end to end with a product-minded team.', skills: ['TypeScript', 'React', 'AWS'] };
+const COMPANY = { name: 'AWS', city: 'Singapore', role: 'Senior Software Engineer', salary: '$120k–$150k', mode: 'Hybrid · Full-time', blurb: 'Own the matching platform end to end with a product-minded team.', skills: ['TypeScript', 'React', 'AWS'], openings: 2, applicants: 47, responseTime: '< 24h response' };
 
 const SLIDES = [
   { kind: 'match', label: "It's a Match" },
@@ -38,6 +38,7 @@ function CandidateScreen() {
       <strong className="pc-name">{CANDIDATE.name}</strong>
       <span className="pc-role">{CANDIDATE.title}</span>
       <span className="pc-meta">📍 {CANDIDATE.city} · within {CANDIDATE.km} km · {CANDIDATE.salary}</span>
+      <div className="pc-facts"><span>{CANDIDATE.experience}</span><span>{CANDIDATE.workMode}</span><span>Available in {CANDIDATE.availability}</span></div>
       <div className="pc-chips">{CANDIDATE.skills.map((s) => <i key={s}>{s}</i>)}</div>
       <div className="pc-fit"><b>{CANDIDATE.fit}%</b> role fit · explainable</div>
       <div className="pc-actions"><button type="button" aria-label="Pass">×</button><button type="button" className="pc-like" aria-label="Interested">♥</button></div>
@@ -53,6 +54,7 @@ function JobScreen() {
       <strong className="pc-name">{COMPANY.role}</strong>
       <span className="pc-role">{RECRUITER.name} · {RECRUITER.title}</span>
       <span className="pc-meta">{COMPANY.name} · {COMPANY.city} · {COMPANY.salary}</span>
+      <div className="pc-facts"><span>{COMPANY.openings} openings</span><span>{COMPANY.applicants} applicants</span><span>{COMPANY.responseTime}</span></div>
       <p className="pc-blurb">{COMPANY.blurb}</p>
       <div className="pc-chips">{COMPANY.skills.map((s) => <i key={s}>{s}</i>)}</div>
       <div className="pc-actions"><button type="button" aria-label="Pass">×</button><button type="button" className="pc-like" aria-label="Interested">♥</button></div>

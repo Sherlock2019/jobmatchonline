@@ -1,12 +1,6 @@
-Restyle landing mockup profile/job screens to match the match-card look
+Fill out card-1 details on candidate/job landing mockup screens
 
-- Cropped the real Alex Martinez and Sarah Thompson photos directly
-  out of the match-mockup artwork (same source pixels, not a stock
-  photo lookalike) and added them as new hashed assets.
-- Candidate profile screen: large circular Alex Martinez photo, dark
-  gradient background matching the "It's a Match" screen instead of
-  a plain white card.
-- Job/role screen: large circular Sarah Thompson photo (the hiring
-  contact), same dark styling, company/salary/blurb/skills retained.
-- All three carousel screens now share one consistent dark, large-
-  photo visual language and the same two people throughout.
+Add the extra facts row each screen's real Card 1 (Snapshot) carries
+in the app so the mockup isn't sparse: candidate gets experience,
+work mode, and availability; job gets openings, applicants, and
+response time, styled as a dotted fact list above the description.
