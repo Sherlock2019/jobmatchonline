@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { BadgeCheck, BriefcaseBusiness, MapPin } from 'lucide-react';
 import { apiBase } from '../../api';
 import type { Job } from '../../types';
@@ -22,10 +23,21 @@ function statusLabel(job: Job) {
 }
 
 export function CompanyLogoMark({ job, small = false }: { job: Job; small?: boolean }) {
-  return <span className={small ? 'job-company-mark small' : 'job-company-mark'}>
-    {job.companyLogo
-      ? <img src={assetUrl(job.companyLogo)} alt={`${job.company} logo`} />
-      : <BriefcaseBusiness aria-hidden="true" size={small ? 16 : 21} />}
+  // Many company logos come from third-party URLs that can 404 (e.g. the retired
+  // Clearbit logo API). On any load failure, fall back to a coloured initial badge
+  // instead of the browser's broken-image icon.
+  const [failed, setFailed] = useState(false);
+  const showImg = Boolean(job.companyLogo) && !failed;
+  const initial = (job.company || job.logo || '?').trim().charAt(0).toUpperCase();
+  return <span
+    className={small ? 'job-company-mark small' : 'job-company-mark'}
+    style={showImg ? undefined : { background: job.accent || '#3d5afe', color: '#fff' }}
+  >
+    {showImg
+      ? <img src={assetUrl(job.companyLogo!)} alt={`${job.company} logo`} loading="lazy" onError={() => setFailed(true)} />
+      : initial !== '?'
+        ? <b aria-hidden="true">{initial}</b>
+        : <BriefcaseBusiness aria-hidden="true" size={small ? 16 : 21} />}
   </span>;
 }
 

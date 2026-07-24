@@ -227,6 +227,8 @@ button { cursor:pointer; }
 }
 .job-company-mark.small { width:34px; height:34px; border-radius:8px; }
 .job-company-mark img { width:100%; height:100%; object-fit:contain; padding:4px; background:#fff; }
+.job-company-mark b { font:800 18px 'Manrope'; line-height:1; }
+.job-company-mark.small b { font-size:14px; }
 .job-header-copy { min-width:0; }
 .job-header-copy h2 {
   display:flex;
