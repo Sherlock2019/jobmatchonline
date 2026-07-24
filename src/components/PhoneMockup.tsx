@@ -6,8 +6,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
    this busts the browser's 30-day immutable cache whenever the artwork changes. */
 import MATCH_MOCKUP from '../assets/match-mockup.png';
 
-const CANDIDATE = { name: 'Alex Martinez', title: 'Senior Software Engineer', photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop', city: 'Singapore', km: 8, skills: ['TypeScript', 'React', 'AWS'], salary: '$120k–$150k', fit: 94 };
-const COMPANY = { name: 'Northstar', logo: 'N', accent: '#3d5afe', city: 'Singapore', role: 'Senior Software Engineer', salary: '$120k–$150k', mode: 'Hybrid · Full-time', blurb: 'Own the matching platform end to end with a product-minded team.', skills: ['TypeScript', 'React', 'AWS'] };
+/* Same two people as the "It's a Match" artwork above, so all three screens read as one coherent story. */
+const CANDIDATE = { name: 'Alex Martinez', title: 'Senior Software Engineer', photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop', city: 'Singapore', km: 8, skills: ['TypeScript', 'React', 'AWS'], salary: '$120k–$150k', fit: 94 };
+const RECRUITER = { name: 'Sarah Thompson', title: 'Lead AI Engineer', photo: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=400&fit=crop' };
+const COMPANY = { name: 'AWS', logo: 'A', accent: '#3d5afe', city: 'Singapore', role: 'Senior Software Engineer', salary: '$120k–$150k', mode: 'Hybrid · Full-time', blurb: 'Own the matching platform end to end with a product-minded team.', skills: ['TypeScript', 'React', 'AWS'] };
 
 const SLIDES = [
   { kind: 'match', label: "It's a Match" },
@@ -50,6 +52,7 @@ function JobScreen() {
       <span className="pc-meta">{COMPANY.salary} · {COMPANY.mode}</span>
       <p className="pc-blurb">{COMPANY.blurb}</p>
       <div className="pc-chips">{COMPANY.skills.map((s) => <i key={s}>{s}</i>)}</div>
+      <div className="pc-recruiter-line"><img src={RECRUITER.photo} alt="" /><span><strong>{RECRUITER.name}</strong><small>{RECRUITER.title} · {COMPANY.name}</small></span></div>
       <div className="pc-actions"><button type="button" aria-label="Pass">×</button><button type="button" className="pc-like" aria-label="Interested">♥</button></div>
     </div>
   );

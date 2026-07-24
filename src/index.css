@@ -930,6 +930,10 @@ button { cursor:pointer; }
 .pc-logo{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;color:#fff;font:800 20px 'Manrope';margin-bottom:6px;}
 .pc-company{font-size:9px;font-weight:700;letter-spacing:.05em;color:#697085;margin-bottom:2px;}
 .pc-blurb{font-size:10px;color:#4b4358;line-height:1.5;margin:0 0 8px;}
+.pc-recruiter-line{display:flex;align-items:center;gap:8px;margin-bottom:auto;padding:8px 10px;background:#f7f5f9;border-radius:12px;text-align:left;width:100%;}
+.pc-recruiter-line img{width:30px;height:30px;border-radius:50%;object-fit:cover;flex:none;}
+.pc-recruiter-line strong{display:block;font-size:10px;color:#101218;}
+.pc-recruiter-line small{font-size:8.5px;color:#9aa1b2;}
 .pc-nav{display:flex;align-items:center;gap:14px;}
 .pc-nav button{width:32px;height:32px;border-radius:50%;border:1px solid #e9e4eb;background:#fff;font-size:16px;cursor:pointer;color:#4b4358;}
 .pc-count{font-size:10px;color:#697085;}

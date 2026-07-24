@@ -295,21 +295,6 @@ export function RecruiterHome({ data, setData, navigate, onAddJobs, onOpenMessag
       </div>
     </section>
 
-    <section className="td-section" id="td-job-matches">
-      <DashboardTitle icon={Check} title="Job Matches" subtitle="Every mutual match across all your roles." />
-      {data.matches.length
-        ? <div className="td-role-sublist">
-          {[...data.matches].sort((a, b) => (b.candidate.match?.score || 0) - (a.candidate.match?.score || 0)).map((match) => <div className="td-cand-row" key={match.id}>
-            <img src={match.candidate.photo} alt="" />
-            <div className="td-cand-row-info"><strong>{match.candidate.name}</strong><small>{match.job.title} · {match.job.company}</small></div>
-            <span className="td-cand-row-score">{match.candidate.match?.score || 0}%</span>
-            <button className="td-cand-row-view" onClick={() => setSelected(match.candidate)} aria-label={`View ${match.candidate.name}`}><Eye size={14} /></button>
-            <button className="td-cand-row-talk matched" onClick={() => onOpenMessages?.(match.id)}><MessageCircle size={13} /> Message</button>
-          </div>)}
-        </div>
-        : <EmptyRow>No mutual matches yet — they'll show up here the moment a candidate matches with one of your roles.</EmptyRow>}
-    </section>
-
     <section className="td-metrics recruiter" aria-label="Recruiter summary">
       {metrics.map((metric, index) => <button key={metric.label} className={index === 4 ? 'highlight' : ''} onClick={() => metric.target === 'messages' ? navigate('messages') : scrollTo(metric.target)}>
         <span><metric.icon size={15} /></span><small>{metric.label}</small><strong>{metric.value}</strong><p>{metric.note}</p>

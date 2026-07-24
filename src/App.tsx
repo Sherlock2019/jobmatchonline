@@ -44,7 +44,7 @@ const candidateNav: NavItem[] = [
 const employerNav: NavItem[] = [
   { label: 'Home', icon: Compass, view: 'home' },
   { label: 'My Jobs', icon: BriefcaseBusiness, anchor: 'td-roles' },
-  { label: 'Job Matches', icon: Check, anchor: 'td-job-matches' },
+  { label: 'Job Matches', icon: Check, anchor: 'td-roles' },
   { label: 'Candidates', icon: Users, view: 'discover' },
   { label: 'Conversations', short: 'Chat', icon: MessageCircle, anchor: 'td-conversations' },
   { label: 'Reports', icon: BarChart3, view: 'analytics' },
