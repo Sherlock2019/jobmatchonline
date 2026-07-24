@@ -2317,24 +2317,27 @@ button { cursor:pointer; }
 .td-list-panel .td-section-title { margin-bottom:2px; }
 .td-list-panel .td-section-title strong { font-size:11px; }
 
-/* Give every home-dashboard section its own tint so sections read as
-   separated panels instead of blending into one long white page. */
-.td-section { padding:16px 18px; border-radius:14px; border:1px solid transparent; }
-#td-profile, #td-company-profile { background:#eefaf6; border-color:#b7e4d3; }
-#td-profile .td-section-title>div>svg, #td-company-profile .td-section-title>div>svg { color:#0f9d76; }
-#td-matches { background:#fff1f5; border-color:#ffc2d4; }
-#td-chasing { background:#eef4ff; border-color:#c7dbff; }
-#td-chasing .td-section-title>div>svg { color:#3568d4; }
-#td-roles { background:#f6f3ff; border-color:#e3d5ff; }
-#td-roles .td-section-title>div>svg { color:#8b5cf6; }
-#td-conversations { background:#eef0ff; border-color:#c9d0ff; }
-#td-conversations .td-section-title>div>svg { color:#4a55c9; }
-.td-bottom-grid .td-improve { background:#fff7ea; border-color:#ffdf9e; }
-.td-improve .td-section-title>div>svg { color:#d98a12; }
-#td-recent { background:#eef8ff; border-color:#bfe3ff; }
-#td-recent .td-section-title>div>svg { color:#1487c9; }
-#td-coffee { background:#fff3ea; border-color:#ffcda3; }
-#td-coffee .td-section-title>div>svg { color:#e2661f; }
+/* Give every home-dashboard section its own iOS-system-color identity, with
+   a bold left accent bar (not just a faint tint), so sections read as
+   clearly separated panels instead of blending into one long white page. */
+.td-section { padding:16px 18px 16px 20px; border-radius:14px; border:1px solid transparent; border-left:5px solid transparent; }
+.td-list-panel { border-left:5px solid transparent; }
+#td-profile, #td-company-profile { background:color-mix(in srgb, #00C7BE 14%, white); border-color:color-mix(in srgb, #00C7BE 40%, white); border-left-color:#00C7BE; }
+#td-profile .td-section-title>div>svg, #td-company-profile .td-section-title>div>svg { color:#00C7BE; }
+#td-matches { background:color-mix(in srgb, #FF2D55 14%, white); border-color:color-mix(in srgb, #FF2D55 40%, white); border-left-color:#FF2D55; }
+#td-matches .td-section-title>div>svg { color:#FF2D55; }
+#td-chasing { background:color-mix(in srgb, #007AFF 14%, white); border-color:color-mix(in srgb, #007AFF 40%, white); border-left-color:#007AFF; }
+#td-chasing .td-section-title>div>svg { color:#007AFF; }
+#td-roles { background:color-mix(in srgb, #5856D6 14%, white); border-color:color-mix(in srgb, #5856D6 40%, white); border-left-color:#5856D6; }
+#td-roles .td-section-title>div>svg { color:#5856D6; }
+#td-conversations { background:color-mix(in srgb, #AF52DE 14%, white); border-color:color-mix(in srgb, #AF52DE 40%, white); border-left-color:#AF52DE; }
+#td-conversations .td-section-title>div>svg { color:#AF52DE; }
+.td-bottom-grid .td-improve { background:color-mix(in srgb, #FF9500 14%, white); border-color:color-mix(in srgb, #FF9500 40%, white); border-left-color:#FF9500; }
+.td-improve .td-section-title>div>svg { color:#FF9500; }
+#td-recent { background:color-mix(in srgb, #32ADE6 14%, white); border-color:color-mix(in srgb, #32ADE6 40%, white); border-left-color:#32ADE6; }
+#td-recent .td-section-title>div>svg { color:#32ADE6; }
+#td-coffee { background:color-mix(in srgb, #A2845E 14%, white); border-color:color-mix(in srgb, #A2845E 40%, white); border-left-color:#A2845E; }
+#td-coffee .td-section-title>div>svg { color:#A2845E; }
 .td-list-panel>button:not(.secondary-button) {
   width:100%;
   min-height:43px;

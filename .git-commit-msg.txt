@@ -1,8 +1,6 @@
-Tint each home-dashboard section with its own color
+Bolder iOS-palette section colors with accent borders
 
-My Profile/Company Profile (teal), Job Matches (pink), Jobs that like
-you (blue), My Jobs (violet), Conversations (indigo), Make Your Profile
-Stronger (amber), Recently Viewed (sky), Coffee Requests (peach) each
-get a distinct pastel background + border, with the section icon
-recolored to match, so the stacked sections read as separated panels
-instead of one continuous white page.
+Replace the faint pastel section tints with the app's actual iOS
+system-color palette (used for job badges elsewhere), each with a
+solid 5px left accent bar and a richer background tint for real
+contrast between sections, not just a barely-visible hue shift.
