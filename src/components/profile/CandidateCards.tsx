@@ -56,7 +56,7 @@ export function CandidateCards({ person: p, match, onEdit, unlocked = false, vis
   const goTo = (i: number) => {
     const deck = deckRef.current; if (!deck) return;
     const target = deck.children[i] as HTMLElement | undefined;
-    if (target) deck.scrollTo({ left: target.offsetLeft, behavior: 'smooth' });
+    if (target) deck.scrollTo({ left: target.offsetLeft, behavior: 'auto' });
   };
   useEffect(() => {
     const deck = deckRef.current; if (!deck) return;

@@ -19,3 +19,6 @@ ios/App/Pods/
 # Downloaded OAuth client-secret files — never commit
 oauth/
 *client_secret*.json
+
+# Scratch commit-message file used by deploys in this session
+.git-commit-msg.txt

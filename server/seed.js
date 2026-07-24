@@ -54,6 +54,10 @@ export function createSeed() {
           salary: { min: 84000, max: 145000, currency: 'USD' },
           availability: '2 weeks',
         },
+        recommendations: [
+          { recruiterName: 'Michael Torres', company: 'CloudWorks', role: 'VP Engineering', text: 'Sofia led our MLOps platform migration end to end — the kind of product mind that also reads the architecture diagrams. Rare combination.', date: 'Nov 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 5, reliability: 5, collaboration: 4, leadership: 5 } },
+          { recruiterName: 'Anh Pham', company: 'Northstar', role: 'Director of Product', text: 'One of the strongest AI PMs I have hired. Sofia turns ambiguous requirements into shipped roadmaps faster than anyone on my team.', date: 'Jul 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 4, communication: 5, reliability: 5, collaboration: 5, leadership: 4 } },
+        ],
       },
       {
         id: 'employer-demo',
