@@ -164,6 +164,8 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   const [activeAnchor, setActiveAnchor] = useState('');
   const [openMatchId, setOpenMatchId] = useState<string | undefined>(undefined);
   const openMessages = (matchId: string) => { setOpenMatchId(matchId); setView('messages'); };
+  const [editJobId, setEditJobId] = useState<string | undefined>(undefined);
+  const openJobEditor = (jobId: string) => { setEditJobId(jobId); setView('jobs'); };
   const role: Role = data?.viewer.role ?? session.role;
   const notifications = useMemo(() => {
     if (!data) return [] as { id: string; kind: 'match' | 'msg'; text: string; at: number }[];
@@ -219,7 +221,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
               : <RecruiterWizard viewer={data.viewer} initialStep={editStep ?? 0}
                   onDone={() => { setEditStep(null); setView('profile'); setProfileSaved(true); window.setTimeout(() => setProfileSaved(false), 2600); load(); }}
                   onCancel={data.viewer.onboarding ? undefined : () => setEditStep(null)} />)
-          : <ViewRouter view={view} role={role} data={data} setData={setData} navigate={setView} onEditProfile={setEditStep} profileCard={profileCard} onProfileCardChange={setProfileCard} reload={load} onAddJobs={() => setJobImportOpen(true)} manualJobRequest={manualJobRequest} openMatchId={openMatchId} onOpenMessages={openMessages} />
+          : <ViewRouter view={view} role={role} data={data} setData={setData} navigate={setView} onEditProfile={setEditStep} profileCard={profileCard} onProfileCardChange={setProfileCard} reload={load} onAddJobs={() => setJobImportOpen(true)} manualJobRequest={manualJobRequest} openMatchId={openMatchId} onOpenMessages={openMessages} editJobId={editJobId} onEditJob={openJobEditor} />
       )}
     </section>
     {profileSaved && <div className="profile-saved-toast" role="status"><Check size={15} /> Profile updated. Recruiter view refreshed.</div>}
@@ -229,16 +231,16 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   </div>;
 }
 
-function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profileCard, onProfileCardChange, reload, onAddJobs, manualJobRequest, openMatchId, onOpenMessages }: { view: View; role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void; onEditProfile: (step: number) => void; profileCard: number; onProfileCardChange: (card: number) => void; reload: () => void; onAddJobs: () => void; manualJobRequest: number; openMatchId?: string; onOpenMessages: (matchId: string) => void }) {
+function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profileCard, onProfileCardChange, reload, onAddJobs, manualJobRequest, openMatchId, onOpenMessages, editJobId, onEditJob }: { view: View; role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void; onEditProfile: (step: number) => void; profileCard: number; onProfileCardChange: (card: number) => void; reload: () => void; onAddJobs: () => void; manualJobRequest: number; openMatchId?: string; onOpenMessages: (matchId: string) => void; editJobId?: string; onEditJob: (jobId: string) => void }) {
   if (view === 'home') return role === 'candidate'
     ? <CandidateHome data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} />
-    : <RecruiterHome data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} onAddJobs={onAddJobs} onOpenMessages={onOpenMessages} />;
+    : <RecruiterHome data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} onAddJobs={onAddJobs} onOpenMessages={onOpenMessages} onEditJob={onEditJob} />;
   if (view === 'discover') return <Discover role={role} data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} />;
   if (view === 'companies') return <Companies data={data} navigate={navigate} />;
   if (view === 'pipeline') return <Pipeline data={data} setData={setData} />;
   if (view === 'messages') return <Messages role={role} data={data} setData={setData} initialMatchId={openMatchId} />;
   if (view === 'analytics') return <Analytics data={data} />;
-  if (view === 'jobs') return <Jobs data={data} reload={reload} onAddJobs={onAddJobs} manualJobRequest={manualJobRequest} onOpenMessages={onOpenMessages} />;
+  if (view === 'jobs') return <Jobs data={data} reload={reload} onAddJobs={onAddJobs} manualJobRequest={manualJobRequest} onOpenMessages={onOpenMessages} editJobId={editJobId} />;
   if (view === 'matches') return <Matches data={data} navigate={navigate} />;
   if (role === 'candidate') return <CandidateProfilePage viewer={data.viewer} jobs={data.jobs} onEdit={onEditProfile} initialCard={profileCard} onCardChange={onProfileCardChange} />;
   return <RecruiterProfilePage viewer={data.viewer} onEdit={onEditProfile} />;
@@ -703,10 +705,12 @@ function Companies({ data, navigate }: { data: Bootstrap; navigate: (v: View) =>
   return <div className="page"><div className="page-title"><div><span className="overline">Companies</span><h1>Companies checking you out</h1><p>Explore teams with relevant opportunities.</p></div></div><div className="jobs-table">{companies.map((job) => <div className="job-row" key={job.company}><div><JobHeaderBadge job={job} compact /></div><span>{job.workMode}</span><span>{job.location}</span><span>{job.requiredSkills.length} matching signals</span><span>{job.salary}</span><button aria-label={`Explore ${job.company}`} onClick={() => navigate('discover')}><ArrowRight size={16} /></button></div>)}</div></div>;
 }
 
-function Jobs({ data, reload, onAddJobs, manualJobRequest, onOpenMessages }: { data: Bootstrap; reload: () => void; onAddJobs: () => void; manualJobRequest: number; onOpenMessages?: (matchId: string) => void }) {
+function Jobs({ data, reload, onAddJobs, manualJobRequest, onOpenMessages, editJobId }: { data: Bootstrap; reload: () => void; onAddJobs: () => void; manualJobRequest: number; onOpenMessages?: (matchId: string) => void; editJobId?: string }) {
   const [editing, setEditing] = useState<Job | 'new' | null>(null);
   const [detailJob, setDetailJob] = useState<Job | null>(null);
   useEffect(() => { if (manualJobRequest > 0) setEditing('new'); }, [manualJobRequest]);
+  // Opened via "Edit" on a job row elsewhere (e.g. the Home dashboard's My Jobs list).
+  useEffect(() => { if (editJobId) { const job = data.jobs.find((j) => j.id === editJobId); if (job) setEditing(job); } }, [editJobId]);
   if (editing) return <JobEditor viewer={data.viewer} job={editing === 'new' ? undefined : editing} onSaved={() => { setEditing(null); setDetailJob(null); reload(); }} onCancel={() => setEditing(null)} />;
   if (detailJob) return <JobOfferDetail job={detailJob} data={data} onBack={() => setDetailJob(null)} onEdit={() => { setEditing(detailJob); }} onOpenMessages={onOpenMessages} />;
   const mine = data.jobs.filter((j) => j.employerId === data.viewer.id);

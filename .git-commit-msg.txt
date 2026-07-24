@@ -1,18 +1,33 @@
-Expand demo roster; Sarah gets 10 jobs x 5 matches; recruiter Discover filters to 80%+
+Job badge colors, job-row Edit, profile-preview sections, card fixes
 
-- Add 5 more recruiter demo personas (Google, Stripe, Netflix, Spotify,
-  Shopify) and 3 more candidate demo personas, selectable right under
-  Sofia/Sarah in the "Test demo matching" picker. Each recruiter has
-  one live job posting; matching-pool isolation applies automatically
-  since they're all flagged demo:true like the existing cast.
-- Sarah Thompson (AWS) now has 10 job offers in "My Jobs" (added
-  Frontend, Backend, Security, Mobile, Product, QA roles), each with
-  the same 5-candidate mutual-match pool so every role shows 5 matches.
-- Fix recruiter-side match rows always showing 0% fit: the /api/bootstrap
-  matches join returned the raw candidate record with no computed match
-  score against the job. Now scores the candidate against the specific
-  job they matched on, same as the rest of the recruiter dashboard.
-- Recruiter "Discover" page renamed "Matching Candidates" -> "Candidates
-  to be considered", defaults to the 80%+ fit filter (candidates stay
-  at "Any"), and the quick-filter chips read 80%+ instead of 85%+ for
-  recruiters.
+- Sarah's 10 AWS job offers each get a distinct iOS system-palette
+  accent instead of sharing the same orange, so "My Jobs" badges are
+  visually distinguishable per role.
+- Recruiter "My Jobs" rows get a small Edit (pencil) button next to
+  the job title, wired through Workspace -> ViewRouter -> RecruiterHome
+  and Jobs (new editJobId prop) so it opens that role directly in the
+  job editor instead of only being reachable via "..." on the Jobs page.
+- Added a compact "My Profile" / "Company Profile" preview section
+  right under the "Good morning" greeting on both home dashboards
+  (photo, name/title, completeness, "View profile" -> full profile page).
+- Fixed a real layout bug in CandidateCards/JobCards: the 5-card deck's
+  scroll position was computed from index * clientWidth, which could be
+  stale if clientWidth was measured before the surrounding modal/page
+  finished layout, leaving cards permanently offset with slivers of the
+  neighbouring card bleeding in and text clipped at the edge. Now scrolls
+  to the actual slide element's offsetLeft (deferred one frame for the
+  initial position), which is robust regardless of layout timing.
+- Renamed the candidate 5-card deck titles: Profile -> Who I am,
+  Technical -> My Skills, Preferences -> What I want, Human Stack ->
+  My Human Stack, Recommendations -> Reviews (nav + in-card headers
+  now match).
+- Job header cards (landing showcase + everywhere JobHeaderBadge is
+  used) no longer render a flat LinkedIn-blue background regardless of
+  company — the banner is now a gradient from the job's own accent
+  color into the product's Tinder pink/orange brand, so cards keep a
+  LinkedIn-style structured layout but with the app's own color energy
+  and per-job variety.
+- Verified (audit + live login checks) that all 8 new demo personas and
+  the bulk 100-candidate/100-job dataset render through the exact same
+  CandidateHome/RecruiterHome/CandidateCards/JobCards components as
+  Sofia/Sarah — no account-specific UI branching exists in the frontend.

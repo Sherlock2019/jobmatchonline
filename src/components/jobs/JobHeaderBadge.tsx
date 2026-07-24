@@ -48,7 +48,10 @@ export function JobHeaderBadge({ job, compact = false, actions, className = '' }
   className?: string;
 }) {
   const status = statusLabel(job);
-  return <header className={`job-header-badge${compact ? ' compact' : ''}${className ? ` ${className}` : ''}`}>
+  return <header
+    className={`job-header-badge${compact ? ' compact' : ''}${className ? ` ${className}` : ''}`}
+    style={{ ['--job-accent' as string]: job.accent || '#0a66c2' }}
+  >
     <div className="job-header-primary">
       <CompanyLogoMark job={job} small={compact} />
       <div className="job-header-copy">

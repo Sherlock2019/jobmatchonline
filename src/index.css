@@ -201,6 +201,7 @@ button { cursor:pointer; }
 /* One canonical job header: solid professional blue, white type, real company logo. */
 .job-header-badge {
   --job-header-blue:#0a66c2;
+  --job-accent:var(--job-header-blue);
   position:relative;
   min-height:150px;
   padding:18px;
@@ -210,7 +211,9 @@ button { cursor:pointer; }
   gap:18px;
   overflow:hidden;
   color:#fff;
-  background:var(--job-header-blue);
+  /* LinkedIn's structured card, tinted with the job's own accent and warmed
+     with the product's Tinder pink/orange brand gradient for some energy. */
+  background:linear-gradient(135deg, var(--job-accent) 0%, #fd267a 130%);
 }
 .job-header-primary { display:flex; align-items:flex-start; gap:12px; min-width:0; }
 .job-company-mark {
@@ -221,7 +224,7 @@ button { cursor:pointer; }
   place-items:center;
   overflow:hidden;
   border-radius:10px;
-  color:var(--job-header-blue);
+  color:var(--job-accent);
   background:#fff;
   box-shadow:0 0 0 1px rgba(255,255,255,.36);
 }
@@ -257,7 +260,7 @@ button { cursor:pointer; }
   line-height:1.2;
 }
 .job-header-details .job-header-salary { font-weight:850; background:rgba(255,255,255,.17); }
-.job-header-details .job-header-match { background:#fff; color:var(--job-header-blue); }
+.job-header-details .job-header-match { background:#fff; color:var(--job-accent); }
 .job-header-details .job-header-status { background:#eaf7ef; color:#116b3b; }
 .job-header-badge.compact { min-height:58px; width:100%; padding:12px 14px; justify-content:center; border-radius:10px; }
 .job-header-badge.compact .job-header-copy h2 { font-size:12px; }
@@ -2146,6 +2149,14 @@ button { cursor:pointer; }
 .td-metrics>button.highlight>span { background:#e8e2ff; color:#694ddb; }
 
 .td-section { margin-top:21px; scroll-margin-top:80px; }
+.td-profile-card { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid #e2e7ef; border-radius:10px; background:#fff; }
+.td-profile-card img { width:48px; height:48px; border-radius:50%; object-fit:cover; flex:none; }
+.td-profile-card-info { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+.td-profile-card-info strong { font-size:14px; color:#0d1834; }
+.td-profile-card-info>span { font-size:12px; color:#697085; }
+.td-profile-card-meta { display:flex; gap:8px; margin-top:2px; }
+.td-profile-card-meta span { font-size:10.5px; color:#8a93a8; background:#f4f6fa; padding:2px 8px; border-radius:999px; }
+.td-profile-card .secondary-button.small { flex:none; padding:7px 13px; font-size:12px; }
 .td-list-panel[id], .td-bottom-grid[id] { scroll-margin-top:80px; }
 .td-section-title {
   min-height:28px;
@@ -2393,7 +2404,7 @@ button { cursor:pointer; }
   background:#fff;
 }
 .td-role-head>.job-header-badge {
-  max-width:290px;
+  max-width:310px;
   min-height:40px;
   padding:5px 7px;
   border-radius:6px;
@@ -2401,6 +2412,8 @@ button { cursor:pointer; }
   background:#fff;
   color:#0d1834;
 }
+.td-role-head .td-role-edit { width:20px; height:20px; display:grid; place-items:center; border-radius:5px; border:1px solid #e3e8ef; background:#fff; color:#687187; flex:none; }
+.td-role-head .td-role-edit:hover { background:#f2f4f8; color:#0d1834; }
 .td-role-head>.job-header-badge .job-company-mark { width:27px; height:27px; background:#f2efff; color:#6d50db; }
 .td-role-head>.job-header-badge .job-header-copy h2 { color:#0d1834; }
 .td-role-head>.job-header-badge .job-header-copy strong { color:#687187; }

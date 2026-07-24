@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
-  ArrowRight, Bell, Bookmark, BriefcaseBusiness, Check, ChevronDown, Coffee,
-  Eye, Heart, MapPin, MessageCircle, Pencil, Sparkles, Star, Target, TrendingUp, X,
+  ArrowRight, Bell, Bookmark, BriefcaseBusiness, Building2, Check, ChevronDown, Coffee,
+  Eye, Heart, MapPin, MessageCircle, Pencil, Sparkles, Star, Target, TrendingUp, User, X,
 } from 'lucide-react';
 import { api } from '../../api';
 import type { Bootstrap, Job, MatchEvidence, Person, RoleMatchGroup, View } from '../../types';
@@ -16,6 +16,7 @@ type HomeProps = {
   onEditProfile: (step: number) => void;
   onAddJobs?: () => void;
   onOpenMessages?: (matchId: string) => void;
+  onEditJob?: (jobId: string) => void;
 };
 
 function firstName(name = 'there') {
@@ -181,6 +182,19 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
       <div className="td-hero-faces">{conversations.slice(0, 3).map((match) => <img key={match.id} src={match.employer?.photo || data.viewer.photo} alt="" />)}{conversations.length > 2 && <span>+{conversations.length}</span>}</div>
     </section>
 
+    <section className="td-section" id="td-profile">
+      <DashboardTitle icon={User} title="My Profile" subtitle="How recruiters see you." action="Edit profile" onAction={() => navigate('profile')} />
+      <div className="td-profile-card">
+        <img src={data.viewer.photo} alt="" />
+        <div className="td-profile-card-info">
+          <strong>{data.viewer.name}</strong>
+          <span>{data.viewer.title}</span>
+          <div className="td-profile-card-meta"><span>{completion}% complete</span>{data.viewer.location && <span>{data.viewer.location}</span>}</div>
+        </div>
+        <button className="secondary-button small" onClick={() => navigate('profile')}>View profile</button>
+      </div>
+    </section>
+
     <section className="td-metrics candidate" aria-label="Candidate summary">
       {metrics.map((metric) => <button key={metric.label} onClick={() => metric.target === 'messages' ? navigate('messages') : scrollTo(metric.target)}>
         <span><metric.icon size={15} /></span><small>{metric.label}</small><strong>{metric.value}</strong><p>{metric.note}</p><b>{metric.action}<ArrowRight size={10} /></b>
@@ -217,7 +231,7 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
   </main>;
 }
 
-export function RecruiterHome({ data, setData, navigate, onAddJobs, onOpenMessages }: HomeProps) {
+export function RecruiterHome({ data, setData, navigate, onAddJobs, onOpenMessages, onEditJob }: HomeProps) {
   const [selected, setSelected] = useState<Person | null>(null);
   const [expandedId, setExpandedId] = useState('');
   const [bestMatchFirst, setBestMatchFirst] = useState(true);
@@ -260,6 +274,19 @@ export function RecruiterHome({ data, setData, navigate, onAddJobs, onOpenMessag
       <button className="primary-button" onClick={onAddJobs}>+ Add New Job Offers</button>
     </header>
 
+    <section className="td-section" id="td-company-profile">
+      <DashboardTitle icon={Building2} title="Company Profile" subtitle="How candidates see your company." action="Edit profile" onAction={() => navigate('profile')} />
+      <div className="td-profile-card">
+        <img src={data.viewer.photo} alt="" />
+        <div className="td-profile-card-info">
+          <strong>{data.viewer.company || data.viewer.name}</strong>
+          <span>{data.viewer.title}</span>
+          <div className="td-profile-card-meta">{data.viewer.industry && <span>{data.viewer.industry}</span>}{data.viewer.headquarters && <span>{data.viewer.headquarters}</span>}</div>
+        </div>
+        <button className="secondary-button small" onClick={() => navigate('profile')}>View profile</button>
+      </div>
+    </section>
+
     <section className="td-section td-role-section" id="td-roles">
       <DashboardTitle icon={BriefcaseBusiness} title="My Jobs" subtitle="Each role, with its matches and the candidates who love it — not matched yet." action={bestMatchFirst ? 'Sort by: Best Match' : 'Sort by: Name'} onAction={() => setBestMatchFirst((value) => !value)} />
       <div className="td-role-list">
@@ -270,7 +297,7 @@ export function RecruiterHome({ data, setData, navigate, onAddJobs, onOpenMessag
           const lovesNotMatched = [...group.candidates].filter((candidate) => !matchedIds.has(candidate.id)).sort(sortFn);
           return <article className={open ? 'td-role open' : 'td-role'} key={group.job.id}>
             <div className="td-role-head" role="button" tabIndex={0} onClick={() => setExpandedId(open ? '__none__' : group.job.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setExpandedId(open ? '__none__' : group.job.id); } }} aria-expanded={open}>
-              <JobHeaderBadge job={group.job} compact />
+              <JobHeaderBadge job={group.job} compact actions={<button className="td-role-edit" onClick={(event) => { event.stopPropagation(); onEditJob?.(group.job.id); }} aria-label={`Edit ${group.job.title}`}><Pencil size={12} /></button>} />
               <span><Check size={12} /> {matchedForJob.length} matched</span>
               <span><Heart size={12} /> {lovesNotMatched.length} love this job</span>
               <button onClick={(event) => { event.stopPropagation(); navigate('discover'); }}>Review candidates <ArrowRight size={11} /></button>

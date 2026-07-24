@@ -36,7 +36,7 @@ function Card({ label, icon: Icon, step, onEdit, children, tone }: { label: stri
   </div>;
 }
 
-const NAV = [{ icon: User, label: 'Profile' }, { icon: Code2, label: 'Technical' }, { icon: Target, label: 'Preferences' }, { icon: Brain, label: 'Human Stack' }, { icon: Star, label: 'Reviews' }];
+const NAV = [{ icon: User, label: 'Who I am' }, { icon: Code2, label: 'My Skills' }, { icon: Target, label: 'What I want' }, { icon: Brain, label: 'My Human Stack' }, { icon: Star, label: 'Reviews' }];
 
 /**
  * The candidate as a horizontal deck of five Tinder-style cards with a 5-icon
@@ -49,20 +49,28 @@ export function CandidateCards({ person: p, match, onEdit, unlocked = false, vis
   const deckRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(initialCard);
 
+  // Target the slide's own offsetLeft rather than index * clientWidth — the
+  // deck can still be mid-layout (modal/page transition) when this first runs,
+  // and a stale clientWidth left cards permanently offset with slivers of the
+  // neighbouring card bleeding in on both sides.
   const goTo = (i: number) => {
     const deck = deckRef.current; if (!deck) return;
-    deck.scrollTo({ left: i * deck.clientWidth, behavior: 'smooth' });
+    const target = deck.children[i] as HTMLElement | undefined;
+    if (target) deck.scrollTo({ left: target.offsetLeft, behavior: 'smooth' });
   };
   useEffect(() => {
     const deck = deckRef.current; if (!deck) return;
-    deck.scrollLeft = initialCard * deck.clientWidth;
+    const raf = requestAnimationFrame(() => {
+      const target = deck.children[initialCard] as HTMLElement | undefined;
+      deck.scrollLeft = target ? target.offsetLeft : 0;
+    });
     const onScroll = () => {
       const next = Math.max(0, Math.min(4, Math.round(deck.scrollLeft / deck.clientWidth)));
       setActive(next);
       onActiveChange?.(next);
     };
     deck.addEventListener('scroll', onScroll, { passive: true });
-    return () => deck.removeEventListener('scroll', onScroll);
+    return () => { cancelAnimationFrame(raf); deck.removeEventListener('scroll', onScroll); };
   }, [initialCard, onActiveChange]);
 
   const onDeckKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -124,7 +132,7 @@ export function CandidateCards({ person: p, match, onEdit, unlocked = false, vis
       </div>
 
       {/* ---------- Card 2 — Technical stack & documents ---------- */}
-      <div className="tcard-slide"><Card label="Technical stack" icon={Code2} step={1} onEdit={onEdit}>
+      <div className="tcard-slide"><Card label="My Skills" icon={Code2} step={1} onEdit={onEdit}>
         {m && <div className="tcard-counts"><span className="ok">{m.matchedSkills.length} matching</span><span className="miss">{m.missingSkills?.length ?? 0} missing</span><span className="extra">{m.extraSkills?.length ?? 0} extra</span></div>}
         {m ? <div className="tcard-skillsplit">
           <div className="tskill-group ok"><span className="tskill-h"><CheckCircle2 size={13} /> Matching</span><ul className="tskill-rows">{m.matchedSkills.length ? m.matchedSkills.map((s) => { const d = skill(s); return <li key={s}><b>{s}</b>{d?.years ? <em>{d.years}y</em> : null}{d?.level ? <i>{'●'.repeat(d.level)}{'○'.repeat(5 - d.level)}</i> : null}</li>; }) : <li><em>None yet</em></li>}</ul></div>
@@ -140,7 +148,7 @@ export function CandidateCards({ person: p, match, onEdit, unlocked = false, vis
       </Card></div>
 
       {/* ---------- Card 3 — Career & preferences ---------- */}
-      <div className="tcard-slide"><Card label="Preferences" icon={Target} step={2} onEdit={onEdit}>
+      <div className="tcard-slide"><Card label="What I want" icon={Target} step={2} onEdit={onEdit}>
         {p.preferences?.desiredRoles?.length ? <><span className="tcard-sub">Target roles</span><div className="skill-list soft">{p.preferences.desiredRoles.map((r) => <span key={r}>{r}</span>)}</div></> : null}
         <dl className="tcard-dl">
           {p.preferences?.employmentTypes?.length ? <div><dt><Briefcase size={12} /> Employment</dt><dd>{p.preferences.employmentTypes.join(' · ')}</dd></div> : null}
@@ -157,7 +165,7 @@ export function CandidateCards({ person: p, match, onEdit, unlocked = false, vis
       </Card></div>
 
       {/* ---------- Card 4 — Human stack ---------- */}
-      <div className="tcard-slide"><Card label="Human stack" icon={Brain} step={3} onEdit={onEdit} tone="human">
+      <div className="tcard-slide"><Card label="My Human Stack" icon={Brain} step={3} onEdit={onEdit} tone="human">
         {p.presentation ? <p className="tcard-presentation">{p.presentation}</p> : onEdit ? <p className="tcard-empty">Add a short personal introduction — who you are beyond the CV.</p> : null}
         {p.motto ? <p className="tcard-motto"><Quote size={13} /> {p.motto}</p> : null}
         {p.mindset?.length ? <><span className="tcard-sub">Mindset</span><div className="skill-list soft">{p.mindset.map((s) => <span key={s}>{s}</span>)}</div></> : null}
@@ -171,7 +179,7 @@ export function CandidateCards({ person: p, match, onEdit, unlocked = false, vis
       </Card></div>
 
       {/* ---------- Card 5 — Reviews ---------- */}
-      <div className="tcard-slide"><Card label="Recommendations" icon={Star} step={5} onEdit={onEdit}>
+      <div className="tcard-slide"><Card label="Reviews" icon={Star} step={5} onEdit={onEdit}>
         {avgRating !== undefined && <div className="tcard-rating"><strong>{avgRating.toFixed(1)}</strong><div className="tcard-stars">{[1, 2, 3, 4, 5].map((n) => <Star key={n} size={14} className={n <= Math.round(avgRating) ? 'on' : ''} />)}</div><small>{p.recommendations!.length} recommendation{p.recommendations!.length > 1 ? 's' : ''}</small></div>}
         {p.recommendations?.length ? <ul className="tcard-recs">{p.recommendations.map((r, i) => <li key={i}>
           <div className="trec-head">{r.photo && <img src={r.photo} alt="" />}<div><strong>{r.recruiterName}{r.verified && <BadgeCheck size={13} className="verified-mark" />}</strong>{(r.role || r.company) && <small>{[r.role, r.company].filter(Boolean).join(' · ')}</small>}{r.relationship && <em className="trec-rel">{r.relationship}</em>}</div></div>

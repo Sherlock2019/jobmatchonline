@@ -34,7 +34,8 @@ export function JobCards({ job: j, onEdit, unlocked = false }: { job: Job; onEdi
 
   const goTo = (i: number) => {
     const deck = deckRef.current; if (!deck) return;
-    deck.scrollTo({ left: i * deck.clientWidth, behavior: 'smooth' });
+    const target = deck.children[i] as HTMLElement | undefined;
+    if (target) deck.scrollTo({ left: target.offsetLeft, behavior: 'smooth' });
   };
   useEffect(() => {
     const deck = deckRef.current; if (!deck) return;
