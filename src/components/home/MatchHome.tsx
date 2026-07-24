@@ -108,6 +108,19 @@ function EmptyRow({ children }: { children: React.ReactNode }) {
   return <div className="td-empty"><Sparkles size={18} /><span>{children}</span></div>;
 }
 
+/** Lightweight candidate row for the recruiter's per-job Matches / Loves-this-job lists. */
+function CandidateRow({ person, matched, onView, onTalk }: { person: Person; matched?: boolean; onView: () => void; onTalk: () => void }) {
+  return <div className="td-cand-row">
+    <img src={person.photo} alt="" />
+    <div className="td-cand-row-info"><strong>{person.name}</strong><small>{person.title}{person.company ? ` · ${person.company}` : ''}</small></div>
+    <span className="td-cand-row-score">{person.match?.score || 0}%</span>
+    <button className="td-cand-row-view" onClick={onView} aria-label={`View ${person.name}`}><Eye size={14} /></button>
+    <button className={matched ? 'td-cand-row-talk matched' : 'td-cand-row-talk'} onClick={onTalk}>
+      {matched ? <><MessageCircle size={13} /> Message</> : <><Heart size={13} /> Like back</>}
+    </button>
+  </div>;
+}
+
 function CandidateProfileModal({ candidate, onClose, onTalk }: { candidate: Person; onClose: () => void; onTalk: () => void }) {
   return <div className="mh-modal-scrim" role="presentation" onMouseDown={onClose}>
     <section className="mh-profile-modal" role="dialog" aria-modal="true" aria-label={`Recruiter view of ${candidate.name}`} onMouseDown={(event) => event.stopPropagation()}>
@@ -218,24 +231,14 @@ export function RecruiterHome({ data, setData, navigate, onAddJobs }: HomeProps)
   const topRole = [...roles].sort((a, b) => ((b.matchingCandidates?.length || 0) + b.candidates.length) - ((a.matchingCandidates?.length || 0) + a.candidates.length))[0];
 
   const reload = async () => setData(await api.bootstrap(data.viewer.id));
-  const save = async (person: Person) => {
-    await api.toggleBookmark({ userId: data.viewer.id, targetId: person.id, targetType: 'candidate' });
-    await reload();
-  };
   const talk = async (person: Person) => {
     const result = await api.swipe({ actorId: data.viewer.id, targetId: person.id, targetType: 'candidate', direction: 'like' });
     await reload();
     navigate(result.match ? 'messages' : 'matches');
   };
-  const personCards = (people: Person[], liked = false) => {
-    const visible = [...people].sort((a, b) => data.viewer.demo && (a.demoOrder || b.demoOrder)
-      ? (a.demoOrder || 99) - (b.demoOrder || 99)
-      : bestMatchFirst ? (b.match?.score || 0) - (a.match?.score || 0) : a.name.localeCompare(b.name)).slice(0, 4);
-    if (!visible.length) return <EmptyRow>No candidates have shown interest in this job yet.</EmptyRow>;
-    return <div className="td-people-row">
-      {visible.map((person) => <PersonCard key={person.id} person={person} liked={liked} saved={data.bookmarkedIds.includes(person.id)} onSave={() => void save(person)} onView={() => setSelected(person)} onTalk={() => void talk(person)} />)}
-    </div>;
-  };
+  const sortFn = (a: Person, b: Person) => data.viewer.demo && (a.demoOrder || b.demoOrder)
+    ? (a.demoOrder || 99) - (b.demoOrder || 99)
+    : bestMatchFirst ? (b.match?.score || 0) - (a.match?.score || 0) : a.name.localeCompare(b.name);
 
   const metrics = [
     { icon: Heart, label: 'People Who Love Your Jobs', value: interested.length, note: 'candidates', target: 'td-roles' },
@@ -251,32 +254,45 @@ export function RecruiterHome({ data, setData, navigate, onAddJobs }: HomeProps)
       <button className="primary-button" onClick={onAddJobs}>+ Add New Job Offers</button>
     </header>
 
-    <section className="td-metrics recruiter" aria-label="Recruiter summary">
-      {metrics.map((metric, index) => <button key={metric.label} className={index === 4 ? 'highlight' : ''} onClick={() => metric.target === 'messages' ? navigate('messages') : scrollTo(metric.target)}>
-        <span><metric.icon size={15} /></span><small>{metric.label}</small><strong>{metric.value}</strong><p>{metric.note}</p>
-      </button>)}
-    </section>
-
     <section className="td-section td-role-section" id="td-roles">
-      <DashboardTitle icon={Heart} title="People Who Love This Job" subtitle="Top candidates genuinely interested in your roles, ranked by match score." action={bestMatchFirst ? 'Sort by: Best Match' : 'Sort by: Name'} onAction={() => setBestMatchFirst((value) => !value)} />
+      <DashboardTitle icon={BriefcaseBusiness} title="My Jobs" subtitle="Each role, with its matches and the candidates who love it — not matched yet." action={bestMatchFirst ? 'Sort by: Best Match' : 'Sort by: Name'} onAction={() => setBestMatchFirst((value) => !value)} />
       <div className="td-role-list">
         {roles.map((group) => {
           const open = group.job.id === openId;
-          const precise = (group.matchingCandidates || []).filter((candidate) => isPreciseMatch(candidate.match));
+          const matchedForJob = data.matches.filter((match) => match.jobId === group.job.id);
+          const matchedIds = new Set(matchedForJob.map((match) => match.candidateId));
+          const lovesNotMatched = [...group.candidates].filter((candidate) => !matchedIds.has(candidate.id)).sort(sortFn);
           return <article className={open ? 'td-role open' : 'td-role'} key={group.job.id}>
             <div className="td-role-head" role="button" tabIndex={0} onClick={() => setExpandedId(open ? '__none__' : group.job.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setExpandedId(open ? '__none__' : group.job.id); } }} aria-expanded={open}>
               <JobHeaderBadge job={group.job} compact />
-              <span><Heart size={12} /> {group.candidates.length} love this job</span>
-              <span>{group.newCount || precise.length} new today</span>
-              <button onClick={(event) => { event.stopPropagation(); navigate('discover'); }}>View all candidates <ArrowRight size={11} /></button>
+              <span><Check size={12} /> {matchedForJob.length} matched</span>
+              <span><Heart size={12} /> {lovesNotMatched.length} love this job</span>
+              <button onClick={(event) => { event.stopPropagation(); navigate('discover'); }}>Review candidates <ArrowRight size={11} /></button>
               <ChevronDown size={16} />
             </div>
             {open && <div className="td-role-body">
-              {personCards(group.candidates, true)}
+              <div className="td-role-sublist">
+                <span className="td-sublabel"><Check size={12} /> Matches ({matchedForJob.length})</span>
+                {matchedForJob.length
+                  ? matchedForJob.map((match) => <CandidateRow key={match.id} person={match.candidate} matched onView={() => setSelected(match.candidate)} onTalk={() => navigate('messages')} />)
+                  : <EmptyRow>No mutual matches yet for this role.</EmptyRow>}
+              </div>
+              <div className="td-role-sublist">
+                <span className="td-sublabel"><Heart size={12} /> Loves this job · not matched yet ({lovesNotMatched.length})</span>
+                {lovesNotMatched.length
+                  ? lovesNotMatched.slice(0, 8).map((person) => <CandidateRow key={person.id} person={person} onView={() => setSelected(person)} onTalk={() => void talk(person)} />)
+                  : <EmptyRow>No new admirers yet — candidates who like this role show up here.</EmptyRow>}
+              </div>
             </div>}
           </article>;
         })}
       </div>
+    </section>
+
+    <section className="td-metrics recruiter" aria-label="Recruiter summary">
+      {metrics.map((metric, index) => <button key={metric.label} className={index === 4 ? 'highlight' : ''} onClick={() => metric.target === 'messages' ? navigate('messages') : scrollTo(metric.target)}>
+        <span><metric.icon size={15} /></span><small>{metric.label}</small><strong>{metric.value}</strong><p>{metric.note}</p>
+      </button>)}
     </section>
 
     <section className="td-bottom-grid recruiter">
