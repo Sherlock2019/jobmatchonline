@@ -1,6 +1,12 @@
-Bolder iOS-palette section colors with accent borders
+Sidebar top slot is Profile, not a role toggle; hide role-view chip for real accounts
 
-Replace the faint pastel section tints with the app's actual iOS
-system-color palette (used for job badges elsewhere), each with a
-solid 5px left accent bar and a richer background tint for real
-contrast between sections, not just a barely-visible hue shift.
+- The sidebar's top "Workspace" switcher opened whichever demo persona
+  matched the other role, discarding the real session for any real
+  account that clicked it. Repurposed it into the Profile entry point
+  (photo, name, role, arrow -> profile page) and removed the now-
+  redundant "View my profile" button that sat at the bottom of the
+  sidebar, so there's a single profile link instead of two.
+- The topbar "Candidate view / Recruiter view" chip called the same
+  changeRole() helper, which always logs in as `${role}-demo` — for a
+  real account this silently swapped them into the demo persona. Now
+  only rendered when the signed-in viewer is a demo account.

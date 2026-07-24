@@ -504,6 +504,7 @@ button { cursor:pointer; }
 .workspace-switch small { color:#82958a; font-size:9px; }
 .workspace-switch svg { margin-left:auto; color:#809086; }
 .avatar-mini { width:30px; height:30px; display:grid; place-items:center; border-radius:9px; background:var(--brand-gradient); color:white; font-size:9px; font-weight:800; }
+img.avatar-mini { object-fit:cover; }
 .sidebar-nav { display:flex; flex-direction:column; gap:4px; padding-top:21px; }
 .sidebar-nav button,.sidebar-bottom>button { height:43px; border:0; background:none; color:#8ea096; border-radius:9px; display:flex; align-items:center; gap:12px; padding:0 13px; font-size:12px; font-weight:600; text-align:left; }
 .sidebar-nav button:hover,.sidebar-nav button.active { background:rgba(255,255,255,.1); color:white; }
@@ -513,12 +514,6 @@ button { cursor:pointer; }
 .sidebar-nav em { margin-left:auto; background:var(--brand-gradient); color:white; width:20px; height:20px; display:grid; place-items:center; border-radius:7px; font-size:9px; font-style:normal; font-weight:800; }
 .sidebar-bottom { margin-top:auto; display:flex; flex-direction:column; border-top:1px solid rgba(255,255,255,.08); padding-top:12px; }
 .logout-button:hover { color:#ff8a8a!important; background:rgba(255,90,90,.12)!important; }
-.profile-button { margin-top:8px; height:56px!important; padding-inline:7px!important; }
-.profile-button img { width:34px; height:34px; object-fit:cover; border-radius:50%; }
-.profile-button div { display:flex; flex-direction:column; min-width:0; }
-.profile-button strong { color:#e8f0eb; font-size:10px; }
-.profile-button small { color:#74877b; font-size:8px; }
-.profile-button svg { margin-left:auto; }
 .app-main { margin-left:232px; min-width:0; flex:1; }
 .topbar { position:sticky; z-index:20; top:0; height:calc(68px + env(safe-area-inset-top)); background:rgba(255,255,255,.88); backdrop-filter:blur(15px); border-bottom:1px solid var(--line); display:flex; align-items:center; padding:env(safe-area-inset-top) 32px 0; }
 .search-box { width:min(430px,48vw); display:flex; align-items:center; gap:9px; color:#8a958e; }
