@@ -39,7 +39,6 @@ const candidateNav: NavItem[] = [
   { label: 'Jobs that like you', short: 'Likes You', icon: Target, anchor: 'td-chasing' },
   { label: 'Jobs You Should Consider', short: 'Swipe', icon: Sparkles, view: 'discover' },
   { label: 'Conversations', short: 'Chat', icon: MessageCircle, anchor: 'td-conversations' },
-  { label: 'My Profile', short: 'Profile', icon: Users, view: 'profile' },
 ];
 const employerNav: NavItem[] = [
   { label: 'Home', icon: Compass, view: 'home' },
@@ -48,7 +47,6 @@ const employerNav: NavItem[] = [
   { label: 'Candidates', icon: Users, view: 'discover' },
   { label: 'Conversations', short: 'Chat', icon: MessageCircle, anchor: 'td-conversations' },
   { label: 'Reports', icon: BarChart3, view: 'analytics' },
-  { label: 'Company Profile', short: 'Company', icon: Target, view: 'profile' },
 ];
 
 async function connectLinkedIn() {

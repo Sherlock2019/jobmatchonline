@@ -1,12 +1,5 @@
-Fix profile/job card deck: tabs got stuck always landing on the last card
+Remove duplicate "My Profile"/"Company Profile" sidebar nav item
 
-The offsetLeft-based scroll fix from the previous commit assumed
-offsetLeft is relative to .tcards-deck, but offsetLeft is only relative
-to the nearest *positioned* ancestor — .tcards-deck had no `position`
-set, so it resolved against some ancestor further up the page, giving
-wildly wrong (effectively clamped-to-max) scroll targets. Every tab
-click landed on the same over-scrolled position, which looked like
-"the cards don't change" (always showing the last card, Reviews).
-
-Fix: add position:relative to .tcards-deck so offsetLeft is measured
-from the deck itself, as intended.
+The persistent profile button at the bottom of the sidebar (photo,
+name, "View my profile") already links to the profile page, so the
+separate nav-list entry pointing at the same view was a duplicate.
