@@ -132,7 +132,9 @@ button { cursor:pointer; }
 .gauge-ring { width:88px; height:88px; border-radius:50%; display:grid; place-items:center; margin-bottom:12px; }
 .gauge-inner { width:70px; height:70px; border-radius:50%; background:#1c1e24; display:flex; align-items:center; justify-content:center; }
 .gauge-inner strong { font:800 14px 'Manrope'; letter-spacing:-.02em; }
+.gauge-inner strong.gauge-new { color:#34C759; }
 .gauge-tile span { color:#c7cbd6; font-size:11px; line-height:1.35; }
+.gauge-tile em { display:block; font-style:normal; color:#FF3B30; font-size:10px; font-weight:700; margin-top:6px; }
 .gauge-grid small { grid-column:span 3; color:#7d8694; font-size:9px; margin-top:2px; }
 @media(max-width:640px){ .gauge-grid { grid-template-columns:repeat(2,1fr); } .gauge-grid small { grid-column:span 2; } }
 .trust-pipeline { grid-column:1 / -1; margin-top:8px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:20px; padding:30px 34px 26px; }
