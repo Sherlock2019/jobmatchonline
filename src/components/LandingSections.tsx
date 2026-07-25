@@ -66,22 +66,26 @@ export function FeaturesTable() {
     </div>
     <div className="features-columns">
       <div className="features-column pink">
-        <h3>For Candidates</h3>
-        <div className="features-table">
-          {CANDIDATE_FEATURES.map((feature) => <div className="features-row" key={feature.title}>
-            <div className="features-icon"><feature.icon size={18} /></div>
-            <div><strong>{feature.title}</strong><p>{feature.text}</p></div>
-          </div>)}
-        </div>
+        <table className="features-spreadsheet">
+          <thead><tr><th colSpan={2}>For Candidates</th></tr></thead>
+          <tbody>
+            {CANDIDATE_FEATURES.map((feature) => <tr key={feature.title}>
+              <td className="features-cell-icon"><div className="features-icon"><feature.icon size={18} /></div></td>
+              <td><strong>{feature.title}</strong><p>{feature.text}</p></td>
+            </tr>)}
+          </tbody>
+        </table>
       </div>
       <div className="features-column blue">
-        <h3>For Recruiters</h3>
-        <div className="features-table">
-          {RECRUITER_FEATURES.map((feature) => <div className="features-row" key={feature.title}>
-            <div className="features-icon"><feature.icon size={18} /></div>
-            <div><strong>{feature.title}</strong><p>{feature.text}</p></div>
-          </div>)}
-        </div>
+        <table className="features-spreadsheet">
+          <thead><tr><th colSpan={2}>For Recruiters</th></tr></thead>
+          <tbody>
+            {RECRUITER_FEATURES.map((feature) => <tr key={feature.title}>
+              <td className="features-cell-icon"><div className="features-icon"><feature.icon size={18} /></div></td>
+              <td><strong>{feature.title}</strong><p>{feature.text}</p></td>
+            </tr>)}
+          </tbody>
+        </table>
       </div>
     </div>
   </section>;

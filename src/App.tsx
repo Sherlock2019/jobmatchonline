@@ -3,7 +3,7 @@ import { PhoneMockup } from './components/PhoneMockup';
 import { DemoBadge } from './components/DemoBadge';
 import { InviteFriendModal } from './components/InviteFriendModal';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
-import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, Download, ExternalLink, Eye, FileText, Filter, Gift, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, Download, ExternalLink, Eye, FileText, Filter, Gift, Handshake, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, Map as MapIcon, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
 import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
@@ -130,7 +130,7 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     </section>
     <section className="logo-strip"><span>Built for the way modern teams hire</span><div><b>northstar</b><b>CANVAS</b><b>relay</b><b>ORBIT</b><b>stride</b></div></section>
     <section className="comparison-section" id="compare">
-      <div className="comparison-intro"><div><span className="section-kicker">The hiring upgrade</span><h2>Old hiring creates activity.<br />JobsMatchNow creates alignment.</h2></div><p>Everything candidates and hiring teams need—from first discovery to a qualified conversation—inside one respectful, intelligent experience.</p></div>
+      <div className="comparison-intro"><div><span className="section-kicker">The hiring upgrade</span><h2>The Hiring Game Changer</h2></div><div className="comparison-copy"><p>Traditional hiring creates hurdles: endless searching, slow applications, repeated screenings, multiple exchanges, long delays — and too often, silence, no feedback. No sign of due respect.</p><p>JobsMatchNow removes the friction and creates Respect, Mutual Alignment, and a Clear, Fast Decision Cycle with Feedback.</p><p>Everything candidates and hiring teams need — from first discovery and mutual interest to a qualified conversation — is brought together in one simple, respectful, and intelligent experience.</p><p className="comparison-tagline">Less chasing. Fewer hurdles. Faster, better matches.</p></div></div>
       <div className="comparison-table-wrap">
         <table className="comparison-table">
           <thead><tr><th>Experience</th><th><span className="old-dot" />Traditional hiring</th><th><span className="new-dot" />JobsMatchNow</th><th>What changes</th></tr></thead>
@@ -141,8 +141,8 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     </section>
     <FeaturesTable />
     <JourneyPipeline />
-    <section className="value-section" id="how"><div><span className="section-kicker">A better signal</span><h2>Hiring works better when<br />both sides choose.</h2></div><div className="value-grid"><Feature icon={Target} title="Fit, explained" text="Go beyond keywords with transparent skill, experience, and preference signals." /><Feature icon={Zap} title="Intent, confirmed" text="A conversation opens only after both sides express interest. No cold outreach." /><Feature icon={MapPin} title="Geolocation of Opportunities" text="Choose a city and private distance range, then meet for coffee only when both sides agree." /><Feature icon={ShieldCheck} title="People, respected" text="Salary and work style are clear up front. Candidate controls stay at the center." /></div></section>
-    <section className="trust-section" id="trust"><div className="trust-copy"><span className="section-kicker light">Designed for trust</span><h2>Less noise.<br />More possibility.</h2><p>Every recommendation carries its reason. Every connection starts with consent. Every candidate gets control over what employers can see.</p><button className="white-button" onClick={openLogin}>Open recruiter workspace <ArrowRight size={17} /></button></div><div className="metrics"><div><strong>3.2×</strong><span>more qualified conversations</span></div><div><strong>48h</strong><span>median time to first response</span></div><div><strong>42%</strong><span>fewer screening steps</span></div><small>Illustrative product targets for the demo experience.</small></div></section>
+    <section className="value-section" id="how"><div className="section-heading centered"><span className="eyebrow"><Sparkles size={14} /> A better signal</span><h2>Hiring works better when<br />both sides choose.</h2></div><div className="value-grid"><Feature icon={BarChart3} title="Fit, explained" text="Go beyond keywords with transparent skill, experience, and preference signals." /><Feature icon={Handshake} title="Intent, confirmed" text="A conversation opens only after both sides express interest. No cold outreach." /><Feature icon={MapIcon} title="Geolocation of Opportunities" text="Choose a city and private distance range, then meet for coffee only when both sides agree." /><Feature icon={ShieldCheck} title="People, respected" text="Salary and work style are clear up front. Candidate controls stay at the center." /></div></section>
+    <section className="trust-section" id="trust"><div className="trust-copy"><span className="section-kicker light">Results</span><h2>More, better, faster hiring — with human, mutual job matching.</h2><p>Every recommendation carries its reason. Every connection starts with consent. Every candidate gets control over what employers can see.</p><button className="white-button" onClick={openLogin}>Open recruiter workspace <ArrowRight size={17} /></button></div><div className="metrics"><div><strong>3.2×</strong><span>more qualified conversations</span></div><div><strong>9 days</strong><span>median time to hire</span></div><div><strong>61%</strong><span>match-to-interview conversion</span></div><div><strong>48h</strong><span>median time to first response</span></div><div><strong>42%</strong><span>fewer screening steps</span></div><div><strong>500+</strong><span>hires made through mutual matching</span></div><small>Illustrative product targets for the demo experience.</small></div></section>
     <LatestShowcase onRegister={openRegister} onLogin={openLogin} />
     <FeedbackSection />
     <footer><Brand /><span>Perfect matches should feel human.</span><small>© 2026 JobsMatchNow</small></footer>
@@ -151,7 +151,7 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
 }
 
 function Feature({ icon: Icon, title, text }: { icon: typeof Target; title: string; text: string }) {
-  return <article><div className="feature-icon"><Icon size={20} /></div><h3>{title}</h3><p>{text}</p></article>;
+  return <article><div className="feature-icon"><Icon size={32} /></div><h3>{title}</h3><p>{text}</p></article>;
 }
 
 function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; onSwitchUser: (user: SessionUser) => void; onExit: () => void }) {

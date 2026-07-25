@@ -53,12 +53,12 @@ function JobScreen() {
       <img className="pc-photo-lg" src={RECRUITER.photo} alt="" />
       <div className="pc-identity-rows">
         <span><b>Role</b>{COMPANY.role}</span>
+        <span className="pc-skills-inline"><b>Skills</b><span className="pc-skills-colorful">{COMPANY.skills.map((s, i) => <i key={s} className={`pc-skill-${i % 4}`}>{s}</i>)}</span></span>
         <span><b>Company</b>{COMPANY.name}</span>
         <span><b>Recruiter</b>{RECRUITER.name}</span>
       </div>
       <span className="pc-meta">{COMPANY.city} · {COMPANY.salary}</span>
       <div className="pc-facts"><span>{COMPANY.openings} openings</span><span>{COMPANY.applicants} applicants</span><span>{COMPANY.responseTime}</span></div>
-      <div className="pc-chips">{COMPANY.skills.map((s) => <i key={s}>{s}</i>)}</div>
       <div className="pc-actions pc-actions-five">
         <button type="button" aria-label="Pass">×</button>
         <button type="button" className="pc-super" aria-label="Super Like">★</button>
