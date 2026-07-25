@@ -65,7 +65,7 @@ export function FeaturesTable() {
       <p>Everything below exists for one reason: matches that are worth your time.</p>
     </div>
     <div className="features-columns">
-      <div className="features-column">
+      <div className="features-column pink">
         <h3>For Candidates</h3>
         <div className="features-table">
           {CANDIDATE_FEATURES.map((feature) => <div className="features-row" key={feature.title}>
@@ -74,7 +74,7 @@ export function FeaturesTable() {
           </div>)}
         </div>
       </div>
-      <div className="features-column">
+      <div className="features-column blue">
         <h3>For Recruiters</h3>
         <div className="features-table">
           {RECRUITER_FEATURES.map((feature) => <div className="features-row" key={feature.title}>
