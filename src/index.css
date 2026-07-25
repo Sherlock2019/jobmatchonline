@@ -2199,7 +2199,7 @@ img.avatar-mini { object-fit:cover; }
 .td-profile-card .secondary-button.small { flex:none; padding:7px 13px; font-size:12px; }
 .td-profile-title-row { flex-wrap:wrap; row-gap:10px; }
 .td-variant-switcher { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-.td-variant-switcher-inline { flex:none; }
+.td-variant-switcher-inline { flex:1 1 100%; min-width:0; }
 .td-variant-switcher-inline .td-variant-select { min-width:150px; max-width:200px; padding:6px 10px; font-size:11.5px; }
 .td-variant-switcher-inline .td-variant-add { padding:6px 12px; font-size:10.5px; }
 .td-variant-select { flex:1 1 220px; min-width:180px; max-width:320px; border:1px solid #e2e7ef; border-radius:10px; padding:9px 12px; font-size:12.5px; font-weight:700; color:#332b3d; background:#fff; cursor:pointer; }
