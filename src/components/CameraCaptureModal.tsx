@@ -13,14 +13,30 @@ export function CameraCaptureModal({ onCapture, onClose }: { onCapture: (blob: B
 
   useEffect(() => {
     let cancelled = false;
-    navigator.mediaDevices?.getUserMedia?.({ video: { facingMode: 'user' }, audio: false })
-      .then((stream) => {
-        if (cancelled) { stream.getTracks().forEach((track) => track.stop()); return; }
-        streamRef.current = stream;
-        if (videoRef.current) videoRef.current.srcObject = stream;
-        setReady(true);
-      })
-      .catch(() => setError('Could not access your camera — check permissions, or use Upload instead.'));
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError('Your browser doesn’t support camera capture here — use Upload instead.');
+      return;
+    }
+    const attach = (stream: MediaStream) => {
+      if (cancelled) { stream.getTracks().forEach((track) => track.stop()); return; }
+      streamRef.current = stream;
+      if (videoRef.current) videoRef.current.srcObject = stream;
+      setReady(true);
+    };
+    // A strict facingMode constraint can be rejected outright on hardware
+    // that doesn't report one (most desktop webcams) — prefer it, but fall
+    // back to a plain, unconstrained request before giving up.
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'user' } }, audio: false })
+      .then(attach)
+      .catch(() => navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(attach))
+      .catch((err) => {
+        const name = err instanceof DOMException ? err.name : '';
+        setError(
+          name === 'NotAllowedError' ? 'Camera permission was denied — allow camera access for this site, or use Upload instead.'
+            : name === 'NotFoundError' ? 'No camera was found on this device — use Upload instead.'
+            : 'Could not access your camera (it may be blocked in this preview window) — use Upload instead.'
+        );
+      });
     return () => { cancelled = true; streamRef.current?.getTracks().forEach((track) => track.stop()); };
   }, []);
 
