@@ -1033,6 +1033,30 @@ app.patch('/api/jobs/:id', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// Recruiter deletes their own job posting — cascades to its swipes, matches,
+// messages, and calls so nothing orphaned lingers behind (same cleanup shape
+// as swipe-undo and account deletion above).
+app.delete('/api/jobs/:id', async (req, res, next) => {
+  try {
+    const session = authSession(req);
+    if (!session && !demoAuth) { const error = new Error('Sign in to continue'); error.status = 401; throw error; }
+    await store.transaction((db) => {
+      const job = db.jobs.find((entry) => entry.id === req.params.id);
+      if (!job) { const error = new Error('Job not found'); error.status = 404; throw error; }
+      if (session && job.employerId !== session.sub) { const error = new Error('You can only delete your own postings'); error.status = 403; throw error; }
+      assertDemoActor(req, db, job.employerId);
+      db.jobs = db.jobs.filter((entry) => entry.id !== req.params.id);
+      const removedMatches = db.matches.filter((m) => m.jobId === req.params.id);
+      const removedIds = new Set(removedMatches.map((m) => m.id));
+      db.matches = db.matches.filter((m) => m.jobId !== req.params.id);
+      db.swipes = db.swipes.filter((s) => !(s.targetType === 'job' && s.targetId === req.params.id));
+      db.messages = db.messages.filter((msg) => !removedIds.has(msg.matchId));
+      db.calls = db.calls.filter((c) => !removedIds.has(c.matchId));
+    });
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+});
+
 const COVER_DIR = path.join(UPLOADS_ROOT, 'covers');
 await fs.promises.mkdir(COVER_DIR, { recursive: true });
 const COVER_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };

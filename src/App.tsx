@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { PhoneMockup } from './components/PhoneMockup';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
-import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, Download, ExternalLink, Eye, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, Download, ExternalLink, Eye, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
 import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
@@ -248,7 +248,10 @@ function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profil
   if (view === 'analytics') return <Analytics role={role} data={data} />;
   if (view === 'jobs') return <Jobs data={data} reload={reload} onAddJobs={onAddJobs} manualJobRequest={manualJobRequest} onOpenMessages={onOpenMessages} editJobId={editJobId} />;
   if (view === 'matches') return <Matches data={data} navigate={navigate} />;
-  if (role === 'candidate') return <CandidateProfilePage viewer={data.viewer} jobs={data.jobs} onEdit={onEditProfile} initialCard={profileCard} onCardChange={onProfileCardChange} />;
+  if (role === 'candidate') return <CandidateProfilePage
+    viewer={data.viewer} jobs={data.jobs} onEdit={onEditProfile} initialCard={profileCard} onCardChange={onProfileCardChange}
+    onDeleteProfile={data.viewer.activeVariantId ? async () => { await api.deleteProfileVariant(data.viewer.activeVariantId!, data.viewer.id); reload(); navigate('home'); } : undefined}
+  />;
   return <RecruiterProfilePage viewer={data.viewer} onEdit={onEditProfile} />;
 }
 
@@ -864,25 +867,42 @@ function Companies({ data, navigate }: { data: Bootstrap; navigate: (v: View) =>
 function Jobs({ data, reload, onAddJobs, manualJobRequest, onOpenMessages, editJobId }: { data: Bootstrap; reload: () => void; onAddJobs: () => void; manualJobRequest: number; onOpenMessages?: (matchId: string) => void; editJobId?: string }) {
   const [editing, setEditing] = useState<Job | 'new' | null>(null);
   const [detailJob, setDetailJob] = useState<Job | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   useEffect(() => { if (manualJobRequest > 0) setEditing('new'); }, [manualJobRequest]);
   // Opened via "Edit" on a job row elsewhere (e.g. the Home dashboard's My Jobs list).
   useEffect(() => { if (editJobId) { const job = data.jobs.find((j) => j.id === editJobId); if (job) setEditing(job); } }, [editJobId]);
+  const doDelete = async (id: string) => {
+    setDeleting(true);
+    try { await api.deleteJob(id); setConfirmDeleteId(null); setDetailJob(null); reload(); } finally { setDeleting(false); }
+  };
   if (editing) return <JobEditor viewer={data.viewer} job={editing === 'new' ? undefined : editing} onSaved={() => { setEditing(null); setDetailJob(null); reload(); }} onCancel={() => setEditing(null)} />;
-  if (detailJob) return <JobOfferDetail job={detailJob} data={data} onBack={() => setDetailJob(null)} onEdit={() => { setEditing(detailJob); }} onOpenMessages={onOpenMessages} />;
+  if (detailJob) return <JobOfferDetail job={detailJob} data={data} onBack={() => setDetailJob(null)} onEdit={() => { setEditing(detailJob); }} onDelete={() => void doDelete(detailJob.id)} deleting={deleting} onOpenMessages={onOpenMessages} />;
   const mine = data.jobs.filter((j) => j.employerId === data.viewer.id);
   return <div className="page"><div className="page-title"><div><span className="overline">Recruiting</span><h1>My Job Offers</h1><p>Import, review, and manage every role in one place.</p></div><button className="primary-button small" onClick={onAddJobs}>+ Add New Job Offers</button></div>
     <section className="job-add-banner"><span><Sparkles size={19} /></span><div><strong>Add jobs in minutes</strong><p>Use an ATS feed, paste LinkedIn descriptions, or create an offer manually.</p></div><div className="job-add-methods"><small>CSV / XML / JSON</small><small>LinkedIn links</small><small>Manual</small></div><button className="secondary-button" onClick={onAddJobs}>Choose a method <ArrowRight size={15} /></button></section>
     <div className="channel-bar"><div className="linkedin-mark"><BriefcaseBusiness size={18} /></div><section><strong>JobMatchNow is your job hub</strong><p>Imported offers become reviewable five-card drafts. Nothing is scraped or published automatically.</p></section><span>Recruiter controlled</span></div>
-    <div className="jobs-table"><header><span>Role</span><span>Status</span><span>Salary</span><span>Applicants</span><span>Skills</span><span /></header>{mine.map((job) => <div className="job-row job-row-clickable" key={job.id} role="button" tabIndex={0} onClick={() => setDetailJob(job)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setDetailJob(job); } }}><div><JobHeaderBadge job={job} compact />{job.importNeedsReview?.length ? <small className="job-review-note">Review {job.importNeedsReview.join(', ')}</small> : null}</div><span className={`status status-${job.status.toLowerCase()}`}><i />{job.status[0].toUpperCase()}{job.status.slice(1)}</span><span>{job.salary}</span><span>{job.applicants}</span><span>{job.requiredSkills.length} weighted</span><button aria-label={`Edit ${job.title}`} onClick={(event) => { event.stopPropagation(); setEditing(job); }}><MoreHorizontal /></button></div>)}{mine.length === 0 && <div className="job-row"><div><section><strong>No job offers yet</strong><small>Add your first role using the simplest method for you.</small></section></div></div>}</div><div className="job-empty"><div><Sparkles /></div><section><h3>Reach the right people, not the most people.</h3><p>JobsMatchNow recommends your role only to candidates with meaningful fit and verified intent.</p></section><button className="secondary-button" onClick={onAddJobs}>Add your first job offers</button></div></div>;
+    <div className="jobs-table"><header><span>Role</span><span>Status</span><span>Salary</span><span>Applicants</span><span>Skills</span><span /></header>{mine.map((job) => <div className="job-row job-row-clickable" key={job.id} role="button" tabIndex={0} onClick={() => setDetailJob(job)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setDetailJob(job); } }}><div><JobHeaderBadge job={job} compact />{job.importNeedsReview?.length ? <small className="job-review-note">Review {job.importNeedsReview.join(', ')}</small> : null}</div><span className={`status status-${job.status.toLowerCase()}`}><i />{job.status[0].toUpperCase()}{job.status.slice(1)}</span><span>{job.salary}</span><span>{job.applicants}</span><span>{job.requiredSkills.length} weighted</span>
+      <div className="job-row-actions" onClick={(event) => event.stopPropagation()}>
+        {confirmDeleteId === job.id
+          ? <><button className="confirm-yes" aria-label={`Confirm delete ${job.title}`} disabled={deleting} onClick={() => void doDelete(job.id)}><Check size={14} /></button><button className="confirm-no" aria-label="Cancel delete" onClick={() => setConfirmDeleteId(null)}><X size={14} /></button></>
+          : <><button aria-label={`Edit ${job.title}`} onClick={() => setEditing(job)}><MoreHorizontal size={15} /></button><button className="danger" aria-label={`Delete ${job.title}`} onClick={() => setConfirmDeleteId(job.id)}><Trash2 size={14} /></button></>}
+      </div>
+    </div>)}{mine.length === 0 && <div className="job-row"><div><section><strong>No job offers yet</strong><small>Add your first role using the simplest method for you.</small></section></div></div>}</div><div className="job-empty"><div><Sparkles /></div><section><h3>Reach the right people, not the most people.</h3><p>JobsMatchNow recommends your role only to candidates with meaningful fit and verified intent.</p></section><button className="secondary-button" onClick={onAddJobs}>Add your first job offers</button></div></div>;
 }
 
 /** Per-job detail: this role's mutual matches, and message threads scoped to it. */
-function JobOfferDetail({ job, data, onBack, onEdit, onOpenMessages }: { job: Job; data: Bootstrap; onBack: () => void; onEdit: () => void; onOpenMessages?: (matchId: string) => void }) {
+function JobOfferDetail({ job, data, onBack, onEdit, onDelete, deleting, onOpenMessages }: { job: Job; data: Bootstrap; onBack: () => void; onEdit: () => void; onDelete: () => void; deleting?: boolean; onOpenMessages?: (matchId: string) => void }) {
   const matches = data.matches.filter((match) => match.jobId === job.id);
+  const [confirming, setConfirming] = useState(false);
   return <div className="page job-offer-detail">
     <div className="page-title">
       <div><button className="secondary-button small" onClick={onBack}><ArrowLeft size={15} /> Back to My Jobs</button></div>
-      <button className="primary-button small" onClick={onEdit}>Edit role</button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {confirming
+          ? <><span className="settings-confirm"><button className="danger-button small" disabled={deleting} onClick={onDelete}>{deleting ? <Loader2 size={14} className="spin" /> : 'Confirm delete'}</button><button className="text-button" onClick={() => setConfirming(false)}>Cancel</button></span></>
+          : <><button className="danger-button small" onClick={() => setConfirming(true)}><Trash2 size={14} /> Delete role</button><button className="primary-button small" onClick={onEdit}>Edit role</button></>}
+      </div>
     </div>
     <JobHeaderBadge job={job} />
     <section className="td-section" id="job-detail-matches">

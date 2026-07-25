@@ -798,7 +798,12 @@ img.avatar-mini { object-fit:cover; }
 .match-grid-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:22px; }
 .match-grid-actions button { min-height:40px; padding:0 10px; font-size:9px; }
 .jobs-table { border:1px solid var(--line); border-radius:15px; overflow:hidden; background:white; }
-.jobs-table>header,.job-row { min-height:52px; display:grid; grid-template-columns:minmax(260px,2fr) .7fr .6fr .6fr .7fr 35px; align-items:center; gap:14px; padding:0 18px; }
+.jobs-table>header,.job-row { min-height:52px; display:grid; grid-template-columns:minmax(260px,2fr) .7fr .6fr .6fr .7fr 68px; align-items:center; gap:14px; padding:0 18px; }
+.job-row-actions { display:flex; gap:6px; justify-content:flex-end; }
+.job-row-actions button { border:1px solid var(--line); background:#fff; border-radius:7px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; color:#697085; cursor:pointer; flex:none; }
+.job-row-actions button.danger { color:#d13b56; border-color:#f3c6d0; }
+.job-row-actions button.confirm-yes { color:#fff; background:#d13b56; border-color:#d13b56; }
+.job-row-actions button.confirm-no { color:#697085; }
 .jobs-table>header { background:#f4f6f3; color:#879189; text-transform:uppercase; letter-spacing:.08em; font-size:7px; font-weight:800; }
 .job-row { min-height:76px; border-top:1px solid var(--line); font-size:10px; }
 .job-row-clickable { cursor:pointer; transition:background .15s; }
@@ -1271,6 +1276,9 @@ img.avatar-mini { object-fit:cover; }
 .settings-row small { display:block; color:var(--muted); font-size:10px; margin-top:3px; }
 .settings-btn { min-height:36px; font-size:11px; padding:0 14px; flex:none; }
 .danger-button { border:1px solid #ffcccc; background:#fff0f0; color:#c02942; border-radius:999px; min-height:36px; padding:0 14px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:6px; }
+.danger-button.small { min-height:31px; padding:0 12px; font-size:10.5px; }
+.secondary-button.danger-outline { border-color:#f3c6d0; color:#c02942; }
+.secondary-button.danger-outline:hover { background:#fff0f0; }
 .danger-button:hover:not(:disabled) { background:#ffe4e4; }
 .settings-confirm { display:flex; align-items:center; gap:8px; }
 .settings-note { color:#0c7a43; font-size:11px; margin:4px 0 0; }

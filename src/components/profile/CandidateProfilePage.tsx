@@ -1,14 +1,21 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Check, Eye, Lock, Pencil, ShieldCheck, Sparkles } from 'lucide-react';
+import { Check, Eye, Loader2, Lock, Pencil, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
 import type { Job, Person } from '../../types';
 import { CandidateCards } from './CandidateCards';
 
 const EDIT_STEPS = [0, 1, 2, 3, 5];
 
-export function CandidateProfilePage({ viewer, jobs, onEdit, initialCard = 0, onCardChange }: { viewer: Person; jobs: Job[]; onEdit: (step: number) => void; initialCard?: number; onCardChange?: (card: number) => void }) {
+export function CandidateProfilePage({ viewer, jobs, onEdit, initialCard = 0, onCardChange, onDeleteProfile }: { viewer: Person; jobs: Job[]; onEdit: (step: number) => void; initialCard?: number; onCardChange?: (card: number) => void; onDeleteProfile?: () => Promise<void> }) {
   const [jobId, setJobId] = useState('');
   const [inspector, setInspector] = useState(false);
   const [activeCard, setActiveCard] = useState(initialCard);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const doDelete = async () => {
+    if (!onDeleteProfile) return;
+    setDeleting(true);
+    try { await onDeleteProfile(); } finally { setDeleting(false); setConfirmingDelete(false); }
+  };
   const changeCard = useCallback((card: number) => { setActiveCard(card); onCardChange?.(card); }, [onCardChange]);
   const comparisonJob = useMemo(() => jobs.find((job) => job.id === jobId), [jobId, jobs]);
   const completion = viewer.completeness || 0;
@@ -23,7 +30,13 @@ export function CandidateProfilePage({ viewer, jobs, onEdit, initialCard = 0, on
   return <main className="page recruiter-preview-page">
     <header className="rp-page-head">
       <div><span className="overline">Your published candidate profile</span><h1>How Recruiters See You</h1><p>Review the same five-card profile, field visibility, and job-specific match evidence recruiters receive.</p></div>
-      <div className="rp-head-actions"><button className={inspector ? 'secondary-button active' : 'secondary-button'} onClick={() => setInspector((value) => !value)}><Eye size={16} /> Visibility Inspector</button><button className="primary-button" onClick={() => onEdit(EDIT_STEPS[activeCard])}><Pencil size={15} /> Edit This Card</button></div>
+      <div className="rp-head-actions">
+        {onDeleteProfile && (confirmingDelete
+          ? <span className="settings-confirm"><button className="danger-button" disabled={deleting} onClick={() => void doDelete()}>{deleting ? <Loader2 size={14} className="spin" /> : 'Confirm delete'}</button><button className="text-button" onClick={() => setConfirmingDelete(false)}><X size={14} /></button></span>
+          : <button className="secondary-button danger-outline" onClick={() => setConfirmingDelete(true)}><Trash2 size={15} /> Delete This Profile</button>)}
+        <button className={inspector ? 'secondary-button active' : 'secondary-button'} onClick={() => setInspector((value) => !value)}><Eye size={16} /> Visibility Inspector</button>
+        <button className="primary-button" onClick={() => onEdit(EDIT_STEPS[activeCard])}><Pencil size={15} /> Edit This Card</button>
+      </div>
     </header>
 
     <div className="rp-visibility">
