@@ -228,7 +228,7 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
   return <main className="td-dashboard td-candidate">
     <section className="td-candidate-hero">
       <div>
-        <h1>Good morning, {firstName(data.viewer.name)} <span>👋</span></h1>
+        <div className="td-hero-greeting-row"><h1>Good morning, {firstName(data.viewer.name)} <span>👋</span></h1>{(data.viewer.demo || data.viewer.sample) && <DemoBadge label={data.viewer.sample ? 'Starter sample account' : 'Demo account — not a real user'} />}</div>
         <h2>The right roles are already looking for you.</h2>
         <p>Your profile is {completion}% complete and already matching with {precise.length} relevant opportunities.</p>
         <div><button className="primary-button" onClick={() => navigate('discover')}>Explore Matches</button><button className="secondary-button" onClick={() => setPreviewing(true)}>Preview as Recruiter</button></div>
@@ -380,7 +380,7 @@ export function RecruiterHome({ data, setData, navigate, onAddJobs, onOpenMessag
 
   return <main className="td-dashboard td-recruiter">
     <header className="td-recruiter-head">
-      <div><h1>Good morning, {firstName(data.viewer.name)} <span>👋</span></h1><p>Here’s who loves your jobs today.</p></div>
+      <div><div className="td-hero-greeting-row"><h1>Good morning, {firstName(data.viewer.name)} <span>👋</span></h1>{(data.viewer.demo || data.viewer.sample) && <DemoBadge label={data.viewer.sample ? 'Starter sample account' : 'Demo account — not a real recruiter'} />}</div><p>Here’s who loves your jobs today.</p></div>
       <button className="primary-button" onClick={onAddJobs}>+ Add New Job Offers</button>
     </header>
 
