@@ -7,7 +7,7 @@ import { PgStore } from './store-pg.js';
 import { createSeed } from './seed.js';
 import { matchingPool, targetIsInMatchingPool } from './matching-pool.js';
 import { importMetadata, normalizeLinkedInImports, parseJobImportFile } from './job-import.js';
-import { detectMutualMatch, isStrongRoleMatch, likesRemainingToday, scoreCandidateForJob, ValidationError, reqString, optString, oneOf } from './matching.js';
+import { detectMutualMatch, isStrongRoleMatch, likesRemainingToday, scoreCandidateForJob, ValidationError, reqString, optString, optStringArray, oneOf } from './matching.js';
 import { applyCandidateProfile, applyRecruiterProfile, candidateCompleteness, recruiterCompleteness } from './profile.js';
 import { anonymizeText, convertDocxToPdf, detectTools, docxToHtml, extractDocxText, extractPdfText, makeSimplePdf, pdfThumbnail } from './resume.js';
 import { applyJob, parseJobText } from './jobs.js';
@@ -1386,6 +1386,11 @@ app.post('/api/profile-variants', async (req, res, next) => {
   try {
     const userId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
     const name = reqString(req.body, 'name', { max: 80 });
+    // Title/skills default to the live profile, but the candidate can set a
+    // different persona right here instead of round-tripping through the
+    // full edit wizard first — otherwise every variant looks identical.
+    const title = optString(req.body, 'title', { max: 120 });
+    const skills = optStringArray(req.body, 'skills', { maxItems: 20, maxLen: 60 });
     const variant = await store.transaction((db) => {
       const user = db.users.find((item) => item.id === userId);
       if (!user) { const error = new Error('User not found'); error.status = 404; throw error; }
@@ -1393,7 +1398,7 @@ app.post('/api/profile-variants', async (req, res, next) => {
       if (!Array.isArray(user.profileVariants)) user.profileVariants = [];
       const item = {
         id: crypto.randomUUID(), name,
-        title: user.title || '', skills: [...(user.skills || [])],
+        title: title || user.title || '', skills: skills || [...(user.skills || [])],
         desiredRoles: [...(user.preferences?.desiredRoles || [])],
         updatedAt: Date.now(),
       };

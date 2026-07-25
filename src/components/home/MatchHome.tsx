@@ -164,12 +164,22 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
   const reload = async () => setData(await api.bootstrap(data.viewer.id));
   const [addingVariant, setAddingVariant] = useState(false);
   const [variantName, setVariantName] = useState('');
+  const [variantTitle, setVariantTitle] = useState('');
+  const [variantSkills, setVariantSkills] = useState('');
   const activateVariant = async (id: string) => { await api.activateProfileVariant(id, data.viewer.id); await reload(); };
   const removeVariant = async (id: string) => { await api.deleteProfileVariant(id, data.viewer.id); await reload(); };
+  const startAddingVariant = () => {
+    setVariantName(''); setVariantTitle(data.viewer.title || ''); setVariantSkills((data.viewer.skills || []).join(', '));
+    setAddingVariant(true);
+  };
   const saveVariant = async () => {
     if (!variantName.trim()) return;
-    await api.saveProfileVariant({ userId: data.viewer.id, name: variantName.trim() });
-    setVariantName(''); setAddingVariant(false);
+    await api.saveProfileVariant({
+      userId: data.viewer.id, name: variantName.trim(),
+      title: variantTitle.trim() || undefined,
+      skills: variantSkills.trim() ? variantSkills.split(',').map((skill) => skill.trim()).filter(Boolean) : undefined,
+    });
+    setAddingVariant(false);
     await reload();
   };
   const toggleSave = async (job: Job) => {
@@ -224,17 +234,20 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
         <span className="td-profile-variants-label">Profiles for different roles — switch which title/skills recruiters and matching see</span>
         <div className="td-variant-pills">
           {(data.viewer.profileVariants || []).map((variant) => <span key={variant.id} className={variant.id === data.viewer.activeVariantId ? 'td-variant-pill active' : 'td-variant-pill'}>
-            <button onClick={() => void activateVariant(variant.id)}>{variant.name}</button>
+            <button onClick={() => void activateVariant(variant.id)} title={variant.title}>{variant.name}</button>
             <button className="td-variant-remove" aria-label={`Delete ${variant.name}`} onClick={() => void removeVariant(variant.id)}><X size={11} /></button>
           </span>)}
-          {addingVariant
-            ? <span className="td-variant-pill new">
-              <input value={variantName} onChange={(event) => setVariantName(event.target.value)} placeholder="e.g. Frontend Engineer" autoFocus onKeyDown={(event) => { if (event.key === 'Enter') void saveVariant(); if (event.key === 'Escape') setAddingVariant(false); }} />
-              <button onClick={() => void saveVariant()}>Save</button>
-              <button onClick={() => { setAddingVariant(false); setVariantName(''); }}>Cancel</button>
-            </span>
-            : <button className="td-variant-add" onClick={() => setAddingVariant(true)}>+ Save current as…</button>}
+          {!addingVariant && <button className="td-variant-add" onClick={startAddingVariant}>+ Create Another Profile</button>}
         </div>
+        {addingVariant && <div className="td-variant-form">
+          <input value={variantName} onChange={(event) => setVariantName(event.target.value)} placeholder="Profile name, e.g. Frontend Engineer" autoFocus />
+          <input value={variantTitle} onChange={(event) => setVariantTitle(event.target.value)} placeholder="Title for this persona" />
+          <input value={variantSkills} onChange={(event) => setVariantSkills(event.target.value)} placeholder="Skills, comma separated" />
+          <div className="td-variant-form-actions">
+            <button className="secondary-button small" onClick={() => setAddingVariant(false)}>Cancel</button>
+            <button className="primary-button small" onClick={() => void saveVariant()} disabled={!variantName.trim()}>Save profile</button>
+          </div>
+        </div>}
       </div>
     </section>
 

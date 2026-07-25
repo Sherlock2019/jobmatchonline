@@ -2169,11 +2169,12 @@ img.avatar-mini { object-fit:cover; }
 .td-variant-pill.active button:first-child { color:#ff2e6d; }
 .td-variant-remove { border:0; background:none; padding:0 9px; color:#a6adba; cursor:pointer; display:flex; align-items:center; }
 .td-variant-remove:hover { color:#d13b56; }
-.td-variant-pill.new { padding:3px; gap:4px; }
-.td-variant-pill.new input { border:1px solid #e2e7ef; border-radius:999px; padding:5px 10px; font-size:11.5px; width:150px; }
-.td-variant-pill.new button { border:0; background:none; font-size:11px; font-weight:700; color:#0a75c7; padding:0 6px; cursor:pointer; }
-.td-variant-add { border:1px dashed #cfd6e2; background:none; border-radius:999px; padding:6px 13px; font-size:11.5px; font-weight:700; color:#697085; cursor:pointer; }
-.td-variant-add:hover { border-color:#ff2e6d; color:#ff2e6d; }
+.td-variant-add { border:0; background:linear-gradient(135deg,#fd267a,#ff6036); color:#fff; border-radius:999px; padding:8px 15px; font-size:11.5px; font-weight:800; cursor:pointer; box-shadow:0 4px 12px rgba(253,38,122,.28); }
+.td-variant-add:hover { filter:brightness(1.05); }
+.td-variant-form { margin-top:10px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:12px; border:1px solid #e2e7ef; border-radius:12px; background:#fff; }
+.td-variant-form input { flex:1 1 160px; min-width:140px; border:1px solid #e2e7ef; border-radius:8px; padding:8px 11px; font-size:12px; }
+.td-variant-form-actions { display:flex; gap:8px; flex:none; margin-left:auto; }
+.td-variant-form-actions .primary-button.small, .td-variant-form-actions .secondary-button.small { padding:8px 14px; font-size:11.5px; }
 .td-list-panel[id], .td-bottom-grid[id] { scroll-margin-top:80px; }
 .td-section-title {
   min-height:28px;
@@ -2334,24 +2335,25 @@ img.avatar-mini { object-fit:cover; }
 .td-list-panel .td-section-title { margin-bottom:2px; }
 .td-list-panel .td-section-title strong { font-size:11px; }
 
-/* Give every home-dashboard section a soft pastel tint + accent border so
-   sections read as separated panels without shouting. */
-.td-section { padding:16px 18px; border-radius:14px; border:1px solid transparent; }
-#td-profile, #td-company-profile { background:color-mix(in srgb, #00C7BE 8%, white); border-color:color-mix(in srgb, #00C7BE 25%, white); }
+/* Give every home-dashboard section a pastel tint + colored left accent bar
+   so sections read as separated panels — a touch more color than a bare
+   tint, well short of a solid block. */
+.td-section { padding:16px 18px 16px 20px; border-radius:14px; border:1px solid transparent; border-left:4px solid transparent; }
+#td-profile, #td-company-profile { background:color-mix(in srgb, #00C7BE 13%, white); border-color:color-mix(in srgb, #00C7BE 32%, white); border-left-color:#00C7BE; }
 #td-profile .td-section-title>div>svg, #td-company-profile .td-section-title>div>svg { color:#00C7BE; }
-#td-matches { background:color-mix(in srgb, #FF2D55 8%, white); border-color:color-mix(in srgb, #FF2D55 25%, white); }
+#td-matches { background:color-mix(in srgb, #FF2D55 13%, white); border-color:color-mix(in srgb, #FF2D55 32%, white); border-left-color:#FF2D55; }
 #td-matches .td-section-title>div>svg { color:#FF2D55; }
-#td-chasing { background:color-mix(in srgb, #007AFF 8%, white); border-color:color-mix(in srgb, #007AFF 25%, white); }
+#td-chasing { background:color-mix(in srgb, #007AFF 13%, white); border-color:color-mix(in srgb, #007AFF 32%, white); border-left-color:#007AFF; }
 #td-chasing .td-section-title>div>svg { color:#007AFF; }
-#td-roles { background:color-mix(in srgb, #5856D6 8%, white); border-color:color-mix(in srgb, #5856D6 25%, white); }
+#td-roles { background:color-mix(in srgb, #5856D6 13%, white); border-color:color-mix(in srgb, #5856D6 32%, white); border-left-color:#5856D6; }
 #td-roles .td-section-title>div>svg { color:#5856D6; }
-#td-conversations { background:color-mix(in srgb, #AF52DE 8%, white); border-color:color-mix(in srgb, #AF52DE 25%, white); }
+#td-conversations { background:color-mix(in srgb, #AF52DE 13%, white); border-color:color-mix(in srgb, #AF52DE 32%, white); border-left-color:#AF52DE; }
 #td-conversations .td-section-title>div>svg { color:#AF52DE; }
-.td-bottom-grid .td-improve { background:color-mix(in srgb, #FF9500 8%, white); border-color:color-mix(in srgb, #FF9500 25%, white); }
+.td-bottom-grid .td-improve { background:color-mix(in srgb, #FF9500 13%, white); border-color:color-mix(in srgb, #FF9500 32%, white); border-left:4px solid #FF9500; }
 .td-improve .td-section-title>div>svg { color:#FF9500; }
-#td-recent { background:color-mix(in srgb, #32ADE6 8%, white); border-color:color-mix(in srgb, #32ADE6 25%, white); }
+#td-recent { background:color-mix(in srgb, #32ADE6 13%, white); border-color:color-mix(in srgb, #32ADE6 32%, white); border-left:4px solid #32ADE6; }
 #td-recent .td-section-title>div>svg { color:#32ADE6; }
-#td-coffee { background:color-mix(in srgb, #A2845E 8%, white); border-color:color-mix(in srgb, #A2845E 25%, white); }
+#td-coffee { background:color-mix(in srgb, #A2845E 13%, white); border-color:color-mix(in srgb, #A2845E 32%, white); border-left:4px solid #A2845E; }
 #td-coffee .td-section-title>div>svg { color:#A2845E; }
 .td-list-panel>button:not(.secondary-button) {
   width:100%;
