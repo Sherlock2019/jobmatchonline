@@ -14,6 +14,9 @@ mobile-expo/node_modules/
 mobile-expo/.expo/
 android/app/build/
 android/.gradle/
+android/local.properties
+android/keystore/
+android/key.properties
 ios/App/Pods/
 
 # Downloaded OAuth client-secret files — never commit
