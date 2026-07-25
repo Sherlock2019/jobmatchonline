@@ -39,6 +39,7 @@ const CANDIDATE_FEATURES = [
   { icon: Heart, title: 'Mutual Matching', text: 'No cold applications, no recruiter spam — a conversation only opens once both sides say yes.' },
   { icon: Target, title: 'Explainable Match Score', text: 'See exactly why you matched — a transparent skills, salary, location, and work-mode breakdown.' },
   { icon: Sparkles, title: 'Salary Revealed Up Front', text: 'Salary fit is scored before you ever talk, so you don’t invest in a conversation over a comp mismatch.' },
+  { icon: MapPin, title: 'Geolocation of Opportunities', text: 'Set a private distance range for on-site or hybrid roles, then meet nearby for a real coffee — your exact address stays yours.' },
   { icon: FileText, title: 'Resume Autofill', text: 'Upload once, and your whole profile fills itself in — skip the retyping.' },
   { icon: Eye, title: 'Visibility Inspector', text: 'See your profile exactly as a recruiter will, before you ever match — full control over what’s shown and when.' },
   { icon: Layers3, title: 'Multiple Profile Variants', text: 'One account, several tailored personas — switch your title and skills instantly per role you’re chasing.' },
@@ -51,6 +52,7 @@ const RECRUITER_FEATURES = [
   { icon: Target, title: 'Explainable Match Score', text: 'The same transparent breakdown for every candidate — less guesswork, faster shortlisting.' },
   { icon: BarChart3, title: 'Hiring Insights', text: 'Real funnel, response-rate, and match-quality dashboards for every role you post.' },
   { icon: Sparkles, title: 'Salary Set Up Front', text: 'Fewer offers falling apart over comp surprises late in the process.' },
+  { icon: MapPin, title: 'Geolocation of Opportunities', text: 'Find candidates genuinely close enough for on-site or hybrid roles, then meet nearby for a real coffee instead of another cold call.' },
   { icon: Coffee, title: '“Let’s Have a Coffee” Scheduling', text: 'One tap to a real conversation — proposes a time and drops straight into your calendar.' },
   { icon: Bell, title: 'Coffee Requests', text: 'See who already likes your roles, ranked by fit, before you spend a minute reaching out.' },
 ];
