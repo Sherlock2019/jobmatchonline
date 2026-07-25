@@ -104,7 +104,7 @@ export function LatestShowcase({ onRegister, onLogin }: { onRegister?: () => voi
   useEffect(() => { api.showcase().then((data) => { setJobs(data.jobs); setCandidates(data.candidates); }).catch(() => undefined); }, []);
   if (!jobs.length && !candidates.length) return null;
   return <section className="section showcase-section" id="latest">
-    <div className="section-heading"><div><span className="eyebrow"><Sparkles size={14} /> Live on JobsMatchNow</span><h2>The latest roles and people.</h2></div>
+    <div className="section-heading"><div className="showcase-heading-text"><span className="eyebrow"><Sparkles size={14} /> Live on JobsMatchNow</span><h2>The latest roles and people.</h2></div>
       <div className="showcase-tabs"><button className={tab === 'jobs' ? 'active' : ''} onClick={() => setTab('jobs')}>Latest roles</button><button className={tab === 'people' ? 'active' : ''} onClick={() => setTab('people')}>People matching</button></div>
     </div>
     {tab === 'jobs' ? <div className="showcase-grid">
@@ -196,7 +196,7 @@ export function FeedbackSection() {
   };
 
   return <section className="section feedback-section" id="feedback">
-    <div className="section-heading centered"><span className="eyebrow"><Heart size={14} /> Loved by early users</span><h2>Tell us what you think.</h2><p>Leave a review, or suggest the next feature you want. We read every one.</p></div>
+    <div className="section-heading centered"><span className="eyebrow"><Heart size={14} /> We continuously want to be serving you the best</span><h2>Tell us what you think.</h2><p>Leave a review, or suggest the next feature you want. We read every one.</p></div>
     <div className="feedback-layout">
       <div className="review-wall">
         {reviews.map((review) => <article className="review-card" key={review.id}>
