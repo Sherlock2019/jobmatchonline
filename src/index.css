@@ -200,11 +200,19 @@ button { cursor:pointer; }
 .showcase-tabs { display:flex; gap:7px; flex:none; }
 .showcase-tabs button { min-height:40px; padding:0 16px; border:1px solid var(--line); background:white; border-radius:999px; font-size:12px; font-weight:700; color:var(--muted); }
 .showcase-tabs button.active { border-color:var(--green); background:#fff0f5; color:var(--green); }
-.showcase-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:16px; }
+.showcase-columns { display:grid; grid-template-columns:1fr 1fr; gap:36px; align-items:start; }
+.showcase-column h3 { display:flex; align-items:center; gap:7px; color:var(--green); text-transform:uppercase; letter-spacing:.1em; font:800 12px 'Manrope'; margin:0 0 16px; }
+.showcase-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:16px; }
 .showcase-job, .showcase-person { border:1px solid var(--line); border-radius:18px; overflow:hidden; background:white; box-shadow:0 12px 34px rgba(29,53,37,.06); transition:.18s; }
 .showcase-person { border-top:4px solid var(--accent, var(--green)); }
 .showcase-person .showcase-skills span { color:var(--accent); border-color:color-mix(in srgb, var(--accent) 35%, white); background:color-mix(in srgb, var(--accent) 8%, white); }
 .showcase-person .showcase-meta .avail { color:var(--accent); font-weight:700; }
+.showcase-job { border-top:4px solid var(--accent, var(--blue)); }
+.showcase-job>.job-header-badge { background:linear-gradient(150deg, var(--accent, var(--blue)), color-mix(in srgb, var(--accent, var(--blue)) 55%, #1c1e24)); }
+.showcase-job .showcase-skills span { color:var(--accent); border-color:color-mix(in srgb, var(--accent) 35%, white); background:color-mix(in srgb, var(--accent) 8%, white); }
+.showcase-job .showcase-job-foot b { color:var(--accent); }
+.showcase-job .showcase-meta .mode-badge { color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, white); border-color:color-mix(in srgb, var(--accent) 30%, white); }
+@media(max-width:860px){ .showcase-columns { grid-template-columns:1fr; gap:44px; } }
 .showcase-job:hover, .showcase-person:hover { transform:translateY(-4px); box-shadow:0 20px 44px rgba(29,53,37,.12); }
 .showcase-job.clickable, .showcase-person.clickable { cursor:pointer; }
 .showcase-job.clickable:focus-visible, .showcase-person.clickable:focus-visible { outline:2px solid var(--green); outline-offset:3px; }
