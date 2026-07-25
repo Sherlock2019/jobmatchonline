@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { BadgeCheck, Building2, CalendarClock, Globe, Linkedin, MapPin, Pencil, Phone, UserSearch } from 'lucide-react';
+import { appleColor } from '../../lib/colors';
 import type { Person } from '../../types';
 
 function Section({ title, step, onEdit, children }: { title: string; step: number; onEdit: (step: number) => void; children: React.ReactNode }) {
@@ -11,12 +13,18 @@ function Section({ title, step, onEdit, children }: { title: string; step: numbe
 export function RecruiterProfilePage({ viewer, onEdit }: { viewer: Person; onEdit: (step: number) => void }) {
   const p = viewer;
   const headhunter = p.kind === 'headhunter';
+  const displayTitle = headhunter ? p.name : (p.company || p.name);
+  const logoSrc = headhunter ? p.photo : (p.companyLogo || p.photo);
+  const [logoFailed, setLogoFailed] = useState(false);
+  const logoInitial = (displayTitle || '?').trim().charAt(0).toUpperCase();
   return <div className="page profile-page">
     <div className="profile-hero">
-      <img src={headhunter ? p.photo : (p.companyLogo || p.photo)} alt="" />
+      {logoSrc && !logoFailed
+        ? <img src={logoSrc} alt="" onError={() => setLogoFailed(true)} />
+        : <span className="profile-hero-fallback" style={{ background: appleColor(p.id) }} aria-hidden="true">{logoInitial}</span>}
       <div>
         <span className="overline">{headhunter ? 'Headhunter / agency profile' : 'Company profile'}</span>
-        <h1>{headhunter ? p.name : (p.company || p.name)}{((p.completeness ?? 0) >= 80 || p.provider === 'google' || p.provider === 'linkedin') && <BadgeCheck size={22} className="verified-mark" />}</h1>
+        <h1>{displayTitle}{((p.completeness ?? 0) >= 80 || p.provider === 'google' || p.provider === 'linkedin') && <BadgeCheck size={22} className="verified-mark" />}</h1>
         <p>{headhunter ? `${p.title} · ${p.company}` : `${p.industry || ''}${p.headquarters ? ` · HQ ${p.headquarters}` : ''}`}</p>
         <div className="skill-list">{(headhunter ? p.specializations : p.techStack)?.slice(0, 6).map((tag) => <span key={tag}>{tag}</span>)}</div>
       </div>

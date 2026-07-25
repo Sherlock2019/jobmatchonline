@@ -12,7 +12,7 @@ export interface ContactChannel { type: ContactChannelType; value: string }
 export type AgePrivacy = 'public' | 'after-match' | 'private';
 export interface RecommendationRatings { technical?: number; communication?: number; reliability?: number; collaboration?: number; leadership?: number }
 export interface Recommendation {
-  recruiterName: string; company?: string; role?: string; text: string; date?: string; photo?: string;
+  recruiterName: string; recommenderEmail?: string; company?: string; role?: string; text: string; date?: string; photo?: string;
   relationship?: string; wouldWorkAgain?: boolean; verified?: boolean; ratings?: RecommendationRatings; candidateResponse?: string;
 }
 

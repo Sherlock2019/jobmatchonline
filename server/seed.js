@@ -55,8 +55,8 @@ export function createSeed() {
           availability: '2 weeks',
         },
         recommendations: [
-          { recruiterName: 'Michael Torres', company: 'CloudWorks', role: 'VP Engineering', text: 'Sofia led our MLOps platform migration end to end — the kind of product mind that also reads the architecture diagrams. Rare combination.', date: 'Nov 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 5, reliability: 5, collaboration: 4, leadership: 5 } },
-          { recruiterName: 'Anh Pham', company: 'Northstar', role: 'Director of Product', text: 'One of the strongest AI PMs I have hired. Sofia turns ambiguous requirements into shipped roadmaps faster than anyone on my team.', date: 'Jul 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 4, communication: 5, reliability: 5, collaboration: 5, leadership: 4 } },
+          { recruiterName: 'Michael Torres', recommenderEmail: 'michael.torres@cloudworks.demo', company: 'CloudWorks', role: 'VP Engineering', text: 'Sofia led our MLOps platform migration end to end — the kind of product mind that also reads the architecture diagrams. Rare combination.', date: 'Nov 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 5, reliability: 5, collaboration: 4, leadership: 5 } },
+          { recruiterName: 'Anh Pham', recommenderEmail: 'anh.pham@northstar.demo', company: 'Northstar', role: 'Director of Product', text: 'One of the strongest AI PMs I have hired. Sofia turns ambiguous requirements into shipped roadmaps faster than anyone on my team.', date: 'Jul 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 4, communication: 5, reliability: 5, collaboration: 5, leadership: 4 } },
         ],
       },
       {
@@ -245,7 +245,7 @@ export function createSeed() {
         distanceRangeKm: 30,
         preferences: { ...fullTimeHybrid, desiredRoles: ['Senior Product Designer'], salary: { min: 70000, max: 100000, currency: 'USD' }, availability: 'Now' },
         recommendations: [
-          { recruiterName: 'Ngoc Bui', company: 'Canva', role: 'Design Director', text: 'Daniel redesigned our onboarding flow and conversion jumped 18% in the first month. Sharp systems thinker, great with engineers.', date: 'Sep 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 5, reliability: 4, collaboration: 5 } },
+          { recruiterName: 'Ngoc Bui', recommenderEmail: 'ngoc.bui@canva.demo', company: 'Canva', role: 'Design Director', text: 'Daniel redesigned our onboarding flow and conversion jumped 18% in the first month. Sharp systems thinker, great with engineers.', date: 'Sep 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 5, reliability: 4, collaboration: 5 } },
         ],
       },
       {
@@ -271,7 +271,7 @@ export function createSeed() {
         distanceRangeKm: 25,
         preferences: { ...fullTimeHybrid, desiredRoles: ['Data Engineer'], salary: { min: 85000, max: 120000, currency: 'USD' }, availability: '2 weeks' },
         recommendations: [
-          { recruiterName: 'Wei Lin', company: 'Grab', role: 'Head of Data Platform', text: 'Grace rebuilt our streaming pipeline while keeping the lights on. Meticulous, and she documents everything — a rare combination.', date: 'Aug 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 4, reliability: 5, collaboration: 4 } },
+          { recruiterName: 'Wei Lin', recommenderEmail: 'wei.lin@grab.demo', company: 'Grab', role: 'Head of Data Platform', text: 'Grace rebuilt our streaming pipeline while keeping the lights on. Meticulous, and she documents everything — a rare combination.', date: 'Aug 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 4, reliability: 5, collaboration: 4 } },
         ],
       },
       {
@@ -297,7 +297,7 @@ export function createSeed() {
         distanceRangeKm: 40,
         preferences: { ...fullTimeHybrid, desiredRoles: ['Backend Engineer'], salary: { min: 90000, max: 125000, currency: 'USD' }, availability: '1 month' },
         recommendations: [
-          { recruiterName: 'Siobhan Byrne', company: 'Atlassian', role: 'Engineering Manager', text: 'Liam owned our services migration to Kubernetes with zero downtime. Calm under pressure and a genuinely good mentor to juniors on the team.', date: 'Oct 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 4, reliability: 5, collaboration: 5, leadership: 4 } },
+          { recruiterName: 'Siobhan Byrne', recommenderEmail: 'siobhan.byrne@atlassian.demo', company: 'Atlassian', role: 'Engineering Manager', text: 'Liam owned our services migration to Kubernetes with zero downtime. Calm under pressure and a genuinely good mentor to juniors on the team.', date: 'Oct 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 4, reliability: 5, collaboration: 5, leadership: 4 } },
         ],
       },
       {
@@ -377,7 +377,7 @@ export function createSeed() {
         distanceRangeKm: 30,
         preferences: { ...fullTimeHybrid, desiredRoles: ['Lead AI Engineer'], salary: { min: 85000, max: 120000, currency: 'USD' }, availability: '2 weeks' },
         recommendations: [
-          { recruiterName: 'Priya Ramesh', company: 'Google', role: 'Staff Engineer', text: 'David is the engineer you want on a 2am incident call. Deep AWS/ML infra knowledge and communicates trade-offs clearly to non-technical stakeholders.', date: 'Jun 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 5, reliability: 5, collaboration: 4 } },
+          { recruiterName: 'Priya Ramesh', recommenderEmail: 'priya.ramesh@google.demo', company: 'Google', role: 'Staff Engineer', text: 'David is the engineer you want on a 2am incident call. Deep AWS/ML infra knowledge and communicates trade-offs clearly to non-technical stakeholders.', date: 'Jun 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 5, reliability: 5, collaboration: 4 } },
         ],
       },
       {
@@ -403,7 +403,7 @@ export function createSeed() {
         distanceRangeKm: 35,
         preferences: { ...fullTimeHybrid, desiredRoles: ['Lead AI Engineer'], salary: { min: 80000, max: 115000, currency: 'USD' }, availability: 'Now' },
         recommendations: [
-          { recruiterName: 'Tom Becker', company: 'Microsoft', role: 'Principal PM', text: 'Maria shipped our recommendation model ahead of schedule and it is still the most stable service on the team. Great collaborator across teams.', date: 'Apr 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 4, reliability: 5, collaboration: 5 } },
+          { recruiterName: 'Tom Becker', recommenderEmail: 'tom.becker@microsoft.demo', company: 'Microsoft', role: 'Principal PM', text: 'Maria shipped our recommendation model ahead of schedule and it is still the most stable service on the team. Great collaborator across teams.', date: 'Apr 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 4, reliability: 5, collaboration: 5 } },
         ],
       },
       {
@@ -429,7 +429,7 @@ export function createSeed() {
         distanceRangeKm: 40,
         preferences: { ...fullTimeHybrid, desiredRoles: ['Lead AI Engineer'], salary: { min: 90000, max: 120000, currency: 'USD' }, availability: '1 month' },
         recommendations: [
-          { recruiterName: 'Rachel Kim', company: 'AWS', role: 'Senior Manager, Solutions Architecture', text: 'John designed the reference architecture three of our biggest enterprise customers now run on. Excellent at translating customer pain into a real plan.', date: 'May 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 5, reliability: 4, collaboration: 4 } },
+          { recruiterName: 'Rachel Kim', recommenderEmail: 'rachel.kim@aws.demo', company: 'AWS', role: 'Senior Manager, Solutions Architecture', text: 'John designed the reference architecture three of our biggest enterprise customers now run on. Excellent at translating customer pain into a real plan.', date: 'May 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 5, reliability: 4, collaboration: 4 } },
         ],
       },
       {
@@ -455,7 +455,7 @@ export function createSeed() {
         distanceRangeKm: 30,
         preferences: { ...fullTimeHybrid, desiredRoles: ['Lead AI Engineer'], salary: { min: 78000, max: 108000, currency: 'USD' }, availability: 'Now' },
         recommendations: [
-          { recruiterName: 'Duc Hoang', company: 'VinAI', role: 'Head of Applied Research', text: 'Linh turned a research prototype into a production model serving real traffic in six weeks. Rigorous, and explains her results clearly to non-researchers.', date: 'Mar 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 4, reliability: 5, collaboration: 4 } },
+          { recruiterName: 'Duc Hoang', recommenderEmail: 'duc.hoang@vinai.demo', company: 'VinAI', role: 'Head of Applied Research', text: 'Linh turned a research prototype into a production model serving real traffic in six weeks. Rigorous, and explains her results clearly to non-researchers.', date: 'Mar 2025', verified: true, wouldWorkAgain: true, ratings: { technical: 5, communication: 4, reliability: 5, collaboration: 4 } },
         ],
       },
     ],

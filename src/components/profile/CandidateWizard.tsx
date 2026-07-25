@@ -62,7 +62,7 @@ function composeAboutMe(archetype: Archetype, answers: AboutMeAnswers): string {
 
 // The six wizard steps mirror the profile cards recruiters swipe through, plus the About Me step.
 // The first four carry every must-have field; the last two are optional and skippable.
-export const CANDIDATE_STEPS = ['Snapshot', 'Technical stack', 'Preferences', 'About me', 'Human stack', 'Reviews & visibility'] as const;
+export const CANDIDATE_STEPS = ['Snapshot', 'Technical stack', 'Preferences', 'About me', 'Human stack', 'Reviews & visibility', 'What I have built'] as const;
 const CANDIDATE_REQUIRED_STEPS = 4;
 
 type Form = {
@@ -127,7 +127,7 @@ function stepPayload(step: number, form: Form, finishing: boolean) {
   if (step === 1) return {
     title: form.title, yearsExperience: Number(form.yearsExperience), seniority: form.seniority, skillsDetail: form.skillsDetail,
     industries: form.industries, workExperience: form.workExperience, education: form.education, certifications: form.certifications, links: form.links,
-    publications: form.publications, coverLetter: form.coverLetter,
+    coverLetter: form.coverLetter,
   };
   if (step === 2) return {
     availability: form.availability,
@@ -147,9 +147,12 @@ function stepPayload(step: number, form: Form, finishing: boolean) {
     mindset: form.mindset, workingPrefer: form.workingPrefer, workingAvoid: form.workingAvoid,
     interests: form.interests, favoriteSong: form.favoriteSong || undefined,
   };
-  return {
+  if (step === 5) return {
     recommendations: form.recommendations,
     privacy: { visibility: form.visibility, blockedCompanies: form.blockedCompanies, openToWork: form.openToWork },
+  };
+  return {
+    links: form.links, publications: form.publications,
     ...(finishing ? { onboarding: false } : {}),
   };
 }
@@ -398,19 +401,7 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
             </div>} />
         </Field>
         <Field label="Certifications"><TagInput value={form.certifications} onChange={(certifications) => patch({ certifications })} placeholder="e.g. AWS SA, NN/g UX — press Enter" /></Field>
-        <div className="wz-row">
-          <Field label="GitHub"><TextInput value={form.links.github || ''} onChange={(e) => patch({ links: { ...form.links, github: e.target.value } })} placeholder="github.com/…" /></Field>
-          <Field label="Portfolio"><TextInput value={form.links.portfolio || ''} onChange={(e) => patch({ links: { ...form.links, portfolio: e.target.value } })} /></Field>
-        </div>
-        <div className="wz-row">
-          <Field label="Website"><TextInput value={form.links.website || ''} onChange={(e) => patch({ links: { ...form.links, website: e.target.value } })} /></Field>
-          <Field label="LinkedIn"><TextInput value={form.links.linkedin || ''} onChange={(e) => patch({ links: { ...form.links, linkedin: e.target.value } })} placeholder="linkedin.com/in/…" /></Field>
-        </div>
-        <div className="wz-row">
-          <Field label="App Store link (optional)"><TextInput value={form.links.appStore || ''} onChange={(e) => patch({ links: { ...form.links, appStore: e.target.value } })} placeholder="apps.apple.com/…" /></Field>
-          <Field label="Play Store link (optional)"><TextInput value={form.links.playStore || ''} onChange={(e) => patch({ links: { ...form.links, playStore: e.target.value } })} placeholder="play.google.com/…" /></Field>
-        </div>
-        <Field label="Publications (optional)" hint="Links to articles, papers, or talks you've published."><TagInput value={form.publications} onChange={(publications) => patch({ publications })} placeholder="Paste a URL — press Enter" /></Field>
+        <Field label="LinkedIn"><TextInput value={form.links.linkedin || ''} onChange={(e) => patch({ links: { ...form.links, linkedin: e.target.value } })} placeholder="linkedin.com/in/…" /></Field>
         <Field label="Resume (optional)" hint="PDF or DOCX, up to 10MB. Speeds up recruiter review, but you can add it later.">
           <label className={form.resume ? 'wz-upload has-file' : 'wz-upload'}>
             <input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => e.target.files?.[0] && uploadResume(e.target.files[0])} />
@@ -482,9 +473,10 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
 
       {step === 5 && <div className="wz-body">
         <Field label="Recommendations (optional)" hint="Add recommendations former recruiters or managers have given you. Only ones you approve appear on your profile.">
-          <Repeat items={form.recommendations} onChange={(recommendations) => patch({ recommendations })} blank={() => ({ recruiterName: '', role: '', company: '', relationship: '', text: '' })} addLabel="Add a recommendation"
+          <Repeat items={form.recommendations} onChange={(recommendations) => patch({ recommendations })} blank={() => ({ recruiterName: '', recommenderEmail: '', role: '', company: '', relationship: '', text: '' })} addLabel="Add a recommendation"
             render={(item, update) => <div className="wz-repeat-grid">
               <TextInput placeholder="Their name" value={item.recruiterName || ''} onChange={(e) => update({ recruiterName: e.target.value })} />
+              <TextInput placeholder="Their email (optional)" type="email" value={item.recommenderEmail || ''} onChange={(e) => update({ recommenderEmail: e.target.value })} />
               <TextInput placeholder="Their role" value={item.role || ''} onChange={(e) => update({ role: e.target.value })} />
               <TextInput placeholder="Company" value={item.company || ''} onChange={(e) => update({ company: e.target.value })} />
               <TextInput placeholder="Relationship (e.g. Former manager)" value={item.relationship || ''} onChange={(e) => update({ relationship: e.target.value })} />
@@ -496,6 +488,19 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
         </Field>
         <Field label="Blocked companies" hint="They will never see your profile."><TagInput value={form.blockedCompanies} onChange={(blockedCompanies) => patch({ blockedCompanies })} placeholder="Company name — press Enter" /></Field>
         <Field label="Open to work" required><Toggle checked={form.openToWork} onChange={(openToWork) => patch({ openToWork })} label={form.openToWork ? 'Actively looking' : 'Not looking right now'} /></Field>
+      </div>}
+
+      {step === 6 && <div className="wz-body">
+        <div className="wz-row">
+          <Field label="GitHub"><TextInput value={form.links.github || ''} onChange={(e) => patch({ links: { ...form.links, github: e.target.value } })} placeholder="github.com/…" /></Field>
+          <Field label="Portfolio"><TextInput value={form.links.portfolio || ''} onChange={(e) => patch({ links: { ...form.links, portfolio: e.target.value } })} /></Field>
+        </div>
+        <Field label="Website"><TextInput value={form.links.website || ''} onChange={(e) => patch({ links: { ...form.links, website: e.target.value } })} /></Field>
+        <div className="wz-row">
+          <Field label="App Store link (optional)"><TextInput value={form.links.appStore || ''} onChange={(e) => patch({ links: { ...form.links, appStore: e.target.value } })} placeholder="apps.apple.com/…" /></Field>
+          <Field label="Play Store link (optional)"><TextInput value={form.links.playStore || ''} onChange={(e) => patch({ links: { ...form.links, playStore: e.target.value } })} placeholder="play.google.com/…" /></Field>
+        </div>
+        <Field label="Publications (optional)" hint="Links to articles, papers, or talks you've published."><TagInput value={form.publications} onChange={(publications) => patch({ publications })} placeholder="Paste a URL — press Enter" /></Field>
       </div>}
 
       {(attempted && errors.length > 0) && <ul className="wz-errors">{errors.map((message) => <li key={message}>{message}</li>)}</ul>}

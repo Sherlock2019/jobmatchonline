@@ -44,11 +44,11 @@ function Card({ label, icon: Icon, step, onEdit, children, tone }: { label: stri
 
 const NAV = [
   { icon: User, label: 'Who I am', color: '#00C7BE' },
-  { icon: Code2, label: 'My Skills', color: '#007AFF' },
-  { icon: Target, label: 'What I want', color: '#AF52DE' },
   { icon: Brain, label: 'My Human Stack', color: '#FF9500' },
+  { icon: Code2, label: 'My Skills', color: '#007AFF' },
   { icon: Hammer, label: 'What I Have Built', color: '#5856D6' },
-  { icon: Star, label: 'Recommendations', color: '#FF2D55' },
+  { icon: Target, label: 'My Dream Job', color: '#AF52DE' },
+  { icon: Star, label: 'What People Think About Me', color: '#FF2D55' },
 ];
 const LAST_CARD = NAV.length - 1;
 
@@ -169,7 +169,21 @@ export function CandidateCards({ person: p, match, onEdit, unlocked = false, vis
         </div>
       </div>
 
-      {/* ---------- Card 2 — Technical stack & documents ---------- */}
+      {/* ---------- Card 2 — Human stack ---------- */}
+      <div className="tcard-slide"><Card label="My Human Stack" icon={Brain} step={3} onEdit={onEdit} tone="human">
+        {p.presentation ? <p className="tcard-presentation">{p.presentation}</p> : onEdit ? <p className="tcard-empty">Add a short personal introduction — who you are beyond the CV.</p> : null}
+        {p.motto ? <p className="tcard-motto"><Quote size={13} /> {p.motto}</p> : null}
+        {p.mindset?.length ? <><span className="tcard-sub">Mindset</span><div className="skill-list soft">{p.mindset.map((s) => <span key={s}>{s}</span>)}</div></> : null}
+        {p.humanSkills?.length ? <><span className="tcard-sub">Human capabilities</span><div className="skill-list soft">{p.humanSkills.map((s) => <span key={s}>{s}</span>)}</div></> : null}
+        {(p.workingPrefer?.length || p.workingAvoid?.length) ? <div className="tcard-workprefs">
+          {p.workingPrefer?.length ? <div><span className="tcard-sub ok">I thrive with</span><ul>{p.workingPrefer.map((s) => <li key={s}><CheckCircle2 size={12} /> {s}</li>)}</ul></div> : null}
+          {p.workingAvoid?.length ? <div><span className="tcard-sub miss">I avoid</span><ul>{p.workingAvoid.map((s) => <li key={s}><XCircle size={12} /> {s}</li>)}</ul></div> : null}
+        </div> : null}
+        {p.interests?.length ? <><span className="tcard-sub">Interests</span><div className="skill-list soft">{p.interests.map((s) => <span key={s}>{s}</span>)}</div></> : null}
+        {song ? <a className="tdoc-btn ghost tcard-song" href={p.favoriteSong} target="_blank" rel="noreferrer"><Music2 size={13} /> Soundtrack — {song}</a> : null}
+      </Card></div>
+
+      {/* ---------- Card 3 — Technical stack & documents ---------- */}
       <div className="tcard-slide"><Card label="My Skills" icon={Code2} step={1} onEdit={onEdit}>
         {m && <div className="tcard-counts"><span className="ok">{m.matchedSkills.length} matching</span><span className="miss">{m.missingSkills?.length ?? 0} missing</span><span className="extra">{m.extraSkills?.length ?? 0} extra</span></div>}
         {m ? <div className="tcard-skillsplit">
@@ -184,8 +198,20 @@ export function CandidateCards({ person: p, match, onEdit, unlocked = false, vis
         {p.documents?.coverLetter && <p className="tcard-cover"><Quote size={13} /> {p.documents.coverLetter}</p>}
       </Card></div>
 
-      {/* ---------- Card 3 — Career & preferences ---------- */}
-      <div className="tcard-slide"><Card label="What I want" icon={Target} step={2} onEdit={onEdit}>
+      {/* ---------- Card 4 — What I Have Built ---------- */}
+      <div className="tcard-slide"><Card label="What I Have Built" icon={Hammer} step={6} onEdit={onEdit}>
+        {hasBuiltLinks ? <div className="tcard-docs">
+          {p.links?.github && <a className="tdoc-btn ghost" href={normalizeUrl(p.links.github)} target="_blank" rel="noreferrer"><Github size={13} /> GitHub</a>}
+          {p.links?.website && <a className="tdoc-btn ghost" href={normalizeUrl(p.links.website)} target="_blank" rel="noreferrer"><Globe size={13} /> Website</a>}
+          {p.links?.portfolio && <a className="tdoc-btn ghost" href={normalizeUrl(p.links.portfolio)} target="_blank" rel="noreferrer"><Link2 size={13} /> Portfolio</a>}
+          {p.links?.appStore && <a className="tdoc-btn ghost" href={normalizeUrl(p.links.appStore)} target="_blank" rel="noreferrer"><Smartphone size={13} /> App Store</a>}
+          {p.links?.playStore && <a className="tdoc-btn ghost" href={normalizeUrl(p.links.playStore)} target="_blank" rel="noreferrer"><Smartphone size={13} /> Play Store</a>}
+        </div> : <p className="tcard-empty">{onEdit ? 'Add links to things you\'ve shipped — GitHub, an app, a website, a publication.' : 'Nothing shared yet.'}</p>}
+        {p.publications?.length ? <><span className="tcard-sub">Publications</span><div className="tcard-docs">{p.publications.map((url, i) => <a key={i} className="tdoc-btn ghost" href={normalizeUrl(url)} target="_blank" rel="noreferrer"><FileText size={13} /> {url.replace(/^https?:\/\//, '').slice(0, 40)}</a>)}</div></> : null}
+      </Card></div>
+
+      {/* ---------- Card 5 — My Dream Job (career & preferences) ---------- */}
+      <div className="tcard-slide"><Card label="My Dream Job" icon={Target} step={2} onEdit={onEdit}>
         {p.preferences?.desiredRoles?.length ? <><span className="tcard-sub">Target roles</span><div className="skill-list soft">{p.preferences.desiredRoles.map((r) => <span key={r}>{r}</span>)}</div></> : null}
         <dl className="tcard-dl">
           {p.preferences?.employmentTypes?.length ? <div><dt><Briefcase size={12} /> Employment</dt><dd>{p.preferences.employmentTypes.join(' · ')}</dd></div> : null}
@@ -201,40 +227,15 @@ export function CandidateCards({ person: p, match, onEdit, unlocked = false, vis
         {p.preferences?.workStyle?.length ? <><span className="tcard-sub">Work style</span><div className="skill-list soft">{p.preferences.workStyle.map((s) => <span key={s}>{s}</span>)}</div></> : null}
       </Card></div>
 
-      {/* ---------- Card 4 — Human stack ---------- */}
-      <div className="tcard-slide"><Card label="My Human Stack" icon={Brain} step={3} onEdit={onEdit} tone="human">
-        {p.presentation ? <p className="tcard-presentation">{p.presentation}</p> : onEdit ? <p className="tcard-empty">Add a short personal introduction — who you are beyond the CV.</p> : null}
-        {p.motto ? <p className="tcard-motto"><Quote size={13} /> {p.motto}</p> : null}
-        {p.mindset?.length ? <><span className="tcard-sub">Mindset</span><div className="skill-list soft">{p.mindset.map((s) => <span key={s}>{s}</span>)}</div></> : null}
-        {p.humanSkills?.length ? <><span className="tcard-sub">Human capabilities</span><div className="skill-list soft">{p.humanSkills.map((s) => <span key={s}>{s}</span>)}</div></> : null}
-        {(p.workingPrefer?.length || p.workingAvoid?.length) ? <div className="tcard-workprefs">
-          {p.workingPrefer?.length ? <div><span className="tcard-sub ok">I thrive with</span><ul>{p.workingPrefer.map((s) => <li key={s}><CheckCircle2 size={12} /> {s}</li>)}</ul></div> : null}
-          {p.workingAvoid?.length ? <div><span className="tcard-sub miss">I avoid</span><ul>{p.workingAvoid.map((s) => <li key={s}><XCircle size={12} /> {s}</li>)}</ul></div> : null}
-        </div> : null}
-        {p.interests?.length ? <><span className="tcard-sub">Interests</span><div className="skill-list soft">{p.interests.map((s) => <span key={s}>{s}</span>)}</div></> : null}
-        {song ? <a className="tdoc-btn ghost tcard-song" href={p.favoriteSong} target="_blank" rel="noreferrer"><Music2 size={13} /> Soundtrack — {song}</a> : null}
-      </Card></div>
-
-      {/* ---------- Card 5 — What I Have Built ---------- */}
-      <div className="tcard-slide"><Card label="What I Have Built" icon={Hammer} step={1} onEdit={onEdit}>
-        {hasBuiltLinks ? <div className="tcard-docs">
-          {p.links?.github && <a className="tdoc-btn ghost" href={normalizeUrl(p.links.github)} target="_blank" rel="noreferrer"><Github size={13} /> GitHub</a>}
-          {p.links?.website && <a className="tdoc-btn ghost" href={normalizeUrl(p.links.website)} target="_blank" rel="noreferrer"><Globe size={13} /> Website</a>}
-          {p.links?.portfolio && <a className="tdoc-btn ghost" href={normalizeUrl(p.links.portfolio)} target="_blank" rel="noreferrer"><Link2 size={13} /> Portfolio</a>}
-          {p.links?.appStore && <a className="tdoc-btn ghost" href={normalizeUrl(p.links.appStore)} target="_blank" rel="noreferrer"><Smartphone size={13} /> App Store</a>}
-          {p.links?.playStore && <a className="tdoc-btn ghost" href={normalizeUrl(p.links.playStore)} target="_blank" rel="noreferrer"><Smartphone size={13} /> Play Store</a>}
-        </div> : <p className="tcard-empty">{onEdit ? 'Add links to things you\'ve shipped — GitHub, an app, a website, a publication.' : 'Nothing shared yet.'}</p>}
-        {p.publications?.length ? <><span className="tcard-sub">Publications</span><div className="tcard-docs">{p.publications.map((url, i) => <a key={i} className="tdoc-btn ghost" href={normalizeUrl(url)} target="_blank" rel="noreferrer"><FileText size={13} /> {url.replace(/^https?:\/\//, '').slice(0, 40)}</a>)}</div></> : null}
-      </Card></div>
-
-      {/* ---------- Card 6 — Recommendations ---------- */}
-      <div className="tcard-slide"><Card label="Recommendations" icon={Star} step={5} onEdit={onEdit}>
+      {/* ---------- Card 6 — What People Think About Me ---------- */}
+      <div className="tcard-slide"><Card label="What People Think About Me" icon={Star} step={5} onEdit={onEdit}>
         {avgRating !== undefined && <div className="tcard-rating"><strong>{avgRating.toFixed(1)}</strong><div className="tcard-stars">{[1, 2, 3, 4, 5].map((n) => <Star key={n} size={14} className={n <= Math.round(avgRating) ? 'on' : ''} />)}</div><small>{p.recommendations!.length} recommendation{p.recommendations!.length > 1 ? 's' : ''}</small></div>}
         {p.recommendations?.length ? <ul className="tcard-recs">{p.recommendations.map((r, i) => <li key={i}>
           <div className="trec-head">{r.photo && <img src={r.photo} alt="" />}<div><strong>{r.recruiterName}{r.verified && <BadgeCheck size={13} className="verified-mark" />}</strong>{(r.role || r.company) && <small>{[r.role, r.company].filter(Boolean).join(' · ')}</small>}{r.relationship && <em className="trec-rel">{r.relationship}</em>}</div></div>
           <p>“{r.text}”</p>
           {r.candidateResponse && <p className="trec-response"><Quote size={11} /> {r.candidateResponse}</p>}
           <div className="trec-foot">{r.wouldWorkAgain && <span className="trec-again"><Heart size={11} /> Would work with again</span>}{r.date && <time>{r.date}</time>}</div>
+          {r.recommenderEmail && <p className="trec-email"><Send size={11} /> {r.recommenderEmail}</p>}
         </li>)}</ul> : <p className="tcard-empty"><Coffee size={14} /> {onEdit ? 'Invite former recruiters or managers to recommend you (optional).' : 'No public recommendations yet.'}</p>}
         {onEdit && <div className="tcard-invite">
           <span className="tcard-sub">Invite a recommender</span>
