@@ -50,7 +50,7 @@ const candidateNav: NavItem[] = [
 ];
 const employerNav: NavItem[] = [
   { label: 'Home', icon: Compass, view: 'home' },
-  { label: 'My Jobs', icon: BriefcaseBusiness, anchor: 'td-roles' },
+  { label: 'My JobMatches', icon: BriefcaseBusiness, anchor: 'td-roles' },
   { label: 'Selected Candidates', short: 'Candidates', icon: Users, view: 'selected' },
   { label: 'Saved', icon: BookmarkIcon, view: 'saved' },
   { label: 'Conversations', short: 'Chat', icon: MessageCircle, view: 'messages' },
@@ -1031,7 +1031,7 @@ function JobOfferDetail({ job, data, onBack, onEdit, onDelete, deleting, onOpenM
   const [confirming, setConfirming] = useState(false);
   return <div className="page job-offer-detail">
     <div className="page-title">
-      <div><button className="secondary-button small" onClick={onBack}><ArrowLeft size={15} /> Back to My Jobs</button></div>
+      <div><button className="secondary-button small" onClick={onBack}><ArrowLeft size={15} /> Back to My JobMatches</button></div>
       <div style={{ display: 'flex', gap: 8 }}>
         {confirming
           ? <><span className="settings-confirm"><button className="danger-button small" disabled={deleting} onClick={onDelete}>{deleting ? <Loader2 size={14} className="spin" /> : 'Confirm delete'}</button><button className="text-button" onClick={() => setConfirming(false)}>Cancel</button></span></>
