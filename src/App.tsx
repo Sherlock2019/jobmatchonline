@@ -49,7 +49,6 @@ const candidateNav: NavItem[] = [
 const employerNav: NavItem[] = [
   { label: 'Home', icon: Compass, view: 'home' },
   { label: 'My Jobs', icon: BriefcaseBusiness, anchor: 'td-roles' },
-  { label: 'Job Matches', icon: Check, anchor: 'td-roles' },
   { label: 'Candidates', icon: Users, view: 'discover' },
   { label: 'Saved', icon: BookmarkIcon, view: 'saved' },
   { label: 'Conversations', short: 'Chat', icon: MessageCircle, anchor: 'td-conversations' },
@@ -175,14 +174,14 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   const openJobEditor = (jobId: string) => { setEditJobId(jobId); setView('jobs'); };
   const role: Role = data?.viewer.role ?? session.role;
   const notifications = useMemo(() => {
-    if (!data) return [] as { id: string; kind: 'match' | 'msg'; text: string; at: number }[];
-    const list: { id: string; kind: 'match' | 'msg'; text: string; at: number }[] = [];
+    if (!data) return [] as { id: string; kind: 'match' | 'msg'; text: string; at: number; matchId: string }[];
+    const list: { id: string; kind: 'match' | 'msg'; text: string; at: number; matchId: string }[] = [];
     for (const m of data.matches) {
       const who = role === 'candidate' ? (m.job?.company || 'A team') : (m.candidate?.name || 'A candidate');
-      list.push({ id: `match-${m.id}`, kind: 'match', text: `It’s a match with ${who}`, at: m.createdAt });
+      list.push({ id: `match-${m.id}`, kind: 'match', text: `It’s a match with ${who}`, at: m.createdAt, matchId: m.id });
       const thread = data.messages.filter((msg) => msg.matchId === m.id);
       const last = thread[thread.length - 1];
-      if (last && last.senderId !== data.viewer.id) list.push({ id: `msg-${last.id}`, kind: 'msg', text: `New message from ${who}`, at: last.createdAt });
+      if (last && last.senderId !== data.viewer.id) list.push({ id: `msg-${last.id}`, kind: 'msg', text: `New message from ${who}`, at: last.createdAt, matchId: m.id });
     }
     return list.sort((a, b) => b.at - a.at).slice(0, 8);
   }, [data, role]);
@@ -220,7 +219,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
     </aside>
     {inviteOpen && data && <InviteFriendModal userId={data.viewer.id} onClose={() => setInviteOpen(false)} />}
     {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
-    <section className="app-main">{session.emailVerified === false && <div className="verify-banner"><span><ShieldCheck size={15} /> Verify your email to secure your account and unlock everything.</span><button onClick={() => setSettingsOpen(true)}>Verify now</button></div>}<header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} onKeyDown={(event) => { if (event.key === 'Enter') setView('discover'); }} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><div className="notif-wrap"><button aria-label="Notifications" onClick={() => setNotifOpen((v) => !v)}><Bell size={19} />{notifications.length > 0 && <i />}</button>{notifOpen && <><button className="notif-scrim" aria-label="Close notifications" onClick={() => setNotifOpen(false)} /><div className="notif-dropdown"><header>Notifications</header>{notifications.length === 0 ? <p className="notif-empty">No notifications yet.</p> : notifications.map((n) => <button key={n.id} className="notif-item" onClick={() => { setNotifOpen(false); setView('messages'); }}><span className={`notif-icon ${n.kind}`}>{n.kind === 'match' ? <Heart size={14} fill="currentColor" /> : <MessageCircle size={14} />}</span><span className="notif-text">{n.text}<small>{timeAgo(n.at)}</small></span></button>)}</div></>}</div>{data?.viewer.demo && <button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Candidate view' : 'Recruiter view'}<ChevronDown size={14} /></button>}</div></header>
+    <section className="app-main">{session.emailVerified === false && <div className="verify-banner"><span><ShieldCheck size={15} /> Verify your email to secure your account and unlock everything.</span><button onClick={() => setSettingsOpen(true)}>Verify now</button></div>}<header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} onKeyDown={(event) => { if (event.key === 'Enter') setView('discover'); }} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><div className="notif-wrap"><button aria-label="Notifications" onClick={() => setNotifOpen((v) => !v)}><Bell size={19} />{notifications.length > 0 && <i />}</button>{notifOpen && <><button className="notif-scrim" aria-label="Close notifications" onClick={() => setNotifOpen(false)} /><div className="notif-dropdown"><header>Notifications</header>{notifications.length === 0 ? <p className="notif-empty">No notifications yet.</p> : notifications.map((n) => <button key={n.id} className="notif-item" onClick={() => { setNotifOpen(false); openMessages(n.matchId); }}><span className={`notif-icon ${n.kind}`}>{n.kind === 'match' ? <Heart size={14} fill="currentColor" /> : <MessageCircle size={14} />}</span><span className="notif-text">{n.text}<small>{timeAgo(n.at)}</small></span></button>)}</div></>}</div>{data?.viewer.demo && <button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Candidate view' : 'Recruiter view'}<ChevronDown size={14} /></button>}</div></header>
       {loading ? <LoadingState /> : error ? <ErrorState message={error} retry={load} /> : data && (
         (data.viewer.onboarding || editStep !== null)
           ? (data.viewer.role === 'candidate'
@@ -252,7 +251,7 @@ function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profil
   if (view === 'saved') return <Saved role={role} data={data} setData={setData} navigate={navigate} />;
   if (view === 'analytics') return <Analytics role={role} data={data} />;
   if (view === 'jobs') return <Jobs data={data} reload={reload} onAddJobs={onAddJobs} manualJobRequest={manualJobRequest} onOpenMessages={onOpenMessages} editJobId={editJobId} />;
-  if (view === 'matches') return <Matches data={data} navigate={navigate} />;
+  if (view === 'matches') return <Matches data={data} navigate={navigate} onOpenMessages={onOpenMessages} />;
   if (role === 'candidate') return <CandidateProfilePage
     viewer={data.viewer} jobs={data.jobs} onEdit={onEditProfile} initialCard={profileCard} onCardChange={onProfileCardChange}
     onDeleteProfile={data.viewer.activeVariantId ? async () => { await api.deleteProfileVariant(data.viewer.activeVariantId!, data.viewer.id); reload(); navigate('home'); } : undefined}
@@ -862,7 +861,7 @@ function Saved({ role, data, setData, navigate }: { role: Role; data: Bootstrap;
   </div>;
 }
 
-function Matches({ data, navigate }: { data: Bootstrap; navigate: (v: View) => void }) { return <div className="page"><div className="page-title"><div><span className="overline">Mutual interest</span><h1>Your matches</h1><p>These teams chose you back. Start a conversation when you’re ready.</p></div></div><div className="match-grid">{data.matches.map((match) => <article key={match.id}>{match.job && <JobHeaderBadge job={match.job} />}<div className="match-grid-actions"><button className="secondary-button" onClick={() => navigate('discover')}>View role</button><button className="primary-button" onClick={() => navigate('messages')}><MessageCircle size={16} />Message</button></div></article>)}</div></div>; }
+function Matches({ data, navigate, onOpenMessages }: { data: Bootstrap; navigate: (v: View) => void; onOpenMessages?: (matchId: string) => void }) { return <div className="page"><div className="page-title"><div><span className="overline">Mutual interest</span><h1>Your matches</h1><p>These teams chose you back. Start a conversation when you’re ready.</p></div></div><div className="match-grid">{data.matches.map((match) => <article key={match.id}>{match.job && <JobHeaderBadge job={match.job} />}<div className="match-grid-actions"><button className="secondary-button" onClick={() => navigate('discover')}>View role</button><button className="primary-button" onClick={() => onOpenMessages ? onOpenMessages(match.id) : navigate('messages')}><MessageCircle size={16} />Message</button></div></article>)}</div></div>; }
 
 function Companies({ data, navigate }: { data: Bootstrap; navigate: (v: View) => void }) {
   const companies = [...new Map(data.jobs.map((job) => [job.company, job])).values()];

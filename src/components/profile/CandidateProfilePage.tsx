@@ -4,7 +4,9 @@ import type { Job, Person } from '../../types';
 import { CandidateCards } from './CandidateCards';
 import { DemoBadge } from '../DemoBadge';
 
-const EDIT_STEPS = [0, 1, 2, 3, 5];
+// Card index (0-5, matches CandidateCards' NAV order) -> wizard step. Must
+// stay in sync with the step= props on each <Card> in CandidateCards.tsx.
+const EDIT_STEPS = [0, 3, 1, 6, 2, 5];
 
 export function CandidateProfilePage({ viewer, jobs, onEdit, initialCard = 0, onCardChange, onDeleteProfile }: { viewer: Person; jobs: Job[]; onEdit: (step: number) => void; initialCard?: number; onCardChange?: (card: number) => void; onDeleteProfile?: () => Promise<void> }) {
   const [jobId, setJobId] = useState('');

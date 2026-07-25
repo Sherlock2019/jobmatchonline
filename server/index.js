@@ -938,7 +938,7 @@ function generateSampleCandidatesForJob(job) {
   return [0, 1].map((i) => {
     const genderBucket = i ? 'women' : 'men';
     return {
-      id: `sample-cand-${job.id}-${i}`, role: 'candidate', sample: true, name: sampleName(),
+      id: `sample-cand-${job.id}-${i}`, role: 'candidate', sample: true, sampleFor: job.employerId, name: sampleName(),
       title: job.title || 'Candidate', location: job.location, distanceKm: job.distanceKm ?? 10,
       photo: `https://randomuser.me/api/portraits/${genderBucket}/${10 + Math.floor(Math.random() * 79)}.jpg`,
       skills: skills.length ? skills : fallbackSkills,
@@ -957,7 +957,7 @@ function generateSampleJobsForCandidate(candidate) {
   const salaryMax = candidate.preferences?.salary?.max;
   const salary = salaryMin && salaryMax ? `$${Math.round(salaryMin / 1000)}k–$${Math.round(salaryMax / 1000)}k` : '$70k–$100k';
   return [0, 1].map((i) => ({
-    id: `sample-job-${candidate.id}-${i}`, employerId: 'employer-demo', sample: true,
+    id: `sample-job-${candidate.id}-${i}`, employerId: 'employer-demo', sample: true, sampleFor: candidate.id,
     title: candidate.title || 'Open role', company: 'AWS', logo: 'A', accent: JOB_ACCENTS[i % JOB_ACCENTS.length],
     location: candidate.location || 'Remote', distanceKm: candidate.distanceKm ?? 10,
     workMode: candidate.preferences?.workMode || 'Hybrid', salary, type: 'Full-time',

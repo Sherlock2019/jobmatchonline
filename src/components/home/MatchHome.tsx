@@ -87,27 +87,6 @@ function CandidateJobCard({ job, recruiter, saved, onSave, onView, onTalk }: {
   </article>;
 }
 
-function PersonCard({ person, saved, liked, onSave, onView, onTalk }: {
-  person: Person; saved: boolean; liked?: boolean; onSave: () => void; onView: () => void; onTalk: () => void;
-}) {
-  return <article className="td-person-card">
-    <span className="td-score">{person.match?.score || 0}% Match</span>
-    <div className="td-person-photo"><img src={person.photo} alt="" /><i /></div>
-    <strong>{person.name}</strong>
-    <small>{person.title}</small>
-    {person.company && <b>{person.company}</b>}
-    <Stars score={person.match?.score} />
-    <p><MapPin size={10} />{person.location || [person.city, person.country].filter(Boolean).join(', ') || 'Flexible location'}</p>
-    <p className="available">● Available {person.availability || person.preferences?.availability || 'soon'}</p>
-    <div className="td-person-skills">{(person.match?.matchedSkills?.length ? person.match.matchedSkills : person.skills).slice(0, 3).map((skill) => <span key={skill}>{skill}</span>)}</div>
-    <div className="td-person-actions">
-      <button onClick={onTalk} aria-label={`Like ${person.name}`}><Heart size={14} fill={liked ? 'currentColor' : 'none'} /></button>
-      <button onClick={onView} aria-label={`View ${person.name}`}><Eye size={14} /></button>
-      <button onClick={onSave} aria-label={`Save ${person.name}`}><Bookmark size={14} fill={saved ? 'currentColor' : 'none'} /></button>
-    </div>
-  </article>;
-}
-
 export function EmptyRow({ children }: { children: React.ReactNode }) {
   return <div className="td-empty"><Sparkles size={18} /><span>{children}</span></div>;
 }
@@ -217,7 +196,7 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
   const metrics = [
     { icon: Heart, label: 'Matches', value: matchedJobs.length, note: 'both said yes', action: 'View all', target: 'td-matches' },
     { icon: Target, label: 'Jobs that like you', value: likesYou.length, note: 'liked your profile', action: 'See who', target: 'td-chasing' },
-    { icon: Coffee, label: 'Let’s Talk Invitations', value: conversations.length, note: 'invitations', action: 'View invites', target: 'messages' },
+    { icon: Coffee, label: 'Let’s Talk Invitations', value: upcomingCalls.length, note: 'invitations', action: 'View invites', target: 'messages' },
   ];
 
   if (switchingProfile) return <div className="profile-switch-overlay">

@@ -7,15 +7,22 @@
 // "DEMO" in the UI so nobody mistakes one for an actual person or employer.
 export function matchingPool(db, viewer) {
   const demo = viewer.demo === true;
+  // Sample records carry sampleFor: the specific account id they were
+  // generated for (a candidate id on a sample job, an employer id on a
+  // sample candidate) -- they're only ever visible to THAT one account, not
+  // every real user and not Sarah's own demo dashboard. Without this scope,
+  // every new real signup's starter content would pile up in everyone else's
+  // pool too, growing unbounded.
+  const mySampleJobs = db.jobs.filter((job) => job.sample === true && job.sampleFor === viewer.id);
   // A sample job's employer (e.g. Sarah, the demo recruiter persona, posting
-  // a starter job for a real candidate) needs to be reachable in that real
+  // a starter job for this specific candidate) needs to be reachable in this
   // viewer's pool too -- otherwise the "employer liked you" swipe it comes
   // with would be filtered out and never show up.
-  const sampleJobEmployerIds = new Set(db.jobs.filter((job) => job.sample === true).map((job) => job.employerId));
-  const users = db.users.filter((user) => (user.demo === true) === demo || user.sample === true || sampleJobEmployerIds.has(user.id));
+  const sampleJobEmployerIds = new Set(mySampleJobs.map((job) => job.employerId));
+  const users = db.users.filter((user) => (user.demo === true) === demo || (user.sample === true && user.sampleFor === viewer.id) || sampleJobEmployerIds.has(user.id));
   const userIds = new Set(users.map((user) => user.id));
   const jobs = db.jobs.filter((job) => {
-    if (job.sample === true) return true;
+    if (job.sample === true) return job.sampleFor === viewer.id;
     const employer = db.users.find((user) => user.id === job.employerId);
     const jobIsDemo = job.demo === true || employer?.demo === true;
     return jobIsDemo === demo && userIds.has(job.employerId);

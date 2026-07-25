@@ -83,6 +83,7 @@ export function applyCandidateProfile(user, body) {
   if (body.workExperience !== undefined) user.workExperience = objArray(body.workExperience, { title: (v) => str(v, 120), company: (v) => str(v, 120), from: (v) => str(v, 20), to: (v) => str(v, 20), description: (v) => str(v, 1000) });
   if (body.education !== undefined) user.education = objArray(body.education, { school: (v) => str(v, 140), degree: (v) => str(v, 140), from: (v) => str(v, 20), to: (v) => str(v, 20) });
   set('certifications', strArray(body.certifications));
+  set('publications', strArray(body.publications));
   // Human stack (card 4) — how the candidate presents as a person.
   set('presentation', str(body.presentation, 2000));
   set('aboutMeArchetype', str(body.aboutMeArchetype, 40)); // drives recruiter conversation-starter suggestions
@@ -113,7 +114,7 @@ export function applyCandidateProfile(user, body) {
     }, 12)?.filter((rec) => rec.recruiterName && rec.text) || [];
   }
   if (body.links !== undefined && typeof body.links === 'object' && body.links !== null) {
-    user.links = Object.fromEntries(['github', 'portfolio', 'website', 'linkedin'].map((key) => [key, str(body.links[key], 300)]).filter(([, value]) => value));
+    user.links = Object.fromEntries(['github', 'portfolio', 'website', 'linkedin', 'appStore', 'playStore'].map((key) => [key, str(body.links[key], 300)]).filter(([, value]) => value));
   }
   if (body.preferences !== undefined && typeof body.preferences === 'object' && body.preferences !== null) {
     const p = body.preferences;
