@@ -51,13 +51,21 @@ function JobScreen() {
     <div className="pc-screen pc-screen-job">
       <span className="pc-kicker">OPEN ROLE</span>
       <img className="pc-photo-lg" src={RECRUITER.photo} alt="" />
-      <strong className="pc-name">{COMPANY.role}</strong>
-      <span className="pc-role">{RECRUITER.name} · {RECRUITER.title}</span>
-      <span className="pc-meta">{COMPANY.name} · {COMPANY.city} · {COMPANY.salary}</span>
+      <div className="pc-identity-rows">
+        <span><b>Role</b>{COMPANY.role}</span>
+        <span><b>Company</b>{COMPANY.name}</span>
+        <span><b>Recruiter</b>{RECRUITER.name}</span>
+      </div>
+      <span className="pc-meta">{COMPANY.city} · {COMPANY.salary}</span>
       <div className="pc-facts"><span>{COMPANY.openings} openings</span><span>{COMPANY.applicants} applicants</span><span>{COMPANY.responseTime}</span></div>
-      <p className="pc-blurb">{COMPANY.blurb}</p>
       <div className="pc-chips">{COMPANY.skills.map((s) => <i key={s}>{s}</i>)}</div>
-      <div className="pc-actions"><button type="button" aria-label="Pass">×</button><button type="button" className="pc-like" aria-label="Interested">♥</button></div>
+      <div className="pc-actions pc-actions-five">
+        <button type="button" aria-label="Pass">×</button>
+        <button type="button" className="pc-super" aria-label="Super Like">★</button>
+        <button type="button" className="pc-ask" aria-label="Ask a quick question">?</button>
+        <button type="button" className="pc-save" aria-label="Save for later">▤</button>
+        <button type="button" className="pc-like" aria-label="Interested">♥</button>
+      </div>
     </div>
   );
 }
