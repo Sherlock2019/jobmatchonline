@@ -102,17 +102,31 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const openRegister = () => setAuthModal('register');
   const complete = (user: SessionUser) => { setAuthModal(null); onLogin(user); };
   const trustPipeline = [
-    {
-      label: 'Steps to hire', classic: 8, jobsmatch: 4, unit: ' steps', color: '#FF3B30',
-      classicSteps: ['Search & apply', 'Resume screening', 'Recruiter phone screen', 'Technical/skills test', 'First interview', 'Panel interview', 'Reference checks', 'Offer & hire'],
-      jobsmatchSteps: ['Mutual match', 'Qualified conversation', 'Feedback exchange', 'Interview & hire'],
-      feature: 'Mutual Matching + Feedback Exchange', note: 'Both sides opt in before a step counts, and a required feedback exchange collapses several screening rounds into one.',
-    },
-    { label: 'Time to hire', classic: 32, jobsmatch: 9, unit: ' days', color: '#FF9500', feature: 'Instant Job Import', note: 'Roles go live in minutes and reach genuinely interested candidates immediately, instead of sitting in a weekly review queue.' },
-    { label: 'Match-to-interview rate', classic: 18, jobsmatch: 61, unit: '%', color: '#34C759', feature: 'Explainable Match Score', note: 'Skill, salary, and location fit are scored before either side reaches out, so far more matches turn into real conversations.' },
-    { label: 'Feedback ratio', classic: 22, jobsmatch: 89, unit: '%', color: '#32ADE6', feature: 'Feedback Exchange', note: 'A quick feedback step is now built into every conversation, replacing the silence candidates get from traditional pipelines.' },
-    { label: 'Candidate satisfaction', classic: 58, jobsmatch: 96, unit: '%', color: '#AF52DE', feature: 'Salary Revealed Up Front + Visibility Inspector', note: 'Candidates always know the comp range and can see exactly what recruiters see about them, before ever matching.' },
-    { label: 'Recruiter success rate', classic: 34, jobsmatch: 78, unit: '%', color: '#FF2D55', feature: 'Candidates Worth Your Time + Hiring Insights', note: 'Only genuinely opted-in candidates reach recruiters, backed by real funnel and match-quality data on every role.' },
+    { label: 'Steps to hire', classic: 9, jobsmatch: 6, unit: ' steps', color: '#FF3B30', feature: 'Mutual Matching + Automated Resume and Job Analysis', note: 'JobsMatchNow combines application, application receipt, resume screening, job-description comparison, and mutual-interest confirmation into one connected step.' },
+    { label: 'Time to hire', classic: 32, jobsmatch: 25, unit: ' days', color: '#FF9500', feature: 'Instant Mutual Matching + Faster First Contact', note: 'Relevant candidates and recruiters connect immediately, then move directly to a recruiter screening call or local meetup without waiting through separate application-processing and screening queues.' },
+    { label: 'Match-to-interview rate', classic: 18, jobsmatch: 61, unit: '%', color: '#34C759', feature: 'Explainable Match Score', note: 'Skills, experience, salary expectations, location, preferences, resume content, and job requirements are analyzed before both sides connect, helping better-aligned candidates reach interviews.' },
+    { label: 'Feedback ratio', classic: 22, jobsmatch: 89, unit: '%', color: '#32ADE6', feature: 'Built-In Feedback Exchange', note: 'Candidates and recruiters can share structured feedback after conversations and interview stages, reducing silence, uncertainty, and ghosting.' },
+    { label: 'Candidate satisfaction', classic: 58, jobsmatch: 96, unit: '%', color: '#AF52DE', feature: 'Salary Transparency + Mutual Choice + Recruiter Feedback', note: 'Candidates understand the role, salary range, match reasoning, and what recruiters can see before deciding whether to connect.' },
+    { label: 'Recruiter success rate', classic: 34, jobsmatch: 78, unit: '%', color: '#FF2D55', feature: 'Qualified Mutual Matches + Hiring Insights + Candidate Feedback', note: 'Recruiters spend their time on candidates who already match the role and have actively confirmed their interest, supported by clear compatibility and pipeline data.' },
+  ];
+  const traditionalSteps = [
+    ['1. Candidate sends a job application', 'Same day'],
+    ['2. Recruiter receives and processes applications', '1 day'],
+    ['3. Resume screening', '3 days'],
+    ['4. Resume compared with the job description', '1 day'],
+    ['5. Recruiter screening call', '3 days'],
+    ['6. Interview and assessment rounds', '14 days'],
+    ['7. Reference and background checks', '7 days'],
+    ['8. Offer negotiation', '2 days'],
+    ['9. Offer acceptance and hire', '1 day'],
+  ];
+  const jobsmatchNowSteps = [
+    ['1. Application, receipt, resume screening, job-description analysis, and mutual matching combined', 'Same day'],
+    ['2. Recruiter screening call or direct local meetup', '1 day'],
+    ['3. Interview and assessment rounds', '14 days'],
+    ['4. Reference and background checks', '7 days'],
+    ['5. Offer negotiation', '2 days'],
+    ['6. Offer acceptance and hire', '1 day'],
   ];
   const modals = <AnimatePresence>
     {authModal === 'login' && <LoginModal onClose={() => setAuthModal(null)} onComplete={complete} />}
@@ -156,14 +170,45 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     <JourneyPipeline />
     <section className="value-section" id="how"><div className="section-heading centered"><span className="eyebrow"><Sparkles size={14} /> A better signal</span><h2>Hiring works better when<br />both sides choose.</h2></div><div className="value-grid"><Feature icon={BarChart3} title="Fit, explained" text="Go beyond keywords with transparent skill, experience, and preference signals." /><Feature icon={Handshake} title="Intent, confirmed" text="A conversation opens only after both sides express interest. No cold outreach." /><Feature icon={MapIcon} title="Geolocation of Opportunities" text="Choose a city and private distance range, then meet for coffee only when both sides agree." /><Feature icon={ShieldCheck} title="People, respected" text="Salary and work style are clear up front. Candidate controls stay at the center." /></div></section>
     <section className="trust-section" id="trust"><div className="trust-copy"><span className="section-kicker light">Better Results</span><h2>More, better, faster hiring — with human mutual job matching.</h2><p>Every recommendation carries its reason. Every connection starts with consent. Every candidate gets control over what employers can see.</p><button className="white-button" onClick={openLogin}>Open recruiter workspace <ArrowRight size={17} /></button></div><div className="gauge-grid">
-      <Gauge pct={72} classicPct={20} value="9 days" classicValue="32 days" label="Time to hire" />
-      <Gauge pct={76} classicPct={18} value="11 days" classicValue="45 days" label="Time to find a role" />
-      <Gauge pct={46} classicPct={18} value="46%" classicValue="18%" label="Match-to-hire conversion" />
-      <Gauge pct={94} classicPct={58} value="94%" classicValue="58%" label="Candidate satisfaction rate" />
-      <Gauge pct={89} classicPct={34} value="89%" classicValue="34%" label="Recruiter satisfaction rate" />
-      <Gauge pct={92} classicPct={41} value="92%" classicValue="41%" label="Would recommend JobsMatchNow" />
+      <Gauge pct={22} classicPct={8} value="25 days" classicValue="32 days" label="Time to hire" classicNum={32} newNum={25} lowerIsBetter />
+      <Gauge pct={76} classicPct={18} value="11 days" classicValue="45 days" label="Time to find a role" classicNum={45} newNum={11} lowerIsBetter />
+      <Gauge pct={46} classicPct={18} value="46%" classicValue="18%" label="Match-to-hire conversion" classicNum={18} newNum={46} />
+      <Gauge pct={94} classicPct={58} value="94%" classicValue="58%" label="Candidate satisfaction rate" classicNum={58} newNum={94} />
+      <Gauge pct={89} classicPct={34} value="89%" classicValue="34%" label="Recruiter satisfaction rate" classicNum={34} newNum={89} />
+      <Gauge pct={92} classicPct={41} value="92%" classicValue="41%" label="Would recommend JobsMatchNow" classicNum={41} newNum={92} />
       <small>Illustrative product targets for the demo experience.</small>
-    </div><div className="trust-pipeline"><h3>Classic Hiring vs. New JobsMatchNow Process</h3><p>How the hiring pipeline itself compares, step for step.</p><div className="pipeline-rows">{trustPipeline.map((row) => { const max = Math.max(row.classic, row.jobsmatch) || 1; const deltaPct = row.classic ? Math.round(Math.abs(row.jobsmatch - row.classic) / row.classic * 100) : 0; return <Fragment key={row.label}><div className="pipeline-row"><span className="pipeline-row-label">{row.label}</span><div className="pipeline-bar-track classic"><i style={{ width: `${(row.classic / max) * 100}%` }} /><b>{row.classic}{row.unit}</b></div><div className="pipeline-bar-track jobsmatch"><i style={{ width: `${(row.jobsmatch / max) * 100}%`, background: row.color }} /><b>{row.jobsmatch}{row.unit}</b></div><span className="pipeline-delta" style={{ color: row.color }}>{deltaPct}% better</span></div>{row.classicSteps && <div className="pipeline-steps"><div className="pipeline-steps-col"><span>Classic hiring — first contact to hire</span><ol>{row.classicSteps.map((step) => <li key={step}>{step}</li>)}</ol></div><div className="pipeline-steps-col new"><span>JobsMatchNow — first contact to hire</span><ol>{row.jobsmatchSteps!.map((step) => <li key={step} className={step === 'Feedback exchange' ? 'is-new' : undefined}>{step}{step === 'Feedback exchange' && <b className="new-badge">NEW</b>}</li>)}</ol></div></div>}<p className="pipeline-feature-note">Powered by <b>{row.feature}</b> — {row.note}</p></Fragment>; })}<div className="pipeline-legend"><span><i className="classic" /> Classic hiring</span><span><i className="jobsmatch" /> JobsMatchNow</span></div><div className="pipeline-popularity"><Star size={16} fill="currentColor" /><div><strong>4.8/5 popularity</strong><span>Average candidate rating from verified reviews, powered by our built-in recommendation &amp; review feature.</span></div></div></div></div></section>
+    </div><div className="trust-pipeline"><h3>Classic Hiring vs. New JobsMatchNow Process</h3><p>How the hiring pipeline itself compares, step for step.</p><div className="pipeline-rows">{trustPipeline.map((row) => { const max = Math.max(row.classic, row.jobsmatch) || 1; const deltaPct = row.classic ? Math.round(Math.abs(row.jobsmatch - row.classic) / row.classic * 100) : 0; return <Fragment key={row.label}><div className="pipeline-row"><span className="pipeline-row-label">{row.label}</span><div className="pipeline-bar-track classic"><i style={{ width: `${(row.classic / max) * 100}%` }} /><b>{row.classic}{row.unit}</b></div><div className="pipeline-bar-track jobsmatch"><i style={{ width: `${(row.jobsmatch / max) * 100}%`, background: row.color }} /><b>{row.jobsmatch}{row.unit}</b></div><span className="pipeline-delta" style={{ color: row.color }}>{deltaPct}% better</span></div><p className="pipeline-feature-note">Powered by <b>{row.feature}</b> — {row.note}</p></Fragment>; })}<div className="pipeline-legend"><span><i className="classic" /> Classic hiring</span><span><i className="jobsmatch" /> JobsMatchNow</span></div><div className="pipeline-popularity"><Star size={16} fill="currentColor" /><div><strong>4.8/5 popularity</strong><span>Average candidate rating from verified reviews, powered by our built-in recommendation &amp; review feature.</span></div></div></div>
+      <div className="trust-detail">
+        <h4>Traditional Hiring vs. JobsMatchNow</h4>
+        <div className="trust-detail-table-wrap">
+          <table className="trust-detail-table">
+            <thead><tr><th>Traditional Hiring</th><th>Estimated time</th><th>JobsMatchNow</th><th>Estimated time</th></tr></thead>
+            <tbody>{traditionalSteps.map((row, i) => <tr key={row[0]}><td>{row[0]}</td><td>{row[1]}</td><td>{jobsmatchNowSteps[i]?.[0]}</td><td>{jobsmatchNowSteps[i]?.[1]}</td></tr>)}</tbody>
+            <tfoot><tr><td><b>Estimated total</b></td><td><b>32 days</b></td><td><b>Estimated total</b></td><td><b>25 days</b></td></tr></tfoot>
+          </table>
+        </div>
+        <div className="trust-detail-block">
+          <strong>Steps simplified or skipped with JobsMatchNow</strong>
+          <p>Traditional steps 1–4 are combined into one intelligent matching step:</p>
+          <ul><li>Candidate application submission</li><li>Manual receipt and processing of applications</li><li>Separate resume screening</li><li>Manual comparison of the resume with the job description</li></ul>
+          <p>Instead, JobsMatchNow analyzes the job description, resume, profile, preferences, and mutual interest together before the conversation begins.</p>
+        </div>
+        <div className="trust-detail-block">
+          <strong>Benefits of the new process</strong>
+          <ul>
+            <li><b>7 days faster:</b> estimated hiring time is reduced from 32 to 25 days.</li>
+            <li><b>Less manual screening:</b> recruiters spend less time reviewing unsuitable applications.</li>
+            <li><b>Mutual interest first:</b> both sides confirm interest before investing time in calls and interviews.</li>
+            <li><b>Better-aligned candidates:</b> skills, experience, expectations, and job requirements are compared earlier.</li>
+            <li><b>Fewer unnecessary exchanges:</b> less chasing, follow-up, and repeated information gathering.</li>
+            <li><b>Faster human connection:</b> candidates can move directly to a recruiter screening call or local meetup.</li>
+            <li><b>Same hiring standards:</b> interviews, assessments, references, background checks, and offer stages remain in place.</li>
+            <li><b>Better candidate experience:</b> greater transparency, faster responses, and less uncertainty.</li>
+          </ul>
+        </div>
+        <p className="trust-detail-core"><b>Core message:</b> JobsMatchNow does not remove essential hiring checks. It removes the friction required to reach them.</p>
+      </div>
+    </div></section>
     <LatestShowcase onRegister={openRegister} onLogin={openLogin} />
     <FeedbackSection />
     <footer><Brand /><span>Perfect matches should feel human.</span><small>© 2026 JobsMatchNow</small></footer>
@@ -175,15 +220,17 @@ function Feature({ icon: Icon, title, text }: { icon: typeof Target; title: stri
   return <article><div className="feature-icon"><Icon size={32} /></div><h3>{title}</h3><p>{text}</p></article>;
 }
 
-function Gauge({ pct, classicPct, value, classicValue, label }: { pct: number; classicPct: number; value: string; classicValue: string; label: string }) {
+function Gauge({ pct, classicPct, value, classicValue, label, classicNum, newNum, lowerIsBetter }: { pct: number; classicPct: number; value: string; classicValue: string; label: string; classicNum: number; newNum: number; lowerIsBetter?: boolean }) {
   const deg = Math.max(0, Math.min(100, pct)) * 3.6;
   const classicDeg = Math.min(Math.max(0, Math.min(100, classicPct)) * 3.6, deg);
+  const multiplier = lowerIsBetter ? classicNum / newNum : newNum / classicNum;
   return <div className="gauge-tile">
     <div className="gauge-ring" style={{ background: `conic-gradient(#FF3B30 0deg ${classicDeg}deg, #0A84FF ${classicDeg}deg ${deg}deg, rgba(255,255,255,.12) ${deg}deg 360deg)` }}>
       <div className="gauge-inner"><strong className="gauge-new">{value}</strong></div>
     </div>
     <span>{label}</span>
     <div className="gauge-compare"><em className="gauge-classic">Classic: {classicValue}</em><em className="gauge-new-line">New: {value}</em></div>
+    <b className="gauge-multiplier">{multiplier.toFixed(1)}× {lowerIsBetter ? 'faster' : 'increase'}</b>
   </div>;
 }
 
