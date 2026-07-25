@@ -9,7 +9,7 @@ SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new $H"
 STAMP=$(date +%Y%m%d%H%M%S)
 REL=/opt/jobsmatchnow-api/releases/$STAMP
 
-echo "== 1/6 local PostgreSQL on the EC2 (server + db + user) =="
+echo "== 1/7 local PostgreSQL on the EC2 (server + db + user) =="
 $SSH "set -e
   dpkg -l postgresql >/dev/null 2>&1 || sudo apt-get install -y -qq postgresql
   sudo systemctl enable --now postgresql
@@ -32,11 +32,18 @@ $SSH "set -e
     || echo 'UPLOADS_DIR=/var/lib/jobsmatchnow/uploads' | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
   grep -q '^APP_PATH=' /etc/jobsmatchnow-api.env 2>/dev/null \
     || echo 'APP_PATH=/app/' | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
-  sudo mkdir -p /var/lib/jobsmatchnow/uploads/resumes
+  # Billing: cron-secret and admin-promotion-secret are auto-generated once;
+  # bank/VietQR instructions and the first admin still need a human to set
+  # them (see deploy/aws/00-cheap-mvp-ec2.sh comment below).
+  grep -q '^BILLING_CRON_SECRET=' /etc/jobsmatchnow-api.env 2>/dev/null \
+    || echo \"BILLING_CRON_SECRET=\$(head -c 48 /dev/urandom | base64 | tr -dc A-Za-z0-9 | head -c 40)\" | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
+  grep -q '^ADMIN_PROMOTE_SECRET=' /etc/jobsmatchnow-api.env 2>/dev/null \
+    || echo \"ADMIN_PROMOTE_SECRET=\$(head -c 48 /dev/urandom | base64 | tr -dc A-Za-z0-9 | head -c 40)\" | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
+  sudo mkdir -p /var/lib/jobsmatchnow/uploads/resumes /var/lib/jobsmatchnow/uploads/payment-proofs
   sudo chown -R www-data:www-data /var/lib/jobsmatchnow/uploads
   echo 'postgres ready'"
 
-echo "== 2/6 ship new API release (with the PostgreSQL store) =="
+echo "== 2/7 ship new API release (with the PostgreSQL store) =="
 rsync -az -e "ssh -o BatchMode=yes" --exclude node_modules "$ROOT/server/" "$H:/tmp/jmn-api-$STAMP/"
 $SSH "set -e
   sudo mkdir -p $REL
@@ -46,7 +53,7 @@ $SSH "set -e
   rm -rf /tmp/jmn-api-$STAMP
   echo 'release staged: $REL'"
 
-echo "== 3/6 migrate existing db.json into PostgreSQL (only if table empty) =="
+echo "== 3/7 migrate existing db.json into PostgreSQL (only if table empty) =="
 $SSH "set -e
   cd $REL/server
   sudo -u www-data env \$(sudo grep '^DATABASE_URL=' /etc/jobsmatchnow-api.env) node --input-type=module - <<'EOF'
@@ -65,7 +72,7 @@ if (rowCount === 0 && fs.existsSync('/var/lib/jobsmatchnow/db.json')) {
 await pool.end();
 EOF"
 
-echo "== 4/6 activate release + restart =="
+echo "== 4/7 activate release + restart =="
 $SSH "set -e
   sudo ln -sfn $REL /opt/jobsmatchnow-api/current
   sudo systemctl restart jobsmatchnow-api
@@ -75,7 +82,7 @@ $SSH "set -e
   echo
   ls -dt /opt/jobsmatchnow-api/releases/* | tail -n +6 | xargs -r sudo rm -rf"
 
-echo "== 5/6 daily backup (pg_dump, keep 7) =="
+echo "== 5/7 daily backup (pg_dump, keep 7) =="
 $SSH "sudo tee /etc/cron.daily/jobsmatchnow-pgdump >/dev/null <<'EOF'
 #!/bin/sh
 mkdir -p /var/backups/jobsmatchnow
@@ -85,7 +92,16 @@ EOF
   sudo chmod +x /etc/cron.daily/jobsmatchnow-pgdump
   sudo /etc/cron.daily/jobsmatchnow-pgdump && ls -la /var/backups/jobsmatchnow | tail -2"
 
-echo "== 6/6 verify through the public site =="
+echo "== 6/7 daily billing processing (trial/grace/expiry, credits, reminders, job expiry) =="
+$SSH "sudo tee /etc/cron.daily/jobsmatchnow-billing >/dev/null <<'EOF'
+#!/bin/sh
+BILLING_CRON_SECRET=\$(sudo grep '^BILLING_CRON_SECRET=' /etc/jobsmatchnow-api.env | cut -d= -f2-) \
+  node /opt/jobsmatchnow-api/current/server/jobs/billing-daily.js >> /var/log/jobsmatchnow-billing.log 2>&1
+EOF
+  sudo chmod +x /etc/cron.daily/jobsmatchnow-billing
+  sudo /etc/cron.daily/jobsmatchnow-billing && tail -3 /var/log/jobsmatchnow-billing.log"
+
+echo "== 7/7 verify through the public site =="
 curl -s -m 15 https://jobsmatchnow.com/api/health; echo
 curl -s -m 15 "https://jobsmatchnow.com/api/bootstrap?role=candidate" | head -c 120 || true; echo
 echo "CHEAP_MVP_DONE release=$STAMP"

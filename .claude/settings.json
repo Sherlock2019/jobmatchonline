@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3 && npm run build*)",
+      "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3 && npm run lint*)",
+      "PowerShell(wsl bash -lc 'cd /home/dzoan/jobmatch3 && npx tsc --noEmit*)",
+      "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3 && node --check*)",
+      "PowerShell(wsl bash -lc \"node --check *)",
+      "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3 && npm test*)",
+      "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3/server && node --test*)",
+      "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3 && git status --short\")",
+      "PowerShell(wsl bash -lc 'cd /home/dzoan/jobmatch3 && git log*)"
+    ]
+  }
+}

@@ -1,4 +1,4 @@
-import type { AuthConfig, Bootstrap, EmployerKind, InterviewKit, InterviewPrep, Job, JobDraft, JobImportResult, JobMatch, Message, Note, PipelineStep, Person, ProfileVariant, RecommendationRequest, ResumeMeta, Review, Role, ScheduledCall, ScreeningAnswer, SessionUser, WeightedSkill } from './types';
+import type { AdminRecruiterStatus, AuthConfig, BillingEvent, BillingInfo, Bootstrap, EmployerKind, InterviewKit, InterviewPrep, Job, JobDraft, JobImportResult, JobMatch, Message, Note, Payment, PaymentMethod, PipelineStep, Person, ProfileVariant, RecommendationRequest, Referral, ResumeMeta, Review, Role, ScheduledCall, ScreeningAnswer, SessionUser, WeightedSkill } from './types';
 
 export const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
@@ -88,4 +88,33 @@ export const api = {
   cancelRecommendationRequest: (id: string, userId: string) => request<{ ok: boolean }>(`/api/recommendation-requests/${id}?userId=${encodeURIComponent(userId)}`, { method: 'DELETE' }),
   deleteJob: (id: string) => request<{ ok: boolean }>(`/api/jobs/${id}`, { method: 'DELETE' }),
   sendInvite: (userId: string) => request<{ invitesSent: number }>(`/api/users/${encodeURIComponent(userId)}/invite`, { method: 'POST' }),
+
+  // --- Recruiter billing (candidates never call any of this) ---
+  billingSubscription: (userId: string) => request<BillingInfo>(`/api/billing/subscription?userId=${encodeURIComponent(userId)}`),
+  startTrial: (userId: string) => request<BillingInfo>('/api/billing/start-trial', { method: 'POST', body: JSON.stringify({ userId }) }),
+  billingReferral: (userId: string) => request<{ referralCode: string; successfulReferrals: number; pendingReferrals: number; credits: BillingInfo['credits'] }>(`/api/billing/referral?userId=${encodeURIComponent(userId)}`),
+  trackReferral: (code: string) => request<{ ok: boolean }>('/api/billing/referral/track', { method: 'POST', body: JSON.stringify({ code }) }),
+  submitPayment: (payload: { userId: string; paymentMethod: PaymentMethod; payerName?: string; bankName?: string; transferDate?: string }) => request<Payment>('/api/billing/payments', { method: 'POST', body: JSON.stringify(payload) }),
+  uploadPaymentProof: async (paymentId: string, file: File): Promise<Payment> => {
+    const response = await fetch(`${apiBase}/api/billing/payments/${paymentId}/proof`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': file.type }, body: file });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || 'Proof upload failed');
+    return body;
+  },
+  myPayments: (userId: string) => request<{ payments: Payment[] }>(`/api/billing/payments?userId=${encodeURIComponent(userId)}`),
+
+  // --- Admin billing dashboard (role: 'admin' only) ---
+  adminBillingOverview: () => request<{
+    pendingPayments: Payment[]; confirmedPayments: Payment[]; rejectedOrRefundedPayments: Payment[];
+    activeTrials: AdminRecruiterStatus[]; trialsEndingSoon: AdminRecruiterStatus[]; graceAccounts: AdminRecruiterStatus[]; expiredAccounts: AdminRecruiterStatus[];
+    referralRewards: Referral[]; suspiciousReferrals: Referral[]; flaggedForJobReview: { id: string; name: string; email?: string }[]; recentAuditLog: BillingEvent[];
+  }>('/api/admin/billing/overview'),
+  adminConfirmPayment: (id: string) => request<{ payment: Payment; alreadyConfirmed?: boolean }>(`/api/admin/billing/payments/${id}/confirm`, { method: 'POST' }),
+  adminRejectPayment: (id: string, reason: string) => request<Payment>(`/api/admin/billing/payments/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  adminRefundPayment: (id: string, reason?: string) => request<Payment>(`/api/admin/billing/payments/${id}/refund`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  adminGrantCredit: (recruiterUserId: string, reason: string, durationDays?: number) => request<unknown>('/api/admin/billing/credits', { method: 'POST', body: JSON.stringify({ recruiterUserId, reason, durationDays }) }),
+  adminRevokeCredit: (id: string, reason: string) => request<unknown>(`/api/admin/billing/credits/${id}/revoke`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  adminSuspendSubscription: (id: string, reason?: string) => request<unknown>(`/api/admin/billing/subscriptions/${id}/suspend`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  adminReactivateSubscription: (id: string) => request<unknown>(`/api/admin/billing/subscriptions/${id}/reactivate`, { method: 'POST' }),
+  adminExtendTrial: (id: string, days: number, reason: string) => request<unknown>(`/api/admin/billing/subscriptions/${id}/extend-trial`, { method: 'POST', body: JSON.stringify({ days, reason }) }),
 };

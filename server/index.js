@@ -20,6 +20,15 @@ import { mailerConfigured, sendMail } from './mailer.js';
 import fs from 'node:fs';
 import { exchangeLinkedinCode, linkedinAuthorizationUrl, readSignedValue, signedValue, toLinkedinJobPayload } from './integrations/linkedin.js';
 import { oauthAuthorizationUrl, oauthExchangeCode, oauthProviders } from './integrations/oauth.js';
+import { logBillingEvent } from './billing/audit.js';
+import {
+  applyCredit, availableCredits, canUseRecruiterFeatures, computeEffectiveStatus, DAY_MS, extendFromPayment,
+  findSubscription, getOrCreateTrialSubscription, isBillingExempt, PRICE_AMOUNT, PRICE_CURRENCY,
+} from './billing/subscriptions.js';
+import { attachReferralOnRegister, findReferrerByCode, getOrCreateReferralCode, qualifyReferralIfEligible, revokeReferralCreditForPayment } from './billing/referrals.js';
+import { generateInvoiceNumber, generateTransferReference, MANUAL_METHOD_IDS, paymentInstructions } from './billing/providers/manual.js';
+import { assertRecruiterAccess, requireAdminRole } from './billing/middleware.js';
+import { runDailyBilling } from './billing/daily.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(dirname, '..');
@@ -64,6 +73,10 @@ await store.transaction((db) => {
   }
   // Scheduled calls were introduced after the store may already exist on disk.
   if (!Array.isArray(db.bookmarks)) db.bookmarks = [];
+  // Billing collections were introduced after the store may already exist on disk.
+  for (const collection of ['subscriptions', 'subscriptionCredits', 'referrals', 'payments', 'billingEvents', 'billingNotifications']) {
+    if (!Array.isArray(db[collection])) db[collection] = [];
+  }
 });
 console.log(`JobMatch store: ${process.env.DATABASE_URL ? 'postgresql (RDS)' : 'json file'}`);
 const demoDistances = { 'j-1': 7, 'j-2': 18, 'j-3': 42, 'j-4': 75, 'c-1': 5, 'c-2': 26, 'c-3': 12, 'c-4': 65 };
@@ -148,6 +161,25 @@ function cookies(req) {
 function setCookie(res, name, value, { maxAge = 600, httpOnly = true } = {}) {
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   res.append('Set-Cookie', `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; SameSite=Lax${httpOnly ? '; HttpOnly' : ''}${secure}`);
+}
+
+// Recruiter-only referral attribution: a signed, httpOnly first-party cookie
+// (never a value trusted straight from the client) set the moment a visitor
+// opens a ?ref=/ /ref/ link, read back only inside the recruiter-registration
+// handler — candidates never attach a referral, and it's never re-read later
+// to retroactively attribute a role change.
+const REFERRAL_COOKIE = 'jm_ref';
+const REFERRAL_COOKIE_DAYS = Number(process.env.REFERRAL_COOKIE_DAYS || 30);
+
+function issueReferralCookie(res, code) {
+  const value = signedValue({ code, expiresAt: Date.now() + REFERRAL_COOKIE_DAYS * DAY_MS }, sessionSecret);
+  setCookie(res, REFERRAL_COOKIE, value, { maxAge: REFERRAL_COOKIE_DAYS * 24 * 3600 });
+}
+
+function readReferralCookie(req) {
+  const payload = readSignedValue(cookies(req)[REFERRAL_COOKIE], sessionSecret);
+  if (!payload || typeof payload.code !== 'string' || payload.expiresAt < Date.now()) return null;
+  return payload.code;
 }
 
 export const app = express();
@@ -395,6 +427,10 @@ app.post('/api/auth/login', authLimiter, async (req, res, next) => {
       const email = reqString(req.body, 'email', { max: 200 }).toLowerCase();
       const password = reqString(req.body, 'password', { max: 200 });
       user = db.users.find((item) => item.email && item.email.toLowerCase() === email);
+      // Admin accounts never accept a password — Google SSO only, so admin
+      // access always goes through Google's own sign-in (and whatever MFA
+      // the admin has enabled there) rather than an app-local password.
+      if (user?.role === 'admin') { const error = new Error('Admin accounts must sign in with Google'); error.status = 403; throw error; }
       // Same error for wrong email and wrong password — no account probing.
       if (!user?.passwordHash || !verifyPassword(password, user.passwordHash)) {
         const error = new Error('Email or password is incorrect'); error.status = 401; throw error;
@@ -453,6 +489,11 @@ app.post('/api/auth/register', authLimiter, async (req, res, next) => {
         skills: [], languages: [], experienceLevel: 'mid', completeness: 15, onboarding: true, createdAt: Date.now(),
       };
       db.users.push(created);
+      if (role === 'employer') {
+        getOrCreateTrialSubscription(db, created.id);
+        const referralCode = readReferralCookie(req);
+        if (referralCode) attachReferralOnRegister(db, created, referralCode);
+      }
       return created;
     });
     if (user.emailVerified === false) await sendVerificationEmail(user).catch((e) => console.error('verify email failed', e.message));
@@ -914,6 +955,10 @@ app.post('/api/users/:id/resume/autofill', async (req, res, next) => {
 // ---------------------------------------------------------------------------
 
 const JOB_ACCENTS = ['#3d5afe', '#ff5a5f', '#00a884', '#8b5cf6', '#f59e0b', '#0ea5e9', '#e11d48'];
+// Fair-use job controls (spec: "unlimited legitimate postings" + reasonable-use
+// protection). Thresholds live in config, never hard-block a legitimate user.
+const JOB_EXPIRY_DAYS = 30;
+const ACTIVE_JOB_REVIEW_THRESHOLD = Number(process.env.ACTIVE_JOB_REVIEW_THRESHOLD || 50);
 
 // ---------------------------------------------------------------------------
 // Starter "sample" content: when a real recruiter posts their first job, or a
@@ -1081,19 +1126,29 @@ app.post('/api/jobs', async (req, res, next) => {
       const employer = db.users.find((user) => user.id === employerId && user.role === 'employer');
       if (!employer) throw new ValidationError('employerId', 'Unknown recruiter account');
       assertDemoActor(req, db, employerId);
+      assertRecruiterAccess('publish_job', db, employer);
+      const createdAt = Date.now();
       const created = applyJob({
         id: `j-${crypto.randomUUID().slice(0, 8)}`, employerId,
         company: employer.company || employer.name,
         logo: (employer.company || employer.name || '?').trim()[0].toUpperCase(),
         accent: JOB_ACCENTS[db.jobs.length % JOB_ACCENTS.length],
         requiredLanguages: [], culture: [], mission: employer.about ? employer.about.slice(0, 80) : 'Posted on JobsMatchNow.',
-        responseTime: '< 1 week', applicants: 0, status: 'draft', createdAt: Date.now(),
+        responseTime: '< 1 week', applicants: 0, status: 'draft', createdAt, expiresAt: createdAt + JOB_EXPIRY_DAYS * DAY_MS,
       }, req.body, { strict: true });
       // Item 11: suggest screening questions from the required skills.
       if (!created.screeningQuestions?.length) created.screeningQuestions = suggestScreeningQuestions(created);
       // Inherit the recruiter's location so distance matching works out of the box.
       if (!created.geo && employer.geo) created.geo = employer.geo;
       db.jobs.push(created);
+      // Fair-use flag only (never a hard block) once a recruiter crosses the
+      // configured active-postings threshold — an admin reviews, nothing is
+      // auto-deleted or hidden.
+      const activeCount = db.jobs.filter((job) => job.employerId === employerId && String(job.status).toLowerCase() !== 'expired').length;
+      if (activeCount > ACTIVE_JOB_REVIEW_THRESHOLD && !employer.flaggedForJobReview) {
+        employer.flaggedForJobReview = true;
+        logBillingEvent(db, employerId, 'fair_use_flagged', 'user', employerId, { activeJobCount: activeCount, threshold: ACTIVE_JOB_REVIEW_THRESHOLD });
+      }
       // Real recruiter, brand-new job: give them 2 relevant starter
       // candidates so the job isn't sitting there with no one to see.
       if (!employer.demo) {
@@ -1293,7 +1348,9 @@ app.get('/api/bootstrap', async (req, res, next) => {
     const incomingEmployerLikes = pool.swipes.filter((s) => s.direction === 'like' && s.targetType === 'candidate' && s.targetId === viewer.id);
     const viewerJobIds = new Set(pool.jobs.filter((job) => job.employerId === viewer.id).map((job) => job.id));
     const candidatesWhoSuperLikedMyJobs = new Set(pool.swipes.filter((s) => s.superLike && s.targetType === 'job' && viewerJobIds.has(s.targetId)).map((s) => s.actorId));
-    const scoredJobs = pool.jobs.map((job) => {
+    // Expired postings (30 days, unless renewed) stay visible to their own
+    // recruiter so they can renew, but drop out of candidates' view.
+    const scoredJobs = pool.jobs.filter((job) => role !== 'candidate' || String(job.status).toLowerCase() !== 'expired').map((job) => {
       const employer = pool.users.find((user) => user.id === job.employerId);
       // Real haversine distance when both sides have coordinates; else demo fallback.
       const realDist = haversineKm(viewer.geo, job.geo);
@@ -1373,7 +1430,30 @@ app.get('/api/bootstrap', async (req, res, next) => {
     const matchIds = new Set(matches.map((match) => match.id));
     const bookmarkedIds = db.bookmarks.filter((b) => b.userId === viewer.id).map((b) => b.targetId);
     const notes = (db.notes || []).filter((note) => note.userId === viewer.id);
-    res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, roleMatches, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), calls: db.calls.filter((call) => matchIds.has(call.matchId)), notes, bookmarkedIds, likesRemaining: likesRemainingToday(pool.swipes, viewer.id) });
+    let billing;
+    if (role === 'employer' && !isBillingExempt(viewer)) {
+      let subscription = findSubscription(db, viewer.id);
+      if (!subscription) subscription = await store.transaction((db2) => getOrCreateTrialSubscription(db2, viewer.id));
+      // getOrCreateReferralCode mutates `viewer` in place, so capture whether
+      // it already had one BEFORE calling it — checking viewer.referralCode
+      // afterward would always see the just-generated value and never persist.
+      const hadReferralCode = Boolean(viewer.referralCode);
+      const referralCode = getOrCreateReferralCode(db, viewer);
+      billing = {
+        subscription,
+        effectiveStatus: computeEffectiveStatus(subscription),
+        canPublishJob: canUseRecruiterFeatures(viewer, subscription) && computeEffectiveStatus(subscription) !== 'grace_period',
+        credits: availableCredits(db, viewer.id),
+        referralCode,
+      };
+      // Bootstrap is a read, not a transaction — write a freshly-generated
+      // code back once so it's stable on every future load.
+      if (!hadReferralCode && referralCode) {
+        await store.transaction((db2) => { const u = db2.users.find((entry) => entry.id === viewer.id); if (u && !u.referralCode) u.referralCode = referralCode; });
+      }
+    }
+    const billingNotifications = billing ? (db.billingNotifications || []).filter((entry) => entry.userId === viewer.id).slice(-20).reverse() : undefined;
+    res.json({ viewer, jobs: scoredJobs, candidates: scoredCandidates, roleMatches, matches, messages: db.messages.filter((message) => matchIds.has(message.matchId)), calls: db.calls.filter((call) => matchIds.has(call.matchId)), notes, bookmarkedIds, likesRemaining: likesRemainingToday(pool.swipes, viewer.id), billing, billingNotifications });
   } catch (error) { next(error); }
 });
 
@@ -1392,6 +1472,12 @@ app.post('/api/swipes', async (req, res, next) => {
       const actor = db.users.find((user) => user.id === actorId);
       if (!actor) throw new ValidationError('actorId', 'Unknown user');
       assertDemoActor(req, db, actorId);
+      // Grace-period recruiters may keep reading, but not initiate new
+      // candidate contact — candidates swiping on jobs are never affected by
+      // the job's recruiter's billing state.
+      if (actor.role === 'employer' && targetType === 'candidate' && direction === 'like') {
+        assertRecruiterAccess('contact_candidate', db, actor);
+      }
       if (!targetIsInMatchingPool(db, actor, targetType, targetId)) {
         const error = new Error('Demo and live matching are separate'); error.status = 403; throw error;
       }
@@ -1478,6 +1564,432 @@ app.patch('/api/matches/:id/pipeline', async (req, res, next) => {
       return item;
     });
     res.json(match);
+  } catch (error) { next(error); }
+});
+
+// ---------------------------------------------------------------------------
+// Billing: recruiter subscriptions, manual payments, referrals, admin review.
+// Candidates never touch any of this — every handler below is employer-only.
+// ---------------------------------------------------------------------------
+
+function billingPayload(db, recruiter) {
+  const subscription = findSubscription(db, recruiter.id) || getOrCreateTrialSubscription(db, recruiter.id);
+  return {
+    subscription,
+    effectiveStatus: computeEffectiveStatus(subscription),
+    credits: availableCredits(db, recruiter.id),
+    referralCode: getOrCreateReferralCode(db, recruiter),
+    instructions: paymentInstructions(),
+  };
+}
+
+app.get('/api/billing/subscription', async (req, res, next) => {
+  try {
+    const recruiterId = resolveActor(req, reqString(req.query, 'userId', { max: 128 }));
+    const payload = await store.transaction((db) => {
+      const recruiter = db.users.find((user) => user.id === recruiterId);
+      if (!recruiter) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, recruiterId);
+      if (recruiter.role !== 'employer') { const error = new Error('Only recruiter accounts have a subscription'); error.status = 400; throw error; }
+      return billingPayload(db, recruiter);
+    });
+    res.json(payload);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/billing/start-trial', async (req, res, next) => {
+  try {
+    const recruiterId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const payload = await store.transaction((db) => {
+      const recruiter = db.users.find((user) => user.id === recruiterId);
+      if (!recruiter) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, recruiterId);
+      if (recruiter.role !== 'employer') { const error = new Error('Only recruiter accounts can start a trial'); error.status = 400; throw error; }
+      getOrCreateTrialSubscription(db, recruiterId); // idempotent — a repeat call never restarts the clock
+      return billingPayload(db, recruiter);
+    });
+    res.status(201).json(payload);
+  } catch (error) { next(error); }
+});
+
+app.get('/api/billing/referral', async (req, res, next) => {
+  try {
+    const recruiterId = resolveActor(req, reqString(req.query, 'userId', { max: 128 }));
+    const payload = await store.transaction((db) => {
+      const recruiter = db.users.find((user) => user.id === recruiterId);
+      if (!recruiter) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, recruiterId);
+      if (recruiter.role !== 'employer') { const error = new Error('Only recruiter accounts have a referral link'); error.status = 400; throw error; }
+      const code = getOrCreateReferralCode(db, recruiter);
+      const referrals = db.referrals.filter((entry) => entry.referrerUserId === recruiterId);
+      return {
+        referralCode: code,
+        successfulReferrals: referrals.filter((entry) => entry.status === 'qualified').length,
+        pendingReferrals: referrals.filter((entry) => entry.status !== 'qualified' && entry.status !== 'rejected').length,
+        credits: availableCredits(db, recruiterId),
+      };
+    });
+    res.json(payload);
+  } catch (error) { next(error); }
+});
+
+// Fired once by the landing page the moment a ?ref=/ /ref/ link is opened —
+// sets the 30-day signed cookie later read (only) by recruiter registration.
+app.post('/api/billing/referral/track', rateLimit({ windowMs: 3600000, max: 60, bucket: 'referral-track' }), async (req, res, next) => {
+  try {
+    const code = reqString(req.body, 'code', { max: 40 });
+    const db = await store.read();
+    if (!findReferrerByCode(db, code)) return res.json({ ok: false });
+    issueReferralCookie(res, code);
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/billing/payments', rateLimit({ windowMs: 3600000, max: 20, bucket: 'payment-submit' }), async (req, res, next) => {
+  try {
+    const recruiterId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const paymentMethod = oneOf(req.body, 'paymentMethod', MANUAL_METHOD_IDS);
+    const payerName = optString(req.body, 'payerName', { max: 160 });
+    const bankName = optString(req.body, 'bankName', { max: 160 });
+    const transferDate = optString(req.body, 'transferDate', { max: 40 });
+    const payment = await store.transaction((db) => {
+      const recruiter = db.users.find((user) => user.id === recruiterId);
+      if (!recruiter) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, recruiterId);
+      if (recruiter.role !== 'employer') { const error = new Error('Only recruiter accounts submit payments'); error.status = 400; throw error; }
+      const subscription = getOrCreateTrialSubscription(db, recruiterId);
+      const now = Date.now();
+      const created = {
+        id: crypto.randomUUID(),
+        recruiterUserId: recruiterId,
+        subscriptionId: subscription.id,
+        amount: PRICE_AMOUNT,
+        currency: PRICE_CURRENCY,
+        paymentMethod,
+        status: 'submitted',
+        paymentReference: generateTransferReference(db),
+        invoiceNumber: generateInvoiceNumber(db),
+        payerName: payerName || null,
+        bankName: bankName || null,
+        transferDate: transferDate || null,
+        proofFileUrl: null,
+        adminNote: null,
+        confirmedByAdminId: null,
+        confirmedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      db.payments.push(created);
+      logBillingEvent(db, recruiterId, 'payment_submitted', 'payment', created.id, { paymentMethod, invoiceNumber: created.invoiceNumber });
+      return created;
+    });
+    await sendMail({ to: process.env.BILLING_SUPPORT_EMAIL, subject: `Payment submitted — ${payment.invoiceNumber}`, text: `Recruiter ${recruiterId} submitted a ${payment.paymentMethod} payment (${payment.currency} ${payment.amount}). Reference ${payment.paymentReference}. Review in the admin billing dashboard.` }).catch(() => undefined);
+    res.status(201).json(payment);
+  } catch (error) { next(error); }
+});
+
+app.get('/api/billing/payments', async (req, res, next) => {
+  try {
+    const recruiterId = resolveActor(req, reqString(req.query, 'userId', { max: 128 }));
+    const db = await store.read();
+    assertDemoActor(req, db, recruiterId);
+    const payments = db.payments.filter((entry) => entry.recruiterUserId === recruiterId).sort((a, b) => b.createdAt - a.createdAt);
+    res.json({ payments });
+  } catch (error) { next(error); }
+});
+
+const PROOF_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'application/pdf': 'pdf' };
+const PROOF_MAX_BYTES = Number(process.env.PAYMENT_PROOF_MAX_MB || 5) * 1024 * 1024;
+const PROOF_DIR = path.join(UPLOADS_ROOT, 'payment-proofs');
+await fs.promises.mkdir(PROOF_DIR, { recursive: true });
+
+app.post('/api/billing/payments/:id/proof', uploadLimiter, express.raw({ type: () => true, limit: `${Number(process.env.PAYMENT_PROOF_MAX_MB || 5)}mb` }), async (req, res, next) => {
+  try {
+    const ext = PROOF_TYPES[req.headers['content-type']];
+    if (!ext) { const error = new Error('Only PNG, JPEG, WEBP, or PDF proof files are accepted'); error.status = 415; throw error; }
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) throw new ValidationError('file', 'Empty upload');
+    if (req.body.length > PROOF_MAX_BYTES) { const error = new Error(`Proof file must be under ${process.env.PAYMENT_PROOF_MAX_MB || 5}MB`); error.status = 413; throw error; }
+    const payment = await store.transaction((db) => {
+      const item = db.payments.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Payment not found'); error.status = 404; throw error; }
+      requireSelf(req, item.recruiterUserId);
+      assertDemoActor(req, db, item.recruiterUserId);
+      return item;
+    });
+    const storedName = `${payment.recruiterUserId}-${payment.id}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+    await fs.promises.writeFile(path.join(PROOF_DIR, storedName), req.body);
+    const updated = await store.transaction((db) => {
+      const item = db.payments.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Payment not found'); error.status = 404; throw error; }
+      item.proofFileUrl = `/api/billing/payments/${item.id}/proof`;
+      item.proofStoredName = storedName;
+      item.updatedAt = Date.now();
+      return item;
+    });
+    res.status(201).json(updated);
+  } catch (error) { next(error); }
+});
+
+// Gated read-back: only the recruiter who submitted it, or an admin, can view
+// a proof file — never served as a public/unauthenticated static asset.
+app.get('/api/billing/payments/:id/proof', async (req, res, next) => {
+  try {
+    const db = await store.read();
+    const payment = db.payments.find((entry) => entry.id === req.params.id);
+    if (!payment || !payment.proofStoredName) { const error = new Error('Not found'); error.status = 404; throw error; }
+    const session = authSession(req);
+    const isOwner = session ? session.sub === payment.recruiterUserId : demoAuth;
+    const isAdmin = session?.role === 'admin';
+    if (!isOwner && !isAdmin) { const error = new Error('Not authorized to view this file'); error.status = 403; throw error; }
+    if (isOwner && !isAdmin) assertDemoActor(req, db, payment.recruiterUserId);
+    res.sendFile(path.join(PROOF_DIR, payment.proofStoredName));
+  } catch (error) { next(error); }
+});
+
+// --- Admin billing dashboard & actions (real per-user admin role) ----------
+
+app.get('/api/admin/billing/payments', async (req, res, next) => {
+  try {
+    requireAdminRole(authSession(req));
+    const db = await store.read();
+    const status = optString(req.query, 'status', { max: 40 });
+    let payments = [...db.payments].sort((a, b) => b.createdAt - a.createdAt);
+    if (status) payments = payments.filter((entry) => entry.status === status);
+    const withRecruiter = payments.map((payment) => {
+      const recruiter = db.users.find((user) => user.id === payment.recruiterUserId);
+      return { ...payment, recruiter: recruiter ? { id: recruiter.id, name: recruiter.name, email: recruiter.email, company: recruiter.company } : null };
+    });
+    res.json({ payments: withRecruiter });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/admin/billing/overview', async (req, res, next) => {
+  try {
+    requireAdminRole(authSession(req));
+    const db = await store.read();
+    const now = Date.now();
+    const recruiters = db.users.filter((user) => user.role === 'employer' && !user.demo);
+    const subsByRecruiter = new Map(db.subscriptions.map((entry) => [entry.recruiterUserId, entry]));
+    const withStatus = recruiters.map((recruiter) => {
+      const subscription = subsByRecruiter.get(recruiter.id);
+      return { recruiter: { id: recruiter.id, name: recruiter.name, email: recruiter.email, company: recruiter.company }, subscription, effectiveStatus: computeEffectiveStatus(subscription, now) };
+    });
+    res.json({
+      pendingPayments: db.payments.filter((p) => p.status === 'submitted' || p.status === 'pending'),
+      confirmedPayments: db.payments.filter((p) => p.status === 'confirmed'),
+      rejectedOrRefundedPayments: db.payments.filter((p) => ['rejected', 'refunded', 'reversed'].includes(p.status)),
+      activeTrials: withStatus.filter((entry) => entry.effectiveStatus === 'trialing'),
+      trialsEndingSoon: withStatus.filter((entry) => entry.effectiveStatus === 'trialing' && entry.subscription?.trialEndsAt && entry.subscription.trialEndsAt - now <= 7 * DAY_MS),
+      graceAccounts: withStatus.filter((entry) => entry.effectiveStatus === 'grace_period'),
+      expiredAccounts: withStatus.filter((entry) => entry.effectiveStatus === 'expired'),
+      referralRewards: db.referrals.filter((entry) => entry.status === 'qualified'),
+      suspiciousReferrals: db.referrals.filter((entry) => entry.suspicious === true),
+      flaggedForJobReview: db.users.filter((user) => user.flaggedForJobReview === true).map((user) => ({ id: user.id, name: user.name, email: user.email })),
+      recentAuditLog: db.billingEvents.slice(-200).reverse(),
+    });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/billing/payments/:id/confirm', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const result = await store.transaction((db) => {
+      const payment = db.payments.find((entry) => entry.id === req.params.id);
+      if (!payment) { const error = new Error('Payment not found'); error.status = 404; throw error; }
+      if (payment.status === 'confirmed') return { payment, alreadyConfirmed: true }; // idempotent: re-confirming is a no-op
+      if (!['submitted', 'pending'].includes(payment.status)) { const error = new Error(`Cannot confirm a payment in status "${payment.status}"`); error.status = 409; throw error; }
+      const now = Date.now();
+      payment.status = 'confirmed';
+      payment.confirmedAt = now;
+      payment.confirmedByAdminId = session.sub;
+      payment.updatedAt = now;
+      const subscription = db.subscriptions.find((entry) => entry.id === payment.subscriptionId) || findSubscription(db, payment.recruiterUserId);
+      extendFromPayment(subscription, payment, now);
+      logBillingEvent(db, session.sub, 'payment_confirmed', 'payment', payment.id, { recruiterUserId: payment.recruiterUserId, newExpiry: subscription.currentPeriodEndsAt });
+      const qualification = qualifyReferralIfEligible(db, payment);
+      const recruiter = db.users.find((entry) => entry.id === payment.recruiterUserId);
+      const referrer = qualification ? db.users.find((entry) => entry.id === qualification.referral.referrerUserId) : null;
+      return { payment, subscription, qualification, recruiterEmail: recruiter?.email, recruiterName: recruiter?.name, referrerEmail: referrer?.email };
+    });
+    if (!result.alreadyConfirmed) {
+      if (result.recruiterEmail) await sendMail({ to: result.recruiterEmail, subject: 'Payment confirmed — JobsMatchNow', text: `Hi ${result.recruiterName || ''},\n\nYour payment of ${result.payment.currency} ${result.payment.amount} has been confirmed. Your recruiter access is active through ${new Date(result.subscription.currentPeriodEndsAt).toDateString()}.\n\n— JobsMatchNow` }).catch(() => undefined);
+      if (result.qualification && result.referrerEmail) await sendMail({ to: result.referrerEmail, subject: 'You earned a free month — JobsMatchNow', text: 'A recruiter you referred just completed their first paid month. You\'ve earned one free 30-day month, applied automatically the next time your subscription needs it.\n\n— JobsMatchNow' }).catch(() => undefined);
+    }
+    res.json(result);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/billing/payments/:id/reject', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const reason = reqString(req.body, 'reason', { max: 500 });
+    const payment = await store.transaction((db) => {
+      const item = db.payments.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Payment not found'); error.status = 404; throw error; }
+      if (item.status === 'confirmed') { const error = new Error('Cannot reject an already-confirmed payment'); error.status = 409; throw error; }
+      item.status = 'rejected';
+      item.adminNote = reason;
+      item.updatedAt = Date.now();
+      logBillingEvent(db, session.sub, 'payment_rejected', 'payment', item.id, { reason });
+      return item;
+    });
+    res.json(payment);
+  } catch (error) { next(error); }
+});
+
+// Never deletes the confirmed record — reverses it via a status change, and
+// revokes the referral credit it granted only while that credit is unused.
+app.post('/api/admin/billing/payments/:id/refund', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const reason = optString(req.body, 'reason', { max: 500 });
+    const payment = await store.transaction((db) => {
+      const item = db.payments.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Payment not found'); error.status = 404; throw error; }
+      if (item.status !== 'confirmed') { const error = new Error('Only a confirmed payment can be refunded'); error.status = 409; throw error; }
+      item.status = 'refunded';
+      item.adminNote = reason || item.adminNote || null;
+      item.updatedAt = Date.now();
+      revokeReferralCreditForPayment(db, item);
+      logBillingEvent(db, session.sub, 'payment_refunded', 'payment', item.id, { reason });
+      return item;
+    });
+    res.json(payment);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/billing/credits', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const recruiterUserId = reqString(req.body, 'recruiterUserId', { max: 128 });
+    const reason = reqString(req.body, 'reason', { max: 500 });
+    const durationDays = Number(req.body.durationDays) || 30;
+    const credit = await store.transaction((db) => {
+      const recruiter = db.users.find((entry) => entry.id === recruiterUserId);
+      if (!recruiter) { const error = new Error('Recruiter not found'); error.status = 404; throw error; }
+      const now = Date.now();
+      const created = {
+        id: crypto.randomUUID(), recruiterUserId, sourceType: 'admin_credit', sourceReferenceId: session.sub,
+        durationDays, status: 'available', grantedAt: now, consumedAt: null, revokedAt: null, createdAt: now, updatedAt: now,
+      };
+      if (!Array.isArray(db.subscriptionCredits)) db.subscriptionCredits = [];
+      db.subscriptionCredits.push(created);
+      logBillingEvent(db, session.sub, 'credit_granted', 'subscriptionCredit', created.id, { recruiterUserId, reason, durationDays });
+      return created;
+    });
+    res.status(201).json(credit);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/billing/credits/:id/revoke', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const reason = reqString(req.body, 'reason', { max: 500 });
+    const credit = await store.transaction((db) => {
+      const item = db.subscriptionCredits.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Credit not found'); error.status = 404; throw error; }
+      if (item.status !== 'available') { const error = new Error('Only an unused credit can be revoked'); error.status = 409; throw error; }
+      item.status = 'revoked';
+      item.revokedAt = Date.now();
+      item.updatedAt = Date.now();
+      logBillingEvent(db, session.sub, 'credit_revoked', 'subscriptionCredit', item.id, { reason });
+      return item;
+    });
+    res.json(credit);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/billing/subscriptions/:id/suspend', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const reason = optString(req.body, 'reason', { max: 500 });
+    const subscription = await store.transaction((db) => {
+      const item = db.subscriptions.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Subscription not found'); error.status = 404; throw error; }
+      item.suspendedAt = Date.now();
+      item.updatedAt = Date.now();
+      logBillingEvent(db, session.sub, 'subscription_suspended', 'subscription', item.id, { reason });
+      return item;
+    });
+    res.json(subscription);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/billing/subscriptions/:id/reactivate', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const subscription = await store.transaction((db) => {
+      const item = db.subscriptions.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Subscription not found'); error.status = 404; throw error; }
+      item.suspendedAt = null;
+      item.updatedAt = Date.now();
+      logBillingEvent(db, session.sub, 'subscription_reactivated', 'subscription', item.id, {});
+      return item;
+    });
+    res.json(subscription);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/billing/subscriptions/:id/extend-trial', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const reason = reqString(req.body, 'reason', { max: 500 });
+    const days = Number(req.body.days) || 7;
+    const subscription = await store.transaction((db) => {
+      const item = db.subscriptions.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Subscription not found'); error.status = 404; throw error; }
+      item.trialEndsAt = (item.trialEndsAt || Date.now()) + days * DAY_MS;
+      item.updatedAt = Date.now();
+      logBillingEvent(db, session.sub, 'trial_extended', 'subscription', item.id, { days, reason });
+      return item;
+    });
+    res.json(subscription);
+  } catch (error) { next(error); }
+});
+
+// One-time bootstrap: promote an existing user to the admin role, or create
+// the placeholder account if they haven't signed in yet. Gated by a
+// standalone shared secret (never the regular session), meant to be run once
+// per admin hire, not exposed anywhere in the UI. Admin accounts never get a
+// passwordHash here — they authenticate via Google SSO only (see the
+// admin-must-use-Google guard on /api/auth/login), so the first time this
+// person clicks "Continue with Google" the OAuth callback's email-match
+// logic links their Google identity to this same admin-role record.
+app.post('/api/admin/bootstrap-admin', authLimiter, async (req, res, next) => {
+  try {
+    const secret = process.env.ADMIN_PROMOTE_SECRET;
+    if (!secret || req.headers['x-admin-promote-secret'] !== secret) { const error = new Error('Not authorized'); error.status = 403; throw error; }
+    const email = reqString(req.body, 'email', { max: 200 }).toLowerCase();
+    const name = optString(req.body, 'name', { max: 120 }) || 'Admin';
+    const { user, created } = await store.transaction((db) => {
+      let item = db.users.find((entry) => entry.email && entry.email.toLowerCase() === email);
+      if (item) {
+        item.role = 'admin';
+        logBillingEvent(db, item.id, 'admin_promoted', 'user', item.id, {});
+        return { user: item, created: false };
+      }
+      item = {
+        id: `u-${crypto.randomUUID().slice(0, 8)}`, role: 'admin', name, email,
+        title: 'Admin', photo: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,
+        skills: [], languages: [], experienceLevel: 'mid', completeness: 100, onboarding: false, emailVerified: true, createdAt: Date.now(),
+      };
+      db.users.push(item);
+      logBillingEvent(db, item.id, 'admin_created', 'user', item.id, {});
+      return { user: item, created: true };
+    });
+    res.json({ ok: true, userId: user.id, created });
+  } catch (error) { next(error); }
+});
+
+// Cron-triggered daily processing (trial/grace/expiry transitions, credit
+// application, reminders, job expiry) — see server/jobs/billing-daily.js and
+// the /etc/cron.daily entry that calls this once a day.
+app.post('/api/internal/billing/run-daily', async (req, res, next) => {
+  try {
+    const secret = process.env.BILLING_CRON_SECRET;
+    if (!secret || req.headers['x-cron-secret'] !== secret) { const error = new Error('Not authorized'); error.status = 403; throw error; }
+    const summary = await store.transaction((db) => runDailyBilling(db));
+    res.json(summary);
   } catch (error) { next(error); }
 });
 

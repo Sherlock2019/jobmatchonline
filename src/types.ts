@@ -1,5 +1,5 @@
-export type Role = 'candidate' | 'employer';
-export type View = 'home' | 'discover' | 'matches' | 'companies' | 'messages' | 'pipeline' | 'jobs' | 'analytics' | 'profile' | 'meetings' | 'saved' | 'selected' | 'coffee';
+export type Role = 'candidate' | 'employer' | 'admin';
+export type View = 'home' | 'discover' | 'matches' | 'companies' | 'messages' | 'pipeline' | 'jobs' | 'analytics' | 'profile' | 'meetings' | 'saved' | 'selected' | 'coffee' | 'billing' | 'admin-billing';
 export type EmployerKind = 'company' | 'headhunter';
 export type ProviderId = 'linkedin' | 'google' | 'email' | 'demo';
 
@@ -111,7 +111,33 @@ export interface ScheduledCall { id: string; matchId: string; createdBy: string;
 export interface RoleMatchGroup { job: Job; candidates: Person[]; matchingCandidates?: Person[]; interestedCount: number; newCount: number }
 /** A viewer's private note about a specific job or candidate — visible only to its author. */
 export interface Note { id: string; userId: string; targetId: string; targetType: 'job' | 'candidate'; text: string; updatedAt: number }
-export interface Bootstrap { viewer: Person; jobs: Job[]; candidates: Person[]; roleMatches?: RoleMatchGroup[]; matches: JobMatch[]; messages: Message[]; calls: ScheduledCall[]; notes: Note[]; bookmarkedIds: string[]; likesRemaining: number }
+// Recruiter billing (candidates never see any of this).
+export type SubscriptionStatus = 'trialing' | 'active' | 'grace_period' | 'past_due' | 'expired' | 'suspended' | 'cancelled';
+export interface Subscription {
+  id: string; recruiterUserId: string; planCode: string; status: SubscriptionStatus; priceAmount: number; priceCurrency: string;
+  trialStartedAt: number; trialEndsAt: number; currentPeriodStartedAt: number | null; currentPeriodEndsAt: number | null;
+  gracePeriodEndsAt: number | null; cancelledAt: number | null; suspendedAt: number | null; createdAt: number; updatedAt: number;
+}
+export interface SubscriptionCredit {
+  id: string; recruiterUserId: string; sourceType: 'referral' | 'admin_credit'; sourceReferenceId: string; durationDays: number;
+  status: 'available' | 'consumed' | 'revoked' | 'expired'; grantedAt: number; consumedAt: number | null; revokedAt: number | null;
+}
+export type PaymentMethod = 'vietqr' | 'bank_transfer' | 'international_bank_transfer' | 'admin_credit';
+export type PaymentStatus = 'pending' | 'submitted' | 'confirmed' | 'rejected' | 'refunded' | 'reversed';
+export interface Payment {
+  id: string; recruiterUserId: string; subscriptionId: string; amount: number; currency: string; paymentMethod: PaymentMethod;
+  status: PaymentStatus; paymentReference: string; invoiceNumber: string; payerName: string | null; bankName: string | null;
+  transferDate: string | null; proofFileUrl: string | null; adminNote: string | null; confirmedByAdminId: string | null;
+  confirmedAt: number | null; createdAt: number; updatedAt: number; recruiter?: { id: string; name: string; email?: string; company?: string } | null;
+}
+export interface PaymentInstructions { bankAccountName: string; bankName: string; bankAccountNumber: string; bankSwift: string; vietQrImageUrl: string; supportEmail: string }
+export interface BillingInfo { subscription: Subscription; effectiveStatus: SubscriptionStatus; canPublishJob?: boolean; credits: SubscriptionCredit[]; referralCode: string; instructions?: PaymentInstructions }
+export interface Referral { id: string; referrerUserId: string; referredUserId: string; referralCode: string; status: string; suspicious?: boolean; qualifiedPaymentId: string | null; qualifiedAt: number | null; createdAt: number }
+export interface BillingEvent { id: string; userId: string | null; eventType: string; entityType: string; entityId: string; metadata: Record<string, unknown>; createdAt: number }
+export interface AdminRecruiterStatus { recruiter: { id: string; name: string; email?: string; company?: string }; subscription?: Subscription; effectiveStatus: SubscriptionStatus }
+
+export interface BillingNotification { id: string; kind: string; text: string; createdAt: number; read?: boolean }
+export interface Bootstrap { viewer: Person; jobs: Job[]; candidates: Person[]; roleMatches?: RoleMatchGroup[]; matches: JobMatch[]; messages: Message[]; calls: ScheduledCall[]; notes: Note[]; bookmarkedIds: string[]; likesRemaining: number; billing?: BillingInfo; billingNotifications?: BillingNotification[] }
 
 /** Minimal identity persisted for the demo session. */
 export interface SessionUser { id: string; role: Role; kind?: EmployerKind; name: string; email?: string; photo?: string; provider?: string; isNew?: boolean; demo?: boolean; title?: string; company?: string; emailVerified?: boolean }

@@ -3,7 +3,7 @@ import { PhoneMockup } from './components/PhoneMockup';
 import { DemoBadge } from './components/DemoBadge';
 import { InviteFriendModal } from './components/InviteFriendModal';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
-import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, Download, ExternalLink, Eye, FileText, Filter, Gift, Handshake, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, Map as MapIcon, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, CreditCard, Download, ExternalLink, Eye, FileText, Filter, Gift, Handshake, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, Map as MapIcon, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
 import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
@@ -19,6 +19,8 @@ import { CandidateCards } from './components/profile/CandidateCards';
 import { JobCards } from './components/jobs/JobCards';
 import { CandidateHome, CandidateProfileModal, DashboardTitle, EmptyRow, RecruiterHome } from './components/home/MatchHome';
 import { SelectedCandidates } from './components/home/SelectedCandidates';
+import { BillingPage } from './components/billing/BillingPage';
+import { AdminBillingPage } from './components/billing/AdminBillingPage';
 import { NotesBox } from './components/NotesBox';
 // Lazy-loaded: pulls in pdf.js only when a resume is actually opened.
 const ResumeViewerModal = lazy(() => import('./components/ResumeViewerModal').then((m) => ({ default: m.ResumeViewerModal })));
@@ -56,6 +58,7 @@ const employerNav: NavItem[] = [
   { label: 'Conversations', short: 'Chat', icon: MessageCircle, view: 'messages' },
   { label: 'Meetings', icon: Calendar, view: 'meetings' },
   { label: 'Coffee Invitations', short: 'Coffee', icon: Coffee, view: 'coffee' },
+  { label: 'Billing', icon: CreditCard, view: 'billing' },
   { label: 'Reports', icon: BarChart3, view: 'analytics' },
 ];
 
@@ -93,13 +96,24 @@ export default function App() {
   const finishReset = (user?: SessionUser) => { setResetToken(''); clearQuery('reset'); if (user) signIn(user); };
 
   return <>
-    {!session ? <Landing onLogin={signIn} /> : <Workspace key={session.id} session={session} onSwitchUser={signIn} onExit={signOut} />}
+    {!session ? <Landing onLogin={signIn} />
+      : session.role === 'admin' ? <AdminWorkspace session={session} onExit={signOut} />
+      : <Workspace key={session.id} session={session} onSwitchUser={signIn} onExit={signOut} />}
     <AnimatePresence>{resetToken && <ResetPasswordModal token={resetToken} onClose={() => finishReset()} onComplete={finishReset} />}</AnimatePresence>
   </>;
 }
 
 function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const linkedinState = new URLSearchParams(window.location.search).get('linkedin');
+  // Recruiter-only referral capture: ?ref=CODE or /ref/CODE. Fires once to set
+  // the signed 30-day cookie the server reads back during recruiter
+  // registration; never attached to a candidate signup.
+  const refCode = new URLSearchParams(window.location.search).get('ref') || window.location.pathname.match(/^\/ref\/([A-Za-z0-9]+)/)?.[1];
+  useEffect(() => {
+    if (!refCode) return;
+    api.trackReferral(refCode).catch(() => undefined);
+    if (window.location.pathname.startsWith('/ref/')) window.history.replaceState({}, '', '/');
+  }, [refCode]);
   const [authModal, setAuthModal] = useState<'login' | 'register' | null>(null);
   const openLogin = () => setAuthModal('login');
   const openRegister = () => setAuthModal('register');
@@ -216,6 +230,34 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     </div></section>
     <LatestShowcase onRegister={openRegister} onLogin={openLogin} />
     <FeedbackSection />
+    <section className="section pricing-section" id="pricing">
+      <div className="section-heading centered"><span className="eyebrow"><Sparkles size={14} /> Simple pricing</span><h2>Free for candidates. One flat rate for recruiters.</h2></div>
+      <div className="pricing-cards">
+        <div className="pricing-card">
+          <span className="pricing-kicker">Candidates</span>
+          <h3>Free forever</h3>
+          <ul><li>Profile</li><li>Job matching</li><li>Messaging</li><li>Interview scheduling</li></ul>
+          <button type="button" className="secondary-button" onClick={openRegister}>Get started free</button>
+        </div>
+        <div className="pricing-card featured">
+          <span className="pricing-kicker">Recruiters</span>
+          <h3>USD 20<small> / month</small></h3>
+          <ul>
+            <li>First 30 days free</li>
+            <li>Unlimited legitimate job postings</li>
+            <li>One recruiter seat</li>
+            <li>Matching and messaging</li>
+            <li>Interview scheduling</li>
+            <li>Cancel anytime</li>
+            <li>One free month for every referred recruiter who completes their first paid month</li>
+          </ul>
+          <div className="pricing-actions">
+            <button type="button" className="primary-button" onClick={openRegister}>Start free 30-day trial</button>
+            <button type="button" className="secondary-button" onClick={openLogin}>View billing</button>
+          </div>
+        </div>
+      </div>
+    </section>
     <footer><Brand /><span>Perfect matches should feel human.</span><small>© 2026 JobsMatchNow</small></footer>
     {modals}
   </main>;
@@ -236,6 +278,16 @@ function Gauge({ pct, classicPct, value, classicValue, label, classicNum, newNum
     <span>{label}</span>
     <div className="gauge-compare"><em className="gauge-classic">Classic: {classicValue}</em><em className="gauge-new-line">New: {value}</em></div>
     <b className="gauge-multiplier">{multiplier.toFixed(1)}× {lowerIsBetter ? 'faster' : 'increase'}</b>
+  </div>;
+}
+
+/** Admins get a dedicated, minimal shell — not the candidate/recruiter
+ * Bootstrap dashboard (jobs/matches/swipes make no sense for an admin
+ * account), just the billing moderation dashboard and a way to log out. */
+function AdminWorkspace({ session, onExit }: { session: SessionUser; onExit: () => void }) {
+  return <div className="admin-shell">
+    <header className="admin-topbar"><Brand /><span>Admin — {session.name}</span><button className="secondary-button" onClick={onExit}><LogOut size={15} /> Log out</button></header>
+    <AdminBillingPage />
   </div>;
 }
 
@@ -260,8 +312,8 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   const openJobEditor = (jobId: string) => { setEditJobId(jobId); setView('jobs'); };
   const role: Role = data?.viewer.role ?? session.role;
   const notifications = useMemo(() => {
-    if (!data) return [] as { id: string; kind: 'match' | 'msg'; text: string; at: number; matchId: string }[];
-    const list: { id: string; kind: 'match' | 'msg'; text: string; at: number; matchId: string }[] = [];
+    if (!data) return [] as { id: string; kind: 'match' | 'msg' | 'billing'; text: string; at: number; matchId?: string }[];
+    const list: { id: string; kind: 'match' | 'msg' | 'billing'; text: string; at: number; matchId?: string }[] = [];
     for (const m of data.matches) {
       const who = role === 'candidate' ? (m.job?.company || 'A team') : (m.candidate?.name || 'A candidate');
       list.push({ id: `match-${m.id}`, kind: 'match', text: `It’s a match with ${who}`, at: m.createdAt, matchId: m.id });
@@ -269,6 +321,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
       const last = thread[thread.length - 1];
       if (last && last.senderId !== data.viewer.id) list.push({ id: `msg-${last.id}`, kind: 'msg', text: `New message from ${who}`, at: last.createdAt, matchId: m.id });
     }
+    for (const n of data.billingNotifications || []) list.push({ id: `billing-${n.id}`, kind: 'billing', text: n.text, at: n.createdAt });
     return list.sort((a, b) => b.at - a.at).slice(0, 8);
   }, [data, role]);
 
@@ -305,7 +358,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
     </aside>
     {inviteOpen && data && <InviteFriendModal userId={data.viewer.id} onClose={() => setInviteOpen(false)} />}
     {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
-    <section className="app-main">{session.emailVerified === false && <div className="verify-banner"><span><ShieldCheck size={15} /> Verify your email to secure your account and unlock everything.</span><button onClick={() => setSettingsOpen(true)}>Verify now</button></div>}<header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} onKeyDown={(event) => { if (event.key === 'Enter') setView('discover'); }} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><div className="notif-wrap"><button aria-label="Notifications" onClick={() => setNotifOpen((v) => !v)}><Bell size={19} />{notifications.length > 0 && <i />}</button>{notifOpen && <><button className="notif-scrim" aria-label="Close notifications" onClick={() => setNotifOpen(false)} /><div className="notif-dropdown"><header>Notifications</header>{notifications.length === 0 ? <p className="notif-empty">No notifications yet.</p> : notifications.map((n) => <button key={n.id} className="notif-item" onClick={() => { setNotifOpen(false); openMessages(n.matchId); }}><span className={`notif-icon ${n.kind}`}>{n.kind === 'match' ? <Heart size={14} fill="currentColor" /> : <MessageCircle size={14} />}</span><span className="notif-text">{n.text}<small>{timeAgo(n.at)}</small></span></button>)}</div></>}</div>{data?.viewer.demo && <button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Recruiter view' : 'Candidate view'}<ChevronDown size={14} /></button>}</div></header>
+    <section className="app-main">{session.emailVerified === false && <div className="verify-banner"><span><ShieldCheck size={15} /> Verify your email to secure your account and unlock everything.</span><button onClick={() => setSettingsOpen(true)}>Verify now</button></div>}<header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} onKeyDown={(event) => { if (event.key === 'Enter') setView('discover'); }} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><div className="notif-wrap"><button aria-label="Notifications" onClick={() => setNotifOpen((v) => !v)}><Bell size={19} />{notifications.length > 0 && <i />}</button>{notifOpen && <><button className="notif-scrim" aria-label="Close notifications" onClick={() => setNotifOpen(false)} /><div className="notif-dropdown"><header>Notifications</header>{notifications.length === 0 ? <p className="notif-empty">No notifications yet.</p> : notifications.map((n) => <button key={n.id} className="notif-item" onClick={() => { setNotifOpen(false); if (n.kind === 'billing') setView('billing'); else if (n.matchId) openMessages(n.matchId); }}><span className={`notif-icon ${n.kind}`}>{n.kind === 'match' ? <Heart size={14} fill="currentColor" /> : n.kind === 'billing' ? <CreditCard size={14} /> : <MessageCircle size={14} />}</span><span className="notif-text">{n.text}<small>{timeAgo(n.at)}</small></span></button>)}</div></>}</div>{data?.viewer.demo && <button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Recruiter view' : 'Candidate view'}<ChevronDown size={14} /></button>}</div></header>
       {loading ? <LoadingState /> : error ? <ErrorState message={error} retry={load} /> : data && (
         (data.viewer.onboarding || editStep !== null)
           ? (data.viewer.role === 'candidate'
@@ -340,6 +393,7 @@ function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profil
   if (view === 'matches') return <Matches data={data} navigate={navigate} onOpenMessages={onOpenMessages} />;
   if (view === 'selected') return <SelectedCandidates data={data} setData={setData} onOpenMessages={onOpenMessages} />;
   if (view === 'coffee') return <CoffeeInvitations data={data} onOpenMessages={onOpenMessages} />;
+  if (view === 'billing') return <BillingPage data={data} setData={setData} />;
   if (role === 'candidate') return <CandidateProfilePage
     viewer={data.viewer} jobs={data.jobs} onEdit={onEditProfile} initialCard={profileCard} onCardChange={onProfileCardChange}
     onDeleteProfile={data.viewer.activeVariantId ? async () => { await api.deleteProfileVariant(data.viewer.activeVariantId!, data.viewer.id); reload(); navigate('home'); } : undefined}
