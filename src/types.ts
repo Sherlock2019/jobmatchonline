@@ -26,6 +26,7 @@ export interface CandidatePreferences { desiredRoles?: string[]; employmentTypes
 export interface PrivacySettings { visibility?: 'all' | 'after-swipe' | 'paused'; blockedCompanies?: string[]; openToWork?: boolean }
 
 export interface ProfileVariant { id: string; name: string; title: string; skills: string[]; desiredRoles?: string[]; updatedAt: number }
+export interface RecommendationRequest { id: string; contact: string; method: 'email' | 'linkedin'; sentAt: number }
 
 export interface Person {
   id: string; role: Role; kind?: EmployerKind; name: string; email?: string; provider?: string; title: string;
@@ -38,9 +39,13 @@ export interface Person {
   workAuthorization?: string; visaSponsorship?: boolean; pronouns?: string;
   languageDetail?: LanguageTag[]; yearsExperience?: number; seniority?: Seniority; skillsDetail?: SkillTag[];
   industries?: string[]; workExperience?: WorkExperience[]; education?: Education[]; certifications?: string[];
-  links?: { github?: string; portfolio?: string; website?: string; linkedin?: string };
+  links?: { github?: string; portfolio?: string; website?: string; linkedin?: string; appStore?: string; playStore?: string };
+  /** Links to articles, papers, or talks — shown on the "What I Have Built" card. */
+  publications?: string[];
   presentation?: string; aboutMeArchetype?: string; mindset?: string[]; humanSkills?: string[]; workingPrefer?: string[]; workingAvoid?: string[];
   interests?: string[]; motto?: string; favoriteSong?: string; recommendations?: Recommendation[];
+  /** Pending "please recommend me" invites sent to a LinkedIn profile or email — private, owner-only. */
+  recommendationRequests?: RecommendationRequest[];
   preferences?: CandidatePreferences; documents?: { resume?: ResumeMeta; coverLetter?: string }; privacy?: PrivacySettings;
   /** Named presets of title/skills/desired-roles a candidate can snapshot and
    * switch between — e.g. a "Frontend Engineer" persona vs a "Product

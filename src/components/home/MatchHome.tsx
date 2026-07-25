@@ -159,6 +159,7 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
   const likesYou = jobs.filter((job) => (job.likedYou || job.superLikedYou) && !matchedJobIds.has(job.id));
   const precise = jobs.filter((job) => isPreciseMatch(job.match));
   const conversations = data.matches.slice(0, 3);
+  const upcomingCalls = [...data.calls].filter((call) => call.startAt >= Date.now()).sort((a, b) => a.startAt - b.startAt);
   const completion = data.viewer.completeness || 0;
 
   const reload = async () => setData(await api.bootstrap(data.viewer.id));
@@ -273,6 +274,18 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
       <article className="td-list-panel" id="td-conversations">
         <DashboardTitle icon={MessageCircle} title="Conversations" action="See all" onAction={() => navigate('messages')} />
         {conversations.map((match) => <button key={match.id} onClick={() => navigate('messages')}><img src={match.employer?.photo || data.viewer.photo} alt="" /><span><strong>{match.employer?.name || match.job.company}</strong><small>{data.messages.filter((message) => message.matchId === match.id).at(-1)?.text || match.job.title}</small></span></button>)}
+      </article>
+      <article className="td-list-panel" id="td-coffee">
+        <DashboardTitle icon={Coffee} title="Coffee Invitations" action="See all" onAction={() => navigate('meetings')} />
+        {upcomingCalls.length
+          ? upcomingCalls.slice(0, 4).map((call) => {
+            const callMatch = data.matches.find((m) => m.id === call.matchId);
+            return <button key={call.id} onClick={() => navigate('meetings')}>
+              <img src={callMatch?.employer?.photo || data.viewer.photo} alt="" />
+              <span><strong>{callMatch?.employer?.name || callMatch?.job.company}</strong><small>{new Date(call.startAt).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · {call.title}</small></span>
+            </button>;
+          })
+          : <EmptyRow>No meet-ups scheduled yet.</EmptyRow>}
       </article>
       <article className="td-list-panel td-improve">
         <DashboardTitle icon={Sparkles} title="Make Your Profile Stronger" />

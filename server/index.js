@@ -598,8 +598,10 @@ app.patch('/api/users/:id', async (req, res, next) => {
 // so resumes survive deploys (e.g. /var/lib/jobsmatchnow/uploads).
 const UPLOADS_ROOT = process.env.UPLOADS_DIR || path.join(dirname, 'uploads');
 const RESUME_DIR = path.join(UPLOADS_ROOT, 'resumes');
+const PHOTOS_DIR = path.join(UPLOADS_ROOT, 'photos');
 const mirror = (localPath) => mirrorToS3(localPath, UPLOADS_ROOT); // durable copy to S3 when configured
 await fs.promises.mkdir(RESUME_DIR, { recursive: true });
+await fs.promises.mkdir(PHOTOS_DIR, { recursive: true });
 // Restore any previously-uploaded files from S3 (survives instance replacement).
 if (s3Enabled()) { await restoreFromS3(UPLOADS_ROOT); await backupToS3(UPLOADS_ROOT); console.log(`uploads: S3 mirror enabled (${process.env.S3_BUCKET})`); }
 const RESUME_TYPES = {
@@ -693,6 +695,45 @@ app.post('/api/users/:id/resume/thumbnail', uploadLimiter, express.raw({ type: '
     await fs.promises.writeFile(path.join(RESUME_DIR, resume.thumbName), req.body);
     await mirror(path.join(RESUME_DIR, resume.thumbName));
     res.status(201).json({ ok: true });
+  } catch (error) { next(error); }
+});
+
+const PHOTO_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+
+// Real profile-photo upload (camera capture or file picker) — one current
+// photo per user, overwritten in place, served back via the GET below.
+app.post('/api/users/:id/photo', uploadLimiter, express.raw({ type: () => true, limit: '5mb' }), async (req, res, next) => {
+  try {
+    requireSelf(req, req.params.id);
+    const ext = PHOTO_TYPES[req.headers['content-type']];
+    if (!ext) { const error = new Error('Only PNG, JPEG, or WEBP images are accepted'); error.status = 415; throw error; }
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) throw new ValidationError('file', 'Empty upload');
+    for (const otherExt of new Set(Object.values(PHOTO_TYPES))) {
+      if (otherExt !== ext) await fs.promises.unlink(path.join(PHOTOS_DIR, `${req.params.id}.${otherExt}`)).catch(() => {});
+    }
+    await fs.promises.writeFile(path.join(PHOTOS_DIR, `${req.params.id}.${ext}`), req.body);
+    await mirror(path.join(PHOTOS_DIR, `${req.params.id}.${ext}`));
+    const photoUrl = `/api/users/${req.params.id}/photo?v=${Date.now()}`;
+    const user = await store.transaction((db) => {
+      const item = db.users.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, item.id);
+      item.photo = photoUrl;
+      item.photoExt = ext;
+      return item;
+    });
+    res.status(201).json({ photo: user.photo });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/users/:id/photo', async (req, res, next) => {
+  try {
+    const db = await store.read();
+    const user = db.users.find((item) => item.id === req.params.id);
+    if (!user?.photoExt) { const error = new Error('No photo on file'); error.status = 404; throw error; }
+    res.setHeader('Content-Type', `image/${user.photoExt === 'jpg' ? 'jpeg' : user.photoExt}`);
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(path.join(PHOTOS_DIR, `${req.params.id}.${user.photoExt}`));
   } catch (error) { next(error); }
 });
 
@@ -1317,7 +1358,7 @@ app.post('/api/messages', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-// Recruiter proposes a specific call time for a match; candidates see it read-only.
+// Either side of a match can propose a specific call time.
 app.post('/api/calls', async (req, res, next) => {
   try {
     const matchId = reqString(req.body, 'matchId', { max: 128 });
@@ -1331,7 +1372,7 @@ app.post('/api/calls', async (req, res, next) => {
       const match = db.matches.find((item) => item.id === matchId);
       if (!match) { const error = new Error('Match not found'); error.status = 404; throw error; }
       assertDemoActor(req, db, createdBy);
-      if (createdBy !== match.employerId) { const error = new Error('Only the recruiter on this match can schedule a call'); error.status = 403; throw error; }
+      if (createdBy !== match.employerId && createdBy !== match.candidateId) { const error = new Error('Only someone on this match can schedule a call'); error.status = 403; throw error; }
       const item = { id: crypto.randomUUID(), matchId, createdBy, title, startAt, durationMinutes, notes, createdAt: Date.now() };
       db.calls.push(item);
       return item;
@@ -1439,6 +1480,49 @@ app.delete('/api/profile-variants/:id', async (req, res, next) => {
       assertDemoActor(req, db, userId);
       item.profileVariants = (item.profileVariants || []).filter((v) => v.id !== req.params.id);
       if (item.activeVariantId === req.params.id) item.activeVariantId = undefined;
+    });
+    res.json({ ok: true });
+  } catch (error) { next(error); }
+});
+
+// Invite a former manager/recruiter to recommend you — by professional email
+// (a real request goes out if a mailer is configured) or a LinkedIn profile
+// URL (no message API available there, so we just record who was asked).
+app.post('/api/recommendation-requests', async (req, res, next) => {
+  try {
+    const userId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const contact = reqString(req.body, 'contact', { max: 300 });
+    const isEmail = /.+@.+\..+/.test(contact);
+    const isLinkedIn = /linkedin\.com/i.test(contact);
+    if (!isEmail && !isLinkedIn) throw new ValidationError('contact', 'Enter a professional email address or a LinkedIn profile URL');
+    const { request, name } = await store.transaction((db) => {
+      const user = db.users.find((item) => item.id === userId);
+      if (!user) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, userId);
+      if (!Array.isArray(user.recommendationRequests)) user.recommendationRequests = [];
+      const item = { id: crypto.randomUUID(), contact, method: isEmail ? 'email' : 'linkedin', sentAt: Date.now() };
+      user.recommendationRequests.push(item);
+      return { request: item, name: user.name };
+    });
+    if (request.method === 'email' && mailerConfigured()) {
+      await sendMail({
+        to: contact,
+        subject: `${name || 'A colleague'} would like your recommendation on JobsMatchNow`,
+        text: `Hi,\n\n${name || 'A colleague'} has asked you to write a short recommendation for their JobsMatchNow profile. Reply directly to this email with a few sentences about working together, and they'll be able to add it to their profile.\n\n— JobsMatchNow`,
+      }).catch(() => undefined);
+    }
+    res.status(201).json({ request, mailer: mailerConfigured() });
+  } catch (error) { next(error); }
+});
+
+app.delete('/api/recommendation-requests/:id', async (req, res, next) => {
+  try {
+    const userId = resolveActor(req, reqString(req.query, 'userId', { max: 128 }));
+    await store.transaction((db) => {
+      const user = db.users.find((item) => item.id === userId);
+      if (!user) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, userId);
+      user.recommendationRequests = (user.recommendationRequests || []).filter((r) => r.id !== req.params.id);
     });
     res.json({ ok: true });
   } catch (error) { next(error); }

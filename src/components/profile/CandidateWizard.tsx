@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, FileText, Loader2, MapPin, Sparkles, Upload } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Check, FileText, Loader2, MapPin, Sparkles, Upload } from 'lucide-react';
 import { api } from '../../api';
 import { Chips, Field, LevelTagInput, Repeat, Segmented, TagInput, TextInput, Toggle } from './fields';
 import type { AgePrivacy, ContactChannel, ContactChannelType, Education, LanguageTag, Person, Recommendation, ResumeMeta, Seniority, SkillTag, WorkExperience } from '../../types';
@@ -72,10 +72,11 @@ type Form = {
   distanceRangeKm: number; geo?: { lat: number; lng: number }; languageDetail: LanguageTag[];
   title: string; yearsExperience: string; seniority?: Seniority; skillsDetail: SkillTag[]; industries: string[];
   workExperience: WorkExperience[]; education: Education[]; certifications: string[];
-  links: { github?: string; portfolio?: string; website?: string; linkedin?: string };
+  links: { github?: string; portfolio?: string; website?: string; linkedin?: string; appStore?: string; playStore?: string };
+  publications: string[];
   desiredRoles: string[]; employmentTypes: string[]; workModeChoice?: 'remote' | 'hybrid' | 'onsite'; hybridDays: number;
   salaryMin: string; salaryMax: string; currency: string; salaryPeriod: string; salaryNegotiable: boolean;
-  availability?: string; noticePeriod: string; travel: string;
+  availability?: string; travel: string;
   relocateOpen: boolean; relocateLocations: string[]; companySize: string; prefIndustries: string[]; workStyle: string[];
   presentation: string; aboutMeArchetype?: string; mindset: string[]; humanSkills: string[]; workingPrefer: string[]; workingAvoid: string[];
   interests: string[]; motto: string; favoriteSong: string; recommendations: Recommendation[];
@@ -95,13 +96,13 @@ function fromPerson(p: Person): Form {
     seniority: p.seniority || (['junior', 'mid', 'senior', 'lead', 'exec'].includes(p.experienceLevel) ? p.experienceLevel as Seniority : undefined),
     skillsDetail: p.skillsDetail || (p.skills || []).map((name) => ({ name, level: 3 })),
     industries: p.industries || [], workExperience: p.workExperience || [], education: p.education || [], certifications: p.certifications || [],
-    links: p.links || {},
+    links: p.links || {}, publications: p.publications || [],
     desiredRoles: p.preferences?.desiredRoles || [], employmentTypes: p.preferences?.employmentTypes || [],
     workModeChoice: p.preferences?.workMode?.mode, hybridDays: p.preferences?.workMode?.hybridDays ?? 2,
     salaryMin: p.preferences?.salary?.min !== undefined ? String(p.preferences.salary.min) : '',
     salaryMax: p.preferences?.salary?.max !== undefined ? String(p.preferences.salary.max) : '',
     currency: p.preferences?.salary?.currency || 'USD', salaryPeriod: p.preferences?.salary?.period || 'year', salaryNegotiable: p.preferences?.salary?.negotiable ?? false,
-    availability: p.preferences?.availability, noticePeriod: p.preferences?.noticePeriod || '', travel: p.preferences?.travel || '',
+    availability: p.preferences?.availability, travel: p.preferences?.travel || '',
     relocateOpen: p.preferences?.relocate?.open ?? false, relocateLocations: p.preferences?.relocate?.locations || [],
     companySize: p.preferences?.companySize || '', prefIndustries: p.preferences?.industries || [], workStyle: p.preferences?.workStyle || [],
     presentation: p.presentation || '', aboutMeArchetype: p.aboutMeArchetype, mindset: p.mindset || [], humanSkills: p.humanSkills || [],
@@ -126,7 +127,7 @@ function stepPayload(step: number, form: Form, finishing: boolean) {
   if (step === 1) return {
     title: form.title, yearsExperience: Number(form.yearsExperience), seniority: form.seniority, skillsDetail: form.skillsDetail,
     industries: form.industries, workExperience: form.workExperience, education: form.education, certifications: form.certifications, links: form.links,
-    coverLetter: form.coverLetter,
+    publications: form.publications, coverLetter: form.coverLetter,
   };
   if (step === 2) return {
     availability: form.availability,
@@ -134,7 +135,7 @@ function stepPayload(step: number, form: Form, finishing: boolean) {
       desiredRoles: form.desiredRoles, employmentTypes: form.employmentTypes,
       workMode: form.workModeChoice ? { mode: form.workModeChoice, hybridDays: form.workModeChoice === 'hybrid' ? form.hybridDays : undefined } : undefined,
       salary: { min: Number(form.salaryMin), max: Number(form.salaryMax), currency: form.currency, period: form.salaryPeriod, negotiable: form.salaryNegotiable },
-      availability: form.availability, noticePeriod: form.noticePeriod || undefined, travel: form.travel || undefined,
+      availability: form.availability, travel: form.travel || undefined,
       relocate: { open: form.relocateOpen, locations: form.relocateLocations },
       companySize: form.companySize || undefined, industries: form.prefIndustries, workStyle: form.workStyle,
     },
@@ -188,6 +189,7 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [autofilling, setAutofilling] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [autofillNote, setAutofillNote] = useState('');
   const [geoBusy, setGeoBusy] = useState(false);
   const [error, setError] = useState('');
@@ -232,6 +234,14 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
       onDone(user);
     } catch (e) { setError(e instanceof Error ? e.message : 'Save failed'); }
     finally { setSaving(false); }
+  };
+
+  const uploadPhoto = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) { setError('Photo must be 5MB or smaller'); return; }
+    setUploadingPhoto(true); setError('');
+    try { const { photo } = await api.uploadPhoto(viewer.id, file); patch({ photo }); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Photo upload failed'); }
+    finally { setUploadingPhoto(false); }
   };
 
   const uploadResume = async (file: File) => {
@@ -300,8 +310,17 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
           <Field label="Email" required><TextInput type="email" value={form.email} onChange={(e) => patch({ email: e.target.value })} autoComplete="email" /></Field>
         </div>
         <div className="wz-row">
-          <Field label="Photo URL" hint="Pre-filled from your provider when you signed in with LinkedIn or Google.">
-            <div className="wz-photo-row">{form.photo && <img src={form.photo} alt="" />}<TextInput value={form.photo} onChange={(e) => patch({ photo: e.target.value })} placeholder="https://…" /></div>
+          <Field label="Profile photo" hint="Take a photo, upload one, or paste a URL.">
+            <div className="wz-photo-row">
+              {form.photo && <img src={form.photo} alt="" />}
+              <div className="wz-photo-actions">
+                <label className="secondary-button small wz-photo-btn">
+                  {uploadingPhoto ? <Loader2 size={14} className="spin" /> : <Camera size={14} />} {uploadingPhoto ? 'Uploading…' : 'Take / upload photo'}
+                  <input type="file" accept="image/*" capture="user" hidden onChange={(event) => event.target.files?.[0] && uploadPhoto(event.target.files[0])} />
+                </label>
+                <TextInput value={form.photo} onChange={(e) => patch({ photo: e.target.value })} placeholder="or paste a photo URL" />
+              </div>
+            </div>
           </Field>
           <Field label="Pronouns (optional)"><TextInput value={form.pronouns} onChange={(e) => patch({ pronouns: e.target.value })} placeholder="e.g. she/her, they/them" /></Field>
         </div>
@@ -387,6 +406,11 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
           <Field label="Website"><TextInput value={form.links.website || ''} onChange={(e) => patch({ links: { ...form.links, website: e.target.value } })} /></Field>
           <Field label="LinkedIn"><TextInput value={form.links.linkedin || ''} onChange={(e) => patch({ links: { ...form.links, linkedin: e.target.value } })} placeholder="linkedin.com/in/…" /></Field>
         </div>
+        <div className="wz-row">
+          <Field label="App Store link (optional)"><TextInput value={form.links.appStore || ''} onChange={(e) => patch({ links: { ...form.links, appStore: e.target.value } })} placeholder="apps.apple.com/…" /></Field>
+          <Field label="Play Store link (optional)"><TextInput value={form.links.playStore || ''} onChange={(e) => patch({ links: { ...form.links, playStore: e.target.value } })} placeholder="play.google.com/…" /></Field>
+        </div>
+        <Field label="Publications (optional)" hint="Links to articles, papers, or talks you've published."><TagInput value={form.publications} onChange={(publications) => patch({ publications })} placeholder="Paste a URL — press Enter" /></Field>
         <Field label="Resume (optional)" hint="PDF or DOCX, up to 10MB. Speeds up recruiter review, but you can add it later.">
           <label className={form.resume ? 'wz-upload has-file' : 'wz-upload'}>
             <input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => e.target.files?.[0] && uploadResume(e.target.files[0])} />
@@ -414,10 +438,7 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
           </div>
           <div className="wz-inline"><Toggle checked={form.salaryNegotiable} onChange={(salaryNegotiable) => patch({ salaryNegotiable })} label="Negotiable" /></div>
         </Field>
-        <div className="wz-row">
-          <Field label="Availability (optional)"><Segmented options={AVAILABILITIES} value={form.availability as typeof AVAILABILITIES[number] | undefined} onChange={(availability) => patch({ availability })} /></Field>
-          <Field label="Notice period"><TextInput value={form.noticePeriod} onChange={(e) => patch({ noticePeriod: e.target.value })} placeholder="e.g. 30 days" /></Field>
-        </div>
+        <Field label="Availability (optional)"><Segmented options={AVAILABILITIES} value={form.availability as typeof AVAILABILITIES[number] | undefined} onChange={(availability) => patch({ availability })} /></Field>
         <div className="wz-row">
           <Field label="Preferred company size"><select className="wz-input wz-select" value={form.companySize} onChange={(e) => patch({ companySize: e.target.value })}><option value="">No preference</option>{COMPANY_SIZES.map((size) => <option key={size}>{size}</option>)}</select></Field>
           <Field label="Travel willingness"><TextInput value={form.travel} onChange={(e) => patch({ travel: e.target.value })} placeholder="e.g. Up to 25%" /></Field>

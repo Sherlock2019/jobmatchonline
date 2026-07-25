@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { PhoneMockup } from './components/PhoneMockup';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
-import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Command, Compass, Download, ExternalLink, Eye, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, Download, ExternalLink, Eye, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
 import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
@@ -652,6 +652,26 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
   useEffect(() => { setShowStarters(thread.length === 0); }, [match?.id]);
   const [scheduling, setScheduling] = useState(false);
   const [viewingProfile, setViewingProfile] = useState(false);
+  const [schedulingCoffee, setSchedulingCoffee] = useState(false);
+  // One click: propose tomorrow at the next half-hour, persist it (shows in
+  // this thread + Meetings for both sides), and open a pre-filled Google
+  // Calendar quick-add so it lands on the real calendar too.
+  const quickCoffee = async () => {
+    if (!match || schedulingCoffee) return;
+    setSchedulingCoffee(true);
+    try {
+      const start = new Date();
+      start.setDate(start.getDate() + 1);
+      start.setSeconds(0, 0);
+      if (start.getMinutes() > 30) { start.setHours(start.getHours() + 1); start.setMinutes(0); }
+      else if (start.getMinutes() > 0) start.setMinutes(30);
+      const title = `Coffee chat${otherName ? ` — ${otherName}` : ''}`;
+      const call = await api.scheduleCall({ matchId: match.id, createdBy: data.viewer.id, title, startAt: start.getTime(), durationMinutes: 25 });
+      setData({ ...data, calls: [...data.calls, call] });
+      window.open(googleCalendarUrl({ title, startAt: call.startAt, durationMinutes: call.durationMinutes }), '_blank', 'noopener');
+    } catch (e) { alert(e instanceof Error ? e.message : 'Could not create that invite'); }
+    finally { setSchedulingCoffee(false); }
+  };
   const calls = data.calls.filter((c) => c.matchId === match?.id).sort((a, b) => a.startAt - b.startAt);
   return <div className="messages-page">
     <aside className="threads">
@@ -687,6 +707,11 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
             </div>
           </div>;
         })}
+      </div>
+      <div className="coffee-quick-row">
+        <button type="button" className="coffee-quick-btn" onClick={() => void quickCoffee()} disabled={schedulingCoffee}>
+          <Coffee size={15} /> {schedulingCoffee ? 'Creating invite…' : "Let's have a cup of Coffee"}
+        </button>
       </div>
       {showStarters && (role === 'employer'
         ? <RecruiterStarters candidateName={match.candidate?.name || 'there'} archetype={match.candidate?.aboutMeArchetype} onPick={setText} />
