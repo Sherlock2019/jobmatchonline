@@ -236,7 +236,7 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
     </section>
 
     <section className="td-section" id="td-profile">
-      <DashboardTitle icon={User} title="My Profile" subtitle="How recruiters see you." action="Edit profile" onAction={() => navigate('profile')} />
+      <DashboardTitle icon={User} title="My Current Job Profile" subtitle="How recruiters see you." action="Edit profile" onAction={() => navigate('profile')} />
       <div className="td-profile-card">
         <img src={data.viewer.photo} alt="" />
         <div className="td-profile-card-info">
