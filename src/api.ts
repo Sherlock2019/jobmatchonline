@@ -1,4 +1,4 @@
-import type { AdminRecruiterStatus, AuthConfig, BillingEvent, BillingInfo, Bootstrap, EmployerKind, InterviewKit, InterviewPrep, Job, JobDraft, JobImportResult, JobMatch, Message, Note, Payment, PaymentMethod, PipelineStep, Person, ProfileVariant, RecommendationRequest, Referral, ResumeMeta, Review, Role, ScheduledCall, ScreeningAnswer, SessionUser, WeightedSkill } from './types';
+import type { AdminRecruiterStatus, AdminUserDetail, AdminUserSummary, AuthConfig, BillingEvent, BillingInfo, Bootstrap, EmployerKind, InterviewKit, InterviewPrep, Job, JobDraft, JobImportResult, JobMatch, Message, Note, Payment, PaymentMethod, PipelineStep, Person, ProfileVariant, RecommendationRequest, Referral, Report, ReportCategory, ResumeMeta, Review, Role, ScheduledCall, ScreeningAnswer, SessionUser, SupportRequest, WeightedSkill } from './types';
 
 export const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
@@ -123,4 +123,29 @@ export const api = {
     totalRecruiters: number; newRecruiters7d: number; newRecruiters30d: number;
     totalJobs: number; activeJobs: number; totalMatches: number; newMatches7d: number; totalMessages: number;
   }>('/api/admin/analytics/overview'),
+
+  // --- Admin: account management ---
+  adminUsers: (params?: { role?: 'candidate' | 'employer'; q?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.role) qs.set('role', params.role);
+    if (params?.q) qs.set('q', params.q);
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return request<{ users: AdminUserSummary[] }>(`/api/admin/users${suffix}`);
+  },
+  adminUserDetail: (id: string) => request<AdminUserDetail>(`/api/admin/users/${id}`),
+  adminSuspendUser: (id: string, reason: string) => request<AdminUserSummary>(`/api/admin/users/${id}/suspend`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  adminReactivateUser: (id: string) => request<AdminUserSummary>(`/api/admin/users/${id}/reactivate`, { method: 'POST' }),
+
+  // --- Fraud / scam / safety reports ---
+  submitReport: (payload: { userId: string; targetType: 'user' | 'job' | 'conversation'; targetId: string; category: ReportCategory; description?: string }) =>
+    request<Report>('/api/reports', { method: 'POST', body: JSON.stringify(payload) }),
+  adminReports: (status?: string) => request<{ reports: Report[] }>(`/api/admin/reports${status ? `?status=${status}` : ''}`),
+  adminResolveReport: (id: string, resolution: string) => request<Report>(`/api/admin/reports/${id}/resolve`, { method: 'POST', body: JSON.stringify({ resolution }) }),
+  adminDismissReport: (id: string) => request<Report>(`/api/admin/reports/${id}/dismiss`, { method: 'POST' }),
+
+  // --- Customer support requests ---
+  submitSupportRequest: (payload: { name: string; email: string; message: string; userId?: string }) =>
+    request<SupportRequest>('/api/support/requests', { method: 'POST', body: JSON.stringify(payload) }),
+  adminSupportRequests: (status?: string) => request<{ requests: SupportRequest[] }>(`/api/admin/support/requests${status ? `?status=${status}` : ''}`),
+  adminResolveSupportRequest: (id: string) => request<SupportRequest>(`/api/admin/support/requests/${id}/resolve`, { method: 'POST' }),
 };

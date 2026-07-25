@@ -2,8 +2,10 @@ import { Fragment, Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { PhoneMockup } from './components/PhoneMockup';
 import { DemoBadge } from './components/DemoBadge';
 import { InviteFriendModal } from './components/InviteFriendModal';
+import { SupportModal } from './components/SupportModal';
+import { ReportModal } from './components/ReportModal';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
-import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, CreditCard, Download, ExternalLink, Eye, FileText, Filter, Gift, Handshake, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, Map as MapIcon, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, CreditCard, Download, ExternalLink, Eye, FileText, Filter, Flag, Gift, Handshake, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, Map as MapIcon, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
 import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
@@ -22,6 +24,8 @@ import { SelectedCandidates } from './components/home/SelectedCandidates';
 import { BillingPage } from './components/billing/BillingPage';
 import { AdminBillingPage } from './components/billing/AdminBillingPage';
 import { AdminAnalyticsPage } from './components/billing/AdminAnalyticsPage';
+import { AdminUsersPage } from './components/billing/AdminUsersPage';
+import { AdminSafetyPage } from './components/billing/AdminSafetyPage';
 import { NotesBox } from './components/NotesBox';
 // Lazy-loaded: pulls in pdf.js only when a resume is actually opened.
 const ResumeViewerModal = lazy(() => import('./components/ResumeViewerModal').then((m) => ({ default: m.ResumeViewerModal })));
@@ -286,17 +290,22 @@ function Gauge({ pct, classicPct, value, classicValue, label, classicNum, newNum
  * Bootstrap dashboard (jobs/matches/swipes make no sense for an admin
  * account), just the billing moderation dashboard and a way to log out. */
 function AdminWorkspace({ session, onExit }: { session: SessionUser; onExit: () => void }) {
-  const [tab, setTab] = useState<'analytics' | 'billing'>('analytics');
+  const [tab, setTab] = useState<'analytics' | 'users' | 'billing' | 'safety'>('analytics');
   return <div className="admin-shell">
     <header className="admin-topbar">
       <Brand />
       <nav className="admin-tabs">
         <button type="button" className={tab === 'analytics' ? 'active' : ''} onClick={() => setTab('analytics')}>Analytics</button>
+        <button type="button" className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Candidates &amp; Recruiters</button>
         <button type="button" className={tab === 'billing' ? 'active' : ''} onClick={() => setTab('billing')}>Billing &amp; Subscriptions</button>
+        <button type="button" className={tab === 'safety' ? 'active' : ''} onClick={() => setTab('safety')}>Safety &amp; Support</button>
       </nav>
       <span>Admin — {session.name}</span><button className="secondary-button" onClick={onExit}><LogOut size={15} /> Log out</button>
     </header>
-    {tab === 'analytics' ? <AdminAnalyticsPage /> : <AdminBillingPage />}
+    {tab === 'analytics' && <AdminAnalyticsPage />}
+    {tab === 'users' && <AdminUsersPage />}
+    {tab === 'billing' && <AdminBillingPage />}
+    {tab === 'safety' && <AdminSafetyPage />}
   </div>;
 }
 
@@ -312,6 +321,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const [jobImportOpen, setJobImportOpen] = useState(false);
   const [manualJobRequest, setManualJobRequest] = useState(0);
   const [activeAnchor, setActiveAnchor] = useState('');
@@ -378,9 +388,10 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
       <div className="workspace-switch"><span>Profile</span><button onClick={() => { setView('profile'); setMobileNav(false); }}>{data?.viewer.photo ? <img className="avatar-mini" src={data.viewer.photo} alt="" /> : <div className="avatar-mini">{initials}</div>}<div><strong>{data?.viewer.name || session.name}</strong><small>{role === 'candidate' ? 'Candidate' : 'Recruiter'}</small></div><ArrowRight size={15} /></button></div>
       <nav className="sidebar-nav">{nav.map((item) => { const Icon = item.icon; return <button key={item.label} className={navActive(item) ? 'active' : ''} onClick={() => gotoNav(item)}><Icon size={19} /><span>{item.label}</span>{item.view === 'messages' && notifications.length > 0 && <em>{Math.min(notifications.length, 9)}</em>}</button>; })}</nav>
       <button className="sidebar-invite-btn" onClick={() => setInviteOpen(true)}><Gift size={17} /> Invite a Friend to Join Us — Bonus!</button>
-      <div className="sidebar-bottom"><button onClick={() => { window.location.href = 'mailto:support@jobsmatchnow.com'; }}><CircleHelp size={18} />Help center</button><button onClick={() => setSettingsOpen(true)}><Settings size={18} />Settings</button><button className="logout-button" onClick={onExit}><LogOut size={18} />Log out</button></div>
+      <div className="sidebar-bottom"><button onClick={() => setSupportOpen(true)}><CircleHelp size={18} />Help center</button><button onClick={() => setSettingsOpen(true)}><Settings size={18} />Settings</button><button className="logout-button" onClick={onExit}><LogOut size={18} />Log out</button></div>
     </aside>
     {inviteOpen && data && <InviteFriendModal userId={data.viewer.id} onClose={() => setInviteOpen(false)} />}
+    <AnimatePresence>{supportOpen && <SupportModal viewer={data?.viewer} onClose={() => setSupportOpen(false)} />}</AnimatePresence>
     {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
     <section className="app-main">{session.emailVerified === false && <div className="verify-banner"><span><ShieldCheck size={15} /> Verify your email to secure your account and unlock everything.</span><button onClick={() => setSettingsOpen(true)}>Verify now</button></div>}<header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} onKeyDown={(event) => { if (event.key === 'Enter') setView('discover'); }} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><div className="notif-wrap"><button aria-label="Notifications" onClick={() => setNotifOpen((v) => !v)}><Bell size={19} />{notifications.length > 0 && <i />}</button>{notifOpen && <><button className="notif-scrim" aria-label="Close notifications" onClick={() => setNotifOpen(false)} /><div className="notif-dropdown"><header>Notifications</header>{notifications.length === 0 ? <p className="notif-empty">No notifications yet.</p> : notifications.map((n) => <button key={n.id} className="notif-item" onClick={() => { setNotifOpen(false); if (n.kind === 'billing') setView('billing'); else if (n.matchId) openMessages(n.matchId); }}><span className={`notif-icon ${n.kind}`}>{n.kind === 'match' ? <Heart size={14} fill="currentColor" /> : n.kind === 'billing' ? <CreditCard size={14} /> : <MessageCircle size={14} />}</span><span className="notif-text">{n.text}<small>{timeAgo(n.at)}</small></span></button>)}</div></>}</div>{data?.viewer.demo && <button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Recruiter view' : 'Candidate view'}<ChevronDown size={14} /></button>}</div></header>
       {loading ? <LoadingState /> : error ? <ErrorState message={error} retry={load} /> : data && (
@@ -825,6 +836,7 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
   useEffect(() => { setShowStarters(thread.length === 0); }, [match?.id]);
   const [scheduling, setScheduling] = useState(false);
   const [viewingProfile, setViewingProfile] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [recommendOpen, setRecommendOpen] = useState(false);
   const [actionSent, setActionSent] = useState('');
@@ -867,6 +879,7 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
         <button className={showStarters ? 'starter-toggle active' : 'starter-toggle'} onClick={() => setShowStarters((v) => !v)} title="Conversation starters — also handy to prep for a call"><Sparkles size={16} /></button>
         <button className="starter-toggle" onClick={() => setScheduling(true)} title="Schedule a call"><Calendar size={16} /></button>
         {otherEmail && <a className="starter-toggle" href={`mailto:${otherEmail}`} title={`Email ${otherName || 'them'}`}><Mail size={16} /></a>}
+        <button className="starter-toggle" onClick={() => setReporting(true)} title="Report this conversation"><Flag size={16} /></button>
       </header>
       <div className="conversation-body">
         <div className="date-divider">Today</div>
@@ -903,6 +916,7 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
         onShareLink={async (shareText) => { const message = await api.message({ matchId: match.id, senderId: data.viewer.id, text: shareText }); setData({ ...data, messages: [...data.messages, message] }); setScheduling(false); }} />}
       {feedbackOpen && <FeedbackEmailModal match={match} onClose={() => setFeedbackOpen(false)} onSent={() => { setFeedbackOpen(false); setActionSent('Feedback email sent.'); window.setTimeout(() => setActionSent(''), 4000); }} />}
       {recommendOpen && <RecommendationEmailModal match={match} onClose={() => setRecommendOpen(false)} onSent={() => { setRecommendOpen(false); setActionSent('Recommendation email sent.'); window.setTimeout(() => setActionSent(''), 4000); }} />}
+      {reporting && <ReportModal viewerId={data.viewer.id} targetType="conversation" targetId={match.id} onClose={() => setReporting(false)} />}
     </> : <EmptyState title="No conversations yet" />}</section>
     <aside className="context-panel">
       {role === 'candidate' && match?.job ? <CompanyLogoMark job={match.job} /> : <img src={match?.candidate?.photo} />}

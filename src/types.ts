@@ -140,6 +140,24 @@ export interface AdminRecruiterStatus { recruiter: { id: string; name: string; e
 export interface BillingNotification { id: string; kind: string; text: string; createdAt: number; read?: boolean }
 export interface Bootstrap { viewer: Person; jobs: Job[]; candidates: Person[]; roleMatches?: RoleMatchGroup[]; matches: JobMatch[]; messages: Message[]; calls: ScheduledCall[]; notes: Note[]; bookmarkedIds: string[]; likesRemaining: number; billing?: BillingInfo; billingNotifications?: BillingNotification[] }
 
+// Admin: account management, fraud/scam reports, support requests (minimal —
+// no roles/invitations, no incident state machine, see admin plan notes).
+export type ReportCategory = 'fake_job' | 'scam_or_fraud' | 'harassment' | 'discrimination' | 'spam' | 'payment_request' | 'impersonation' | 'other';
+export interface Report {
+  id: string; reporterUserId: string; reporterName?: string; targetType: 'user' | 'job' | 'conversation'; targetId: string;
+  category: ReportCategory; description: string | null; status: 'open' | 'resolved' | 'dismissed';
+  resolution: string | null; resolvedByAdminId: string | null; resolvedAt: number | null; createdAt: number;
+}
+export interface SupportRequest {
+  id: string; userId: string | null; name: string; email: string; message: string;
+  status: 'open' | 'resolved'; resolvedByAdminId: string | null; resolvedAt: number | null; createdAt: number;
+}
+export interface AdminUserSummary {
+  id: string; role: Role; kind?: EmployerKind; name: string; email?: string; company?: string; photo?: string;
+  completeness?: number; emailVerified: boolean; createdAt: number; suspendedAt: number | null; suspendReason: string | null; flaggedForJobReview: boolean;
+}
+export interface AdminUserDetail { user: AdminUserSummary; jobsPosted?: number; matchCount: number; messageCount: number; reportsSubmitted: number; reportsReceived: number }
+
 /** Minimal identity persisted for the demo session. */
 export interface SessionUser { id: string; role: Role; kind?: EmployerKind; name: string; email?: string; photo?: string; provider?: string; isNew?: boolean; demo?: boolean; title?: string; company?: string; emailVerified?: boolean }
 

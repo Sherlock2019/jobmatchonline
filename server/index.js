@@ -79,6 +79,10 @@ await store.transaction((db) => {
   for (const collection of ['subscriptions', 'subscriptionCredits', 'referrals', 'payments', 'billingEvents', 'billingNotifications']) {
     if (!Array.isArray(db[collection])) db[collection] = [];
   }
+  // Trust & safety / support collections, same "may already exist on disk" reasoning.
+  for (const collection of ['reports', 'supportRequests']) {
+    if (!Array.isArray(db[collection])) db[collection] = [];
+  }
 });
 console.log(`JobMatch store: ${process.env.DATABASE_URL ? 'postgresql (RDS)' : 'json file'}`);
 const demoDistances = { 'j-1': 7, 'j-2': 18, 'j-3': 42, 'j-4': 75, 'c-1': 5, 'c-2': 26, 'c-3': 12, 'c-4': 65 };
@@ -399,6 +403,7 @@ app.get('/api/auth/oauth/:provider/callback', async (req, res, next) => {
       db.users.push(created);
       return created;
     });
+    if (user.suspendedAt) return res.redirect(`${APP_PATH}?sso=${encodeURIComponent('account_suspended')}`);
     setCookie(res, 'jm_oauth_state', '', { maxAge: 0 });
     issueSession(res, user);
     res.redirect(`${APP_PATH}?sso=ok`);
@@ -445,6 +450,7 @@ app.post('/api/auth/login', authLimiter, async (req, res, next) => {
         const error = new Error('Email or password is incorrect'); error.status = 401; throw error;
       }
     }
+    if (user.suspendedAt) { const error = new Error('This account has been suspended. Contact support if you believe this is a mistake.'); error.status = 403; throw error; }
     issueSession(res, user);
     res.json({ user: publicProfile(user) });
   } catch (error) { next(error); }
@@ -1346,6 +1352,7 @@ app.get('/api/bootstrap', async (req, res, next) => {
     const fallbackRole = req.query.role === 'employer' ? 'employer' : 'candidate';
     const viewer = db.users.find((user) => user.id === requestedId) || (demoAuth ? db.users.find((user) => user.id === `${fallbackRole}-demo`) : undefined);
     if (!viewer) { const error = new Error('Sign in to continue'); error.status = 401; throw error; }
+    if (viewer.suspendedAt) { const error = new Error('This account has been suspended. Contact support if you believe this is a mistake.'); error.status = 403; throw error; }
     assertDemoActor(req, db, viewer.id);
     const role = viewer.role === 'employer' ? 'employer' : 'candidate';
     const pool = matchingPool(db, viewer);
@@ -1937,6 +1944,216 @@ app.get('/api/admin/analytics/overview', async (req, res, next) => {
       newMatches7d: realMatches.filter((match) => match.createdAt >= since(7)).length,
       totalMessages: db.messages.filter((message) => realMatches.some((match) => match.id === message.matchId)).length,
     });
+  } catch (error) { next(error); }
+});
+
+// --- Admin: candidate/recruiter account management -------------------------
+// Search/suspend/reactivate only — no silent edits to a user's own profile
+// data (skills, CV, salary, feedback), matching the "no silent changes"
+// principle: every state change here is an explicit suspend/reactivate action
+// with a required reason, audit-logged, never a data edit.
+
+function adminUserSummary(user) {
+  return {
+    id: user.id, role: user.role, kind: user.kind, name: user.name, email: user.email, company: user.company,
+    photo: user.photo, completeness: user.completeness, emailVerified: user.emailVerified !== false,
+    createdAt: user.createdAt, suspendedAt: user.suspendedAt || null, suspendReason: user.suspendReason || null,
+    flaggedForJobReview: user.flaggedForJobReview === true,
+  };
+}
+
+app.get('/api/admin/users', async (req, res, next) => {
+  try {
+    requireAdminRole(authSession(req));
+    const db = await store.read();
+    const role = optString(req.query, 'role', { max: 20 });
+    const q = optString(req.query, 'q', { max: 200 })?.toLowerCase();
+    let users = db.users.filter((user) => !user.demo && (user.role === 'candidate' || user.role === 'employer'));
+    if (role) users = users.filter((user) => user.role === role);
+    if (q) users = users.filter((user) => [user.name, user.email, user.company].some((field) => field && field.toLowerCase().includes(q)));
+    res.json({ users: users.sort((a, b) => b.createdAt - a.createdAt).map(adminUserSummary) });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/admin/users/:id', async (req, res, next) => {
+  try {
+    requireAdminRole(authSession(req));
+    const db = await store.read();
+    const user = db.users.find((entry) => entry.id === req.params.id && !entry.demo);
+    if (!user) { const error = new Error('User not found'); error.status = 404; throw error; }
+    const matches = db.matches.filter((match) => match.candidateId === user.id || match.employerId === user.id);
+    res.json({
+      user: adminUserSummary(user),
+      jobsPosted: user.role === 'employer' ? db.jobs.filter((job) => job.employerId === user.id).length : undefined,
+      matchCount: matches.length,
+      messageCount: db.messages.filter((message) => matches.some((match) => match.id === message.matchId)).length,
+      reportsSubmitted: db.reports.filter((report) => report.reporterUserId === user.id).length,
+      reportsReceived: db.reports.filter((report) => report.targetUserId === user.id).length,
+    });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/users/:id/suspend', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const reason = reqString(req.body, 'reason', { max: 500 });
+    const user = await store.transaction((db) => {
+      const item = db.users.find((entry) => entry.id === req.params.id && !entry.demo);
+      if (!item) { const error = new Error('User not found'); error.status = 404; throw error; }
+      if (item.role === 'admin') { const error = new Error('Cannot suspend an admin account'); error.status = 400; throw error; }
+      item.suspendedAt = Date.now();
+      item.suspendReason = reason;
+      logBillingEvent(db, session.sub, 'user_suspended', 'user', item.id, { reason });
+      return item;
+    });
+    res.json(adminUserSummary(user));
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/users/:id/reactivate', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const user = await store.transaction((db) => {
+      const item = db.users.find((entry) => entry.id === req.params.id && !entry.demo);
+      if (!item) { const error = new Error('User not found'); error.status = 404; throw error; }
+      item.suspendedAt = null;
+      item.suspendReason = null;
+      logBillingEvent(db, session.sub, 'user_reactivated', 'user', item.id, {});
+      return item;
+    });
+    res.json(adminUserSummary(user));
+  } catch (error) { next(error); }
+});
+
+// --- Fraud / scam / safety reports ------------------------------------------
+// Minimal by design: one flat queue (open -> resolved), no severity levels,
+// incident state machine, or appeals workflow — see PLAN discussion on
+// keeping this scoped for a single-admin operation rather than the full
+// moderation-platform spec.
+
+const REPORT_CATEGORIES = ['fake_job', 'scam_or_fraud', 'harassment', 'discrimination', 'spam', 'payment_request', 'impersonation', 'other'];
+
+app.post('/api/reports', rateLimit({ windowMs: 3600000, max: 20, bucket: 'reports' }), async (req, res, next) => {
+  try {
+    const reporterUserId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const targetType = oneOf(req.body, 'targetType', ['user', 'job', 'conversation']);
+    const targetId = reqString(req.body, 'targetId', { max: 128 });
+    const category = oneOf(req.body, 'category', REPORT_CATEGORIES);
+    const description = optString(req.body, 'description', { max: 2000 });
+    const report = await store.transaction((db) => {
+      assertDemoActor(req, db, reporterUserId);
+      const now = Date.now();
+      const created = {
+        id: crypto.randomUUID(), reporterUserId, targetType, targetId, category, description: description || null,
+        status: 'open', resolution: null, resolvedByAdminId: null, resolvedAt: null, createdAt: now, updatedAt: now,
+      };
+      if (!Array.isArray(db.reports)) db.reports = [];
+      db.reports.push(created);
+      return created;
+    });
+    res.status(201).json(report);
+  } catch (error) { next(error); }
+});
+
+app.get('/api/admin/reports', async (req, res, next) => {
+  try {
+    requireAdminRole(authSession(req));
+    const db = await store.read();
+    const status = optString(req.query, 'status', { max: 20 });
+    let reports = [...(db.reports || [])];
+    if (status) reports = reports.filter((report) => report.status === status);
+    const withReporter = reports.sort((a, b) => b.createdAt - a.createdAt).map((report) => {
+      const reporter = db.users.find((user) => user.id === report.reporterUserId);
+      return { ...report, reporterName: reporter?.name || report.reporterUserId };
+    });
+    res.json({ reports: withReporter });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/reports/:id/resolve', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const resolution = reqString(req.body, 'resolution', { max: 1000 });
+    const report = await store.transaction((db) => {
+      const item = (db.reports || []).find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Report not found'); error.status = 404; throw error; }
+      item.status = 'resolved';
+      item.resolution = resolution;
+      item.resolvedByAdminId = session.sub;
+      item.resolvedAt = Date.now();
+      item.updatedAt = Date.now();
+      logBillingEvent(db, session.sub, 'report_resolved', 'report', item.id, { resolution });
+      return item;
+    });
+    res.json(report);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/reports/:id/dismiss', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const report = await store.transaction((db) => {
+      const item = (db.reports || []).find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Report not found'); error.status = 404; throw error; }
+      item.status = 'dismissed';
+      item.updatedAt = Date.now();
+      logBillingEvent(db, session.sub, 'report_dismissed', 'report', item.id, {});
+      return item;
+    });
+    res.json(report);
+  } catch (error) { next(error); }
+});
+
+// --- Customer support requests ----------------------------------------------
+// A basic contact-form ticket queue — open/resolved only, no assignment or
+// SLA-timer workflow.
+
+app.post('/api/support/requests', rateLimit({ windowMs: 3600000, max: 10, bucket: 'support' }), async (req, res, next) => {
+  try {
+    const name = reqString(req.body, 'name', { max: 160 });
+    const email = reqString(req.body, 'email', { max: 200 });
+    const message = reqString(req.body, 'message', { max: 4000 });
+    const userId = optString(req.body, 'userId', { max: 128 });
+    const request = await store.transaction((db) => {
+      const now = Date.now();
+      const created = {
+        id: crypto.randomUUID(), userId: userId || null, name, email: email.toLowerCase(), message,
+        status: 'open', resolvedByAdminId: null, resolvedAt: null, createdAt: now, updatedAt: now,
+      };
+      if (!Array.isArray(db.supportRequests)) db.supportRequests = [];
+      db.supportRequests.push(created);
+      return created;
+    });
+    await sendMail({ to: process.env.BILLING_SUPPORT_EMAIL, subject: `Support request from ${name}`, text: `${email}\n\n${message}` }).catch(() => undefined);
+    res.status(201).json(request);
+  } catch (error) { next(error); }
+});
+
+app.get('/api/admin/support/requests', async (req, res, next) => {
+  try {
+    requireAdminRole(authSession(req));
+    const db = await store.read();
+    const status = optString(req.query, 'status', { max: 20 });
+    let requests = [...(db.supportRequests || [])];
+    if (status) requests = requests.filter((entry) => entry.status === status);
+    res.json({ requests: requests.sort((a, b) => b.createdAt - a.createdAt) });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/support/requests/:id/resolve', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const request = await store.transaction((db) => {
+      const item = (db.supportRequests || []).find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Support request not found'); error.status = 404; throw error; }
+      item.status = 'resolved';
+      item.resolvedByAdminId = session.sub;
+      item.resolvedAt = Date.now();
+      item.updatedAt = Date.now();
+      logBillingEvent(db, session.sub, 'support_request_resolved', 'supportRequest', item.id, {});
+      return item;
+    });
+    res.json(request);
   } catch (error) { next(error); }
 });
 

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { BookOpen, BriefcaseBusiness, Check, ClipboardList, GraduationCap, Loader2, MapPin, MessageSquareText, Plus, Sparkles, Wallet, X } from 'lucide-react';
+import { BookOpen, BriefcaseBusiness, Check, ClipboardList, Flag, GraduationCap, Loader2, MapPin, MessageSquareText, Plus, Sparkles, Wallet, X } from 'lucide-react';
 import { api } from '../../api';
 import type { InterviewKit, InterviewPrep, Job, JobMatch, Note, Person, ScreeningAnswer } from '../../types';
 import { JobCards } from '../jobs/JobCards';
 import { JobHeaderBadge } from '../jobs/JobHeaderBadge';
 import { NotesBox } from '../NotesBox';
 import { DemoBadge } from '../DemoBadge';
+import { ReportModal } from '../ReportModal';
 
 function CoachModalShell({ onClose, children, wide }: { onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
@@ -22,6 +23,7 @@ export function JobDetailModal({ job, onClose, viewerId, notes, onNoteSaved }: {
   const [tab, setTab] = useState<'overview' | 'prepare'>('overview');
   const [prep, setPrep] = useState<InterviewPrep | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reporting, setReporting] = useState(false);
   useEffect(() => {
     if (tab !== 'prepare' || prep) return;
     setLoading(true);
@@ -34,7 +36,9 @@ export function JobDetailModal({ job, onClose, viewerId, notes, onNoteSaved }: {
     <div className="coach-tabs" role="tablist">
       <button role="tab" aria-selected={tab === 'overview'} className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><BriefcaseBusiness size={14} /> Overview</button>
       <button role="tab" aria-selected={tab === 'prepare'} className={tab === 'prepare' ? 'active' : ''} onClick={() => setTab('prepare')}><GraduationCap size={14} /> Prepare</button>
+      {viewerId && !job.demo && !job.sample && <button type="button" className="coach-report-link" onClick={() => setReporting(true)}><Flag size={13} /> Report this job</button>}
     </div>
+    {reporting && viewerId && <ReportModal viewerId={viewerId} targetType="job" targetId={job.id} onClose={() => setReporting(false)} />}
     {tab === 'overview' && <div className="coach-body">
       <p className="coach-description">{job.description}</p>
       <JobCards job={job} unlocked />

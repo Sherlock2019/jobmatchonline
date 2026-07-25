@@ -667,7 +667,7 @@ img.avatar-mini { object-fit:cover; }
 .billing-history-table td { padding:10px; border-bottom:1px solid #f0f2ef; }
 .billing-status-pill { display:inline-block; padding:3px 10px; border-radius:999px; font-size:10.5px; font-weight:700; text-transform:capitalize; background:#eef6e4; color:var(--green); }
 .billing-status-pill.status-submitted, .billing-status-pill.status-pending { background:#fff3d6; color:#9a6700; }
-.billing-status-pill.status-rejected, .billing-status-pill.status-refunded, .billing-status-pill.status-reversed { background:#fde2e2; color:#b42318; }
+.billing-status-pill.status-rejected, .billing-status-pill.status-refunded, .billing-status-pill.status-reversed, .billing-status-pill.status-suspended { background:#fde2e2; color:#b42318; }
 .billing-empty { border:1px dashed var(--line); border-radius:16px; padding:60px 20px; text-align:center; color:var(--muted); }
 .billing-empty p { margin:0 0 16px; }
 @media(max-width:860px){ .billing-grid { grid-template-columns:1fr; } }
@@ -679,6 +679,13 @@ img.avatar-mini { object-fit:cover; }
 .admin-tabs { display:flex; gap:6px; }
 .admin-tabs button { border:1px solid var(--line); background:#fff; border-radius:999px; padding:7px 16px; font:700 12.5px 'Manrope'; cursor:pointer; color:var(--muted); }
 .admin-tabs button.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+.admin-users-filters { display:flex; gap:12px; align-items:center; margin-bottom:18px; }
+.admin-users-filters select { max-width:180px; }
+.admin-users-grid { display:grid; grid-template-columns:1fr 320px; gap:20px; align-items:start; }
+.admin-table tr.selected-row { background:#f7f8f5; }
+.admin-user-detail { border:1px solid var(--line); border-radius:16px; padding:20px; background:#fff; position:sticky; top:20px; }
+.admin-user-detail h3 { margin:0 0 4px; }
+.admin-user-detail .admin-stat-row { margin:14px 0; }
 .admin-stat-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; margin-bottom:28px; }
 .admin-stat { border:1px solid var(--line); border-radius:14px; padding:16px; background:#fff; text-align:center; }
 .admin-stat strong { display:block; font:800 24px 'Manrope'; }
@@ -1358,9 +1365,11 @@ img.avatar-mini { object-fit:cover; }
 .coach-head p { margin:0; color:var(--muted); font-size:11px; display:flex; align-items:center; gap:4px; }
 .coach-head.compact { padding-right:40px; }
 .coach-avatar { width:52px; height:52px; border-radius:16px; object-fit:cover; flex:none; }
-.coach-tabs { display:flex; gap:7px; margin:18px 0 16px; border-bottom:1px solid var(--line); }
+.coach-tabs { display:flex; align-items:center; gap:7px; margin:18px 0 16px; border-bottom:1px solid var(--line); }
 .coach-tabs button { display:inline-flex; align-items:center; gap:6px; border:0; background:none; padding:9px 13px; font-size:12px; font-weight:700; color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-1px; }
 .coach-tabs button.active { color:var(--green); border-bottom-color:var(--green); }
+.coach-tabs .coach-report-link { margin-left:auto; color:#b42318; opacity:.75; }
+.coach-tabs .coach-report-link:hover { opacity:1; }
 .coach-body { display:flex; flex-direction:column; gap:13px; }
 .modal-hint { margin:-4px 0 2px; color:var(--muted); font-size:12.5px; line-height:1.5; }
 .coach-description { margin:0; color:#5d6962; font-size:13px; line-height:1.6; }
