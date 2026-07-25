@@ -129,9 +129,10 @@ button { cursor:pointer; }
 .trust-copy button { margin-top:24px; }
 .gauge-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px 10px; }
 .gauge-tile { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:17px; padding:18px 12px; display:flex; flex-direction:column; align-items:center; text-align:center; }
-.gauge-ring { width:88px; height:88px; border-radius:50%; display:grid; place-items:center; margin-bottom:12px; }
-.gauge-inner { width:70px; height:70px; border-radius:50%; background:#1c1e24; display:flex; align-items:center; justify-content:center; }
-.gauge-inner strong { font:800 14px 'Manrope'; letter-spacing:-.02em; }
+.gauge-ring { width:92px; height:92px; border-radius:50%; display:grid; place-items:center; margin-bottom:12px; }
+.gauge-ring-classic { width:70px; height:70px; border-radius:50%; display:grid; place-items:center; }
+.gauge-inner { width:52px; height:52px; border-radius:50%; background:#1c1e24; display:flex; align-items:center; justify-content:center; }
+.gauge-inner strong { font:800 12px 'Manrope'; letter-spacing:-.02em; }
 .gauge-inner strong.gauge-new { color:#34C759; }
 .gauge-tile span { color:#c7cbd6; font-size:11px; line-height:1.35; }
 .gauge-tile em { display:block; font-style:normal; color:#FF3B30; font-size:10px; font-weight:700; margin-top:6px; }
@@ -145,11 +146,13 @@ button { cursor:pointer; }
 .trust-pipeline .pipeline-bar-track.classic i { background:rgba(255,255,255,.28); }
 .trust-pipeline .pipeline-legend { border-top-color:rgba(255,255,255,.12); color:#9aa1b2; }
 .trust-pipeline .pipeline-row { grid-template-columns:190px 1fr 1fr auto; }
+.trust-pipeline .pipeline-steps { padding-left:206px; }
+.trust-pipeline .pipeline-steps-col span { color:#9aa1b2; }
+.trust-pipeline .pipeline-steps-col ol { color:#e7e9ee; }
 .pipeline-popularity { display:flex; align-items:flex-start; gap:12px; margin-top:16px; padding-top:16px; border-top:1px solid rgba(255,255,255,.12); color:#FFD60A; }
 .pipeline-popularity strong { display:block; color:#fff; font-size:13px; font-weight:800; }
 .pipeline-popularity span { display:block; color:#9aa1b2; font-size:11.5px; font-weight:400; margin-top:2px; max-width:520px; }
-@media(max-width:900px){ .trust-pipeline .pipeline-row { grid-template-columns:1fr; gap:6px; } .trust-pipeline .pipeline-delta { justify-self:start; } }
-@media(max-width:700px){ .metrics { grid-template-columns:repeat(2,1fr); } .metrics small { grid-column:span 2; } }
+@media(max-width:900px){ .trust-pipeline .pipeline-row { grid-template-columns:1fr; gap:6px; } .trust-pipeline .pipeline-delta { justify-self:start; } .trust-pipeline .pipeline-steps { padding-left:0; } }
 .landing footer { max-width:1200px; height:120px; margin:auto; display:flex; align-items:center; gap:35px; color:var(--muted); }
 .landing footer small { margin-left:auto; }
 
@@ -912,7 +915,13 @@ img.avatar-mini { object-fit:cover; }
 .pipeline-legend i { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:6px; vertical-align:middle; }
 .pipeline-legend .classic { background:#b9c0cc; }
 .pipeline-legend .jobsmatch { background:linear-gradient(135deg,#fd267a,#ff6036); }
-@media(max-width:700px){ .pipeline-row { grid-template-columns:1fr; gap:6px; } .pipeline-delta { justify-self:start; } }
+.pipeline-steps { display:grid; grid-template-columns:1fr 1fr; gap:22px; margin:-4px 0 4px; padding-left:176px; }
+.pipeline-steps-col span { display:block; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:6px; }
+.pipeline-steps-col ol { margin:0; padding-left:18px; display:flex; flex-direction:column; gap:3px; font-size:11.5px; color:var(--ink); }
+.pipeline-steps-col.new span { color:var(--green); }
+.pipeline-steps-col.new li.is-new { color:var(--green); font-weight:700; display:flex; align-items:center; gap:6px; }
+.new-badge { background:var(--green); color:#fff; font-size:8px; font-weight:800; letter-spacing:.04em; padding:1px 6px; border-radius:999px; }
+@media(max-width:700px){ .pipeline-row { grid-template-columns:1fr; gap:6px; } .pipeline-delta { justify-self:start; } .pipeline-steps { grid-template-columns:1fr; padding-left:0; gap:14px; } }
 .bar-chart { height:230px; padding-top:25px; display:flex; align-items:flex-end; gap:10px; border-bottom:1px solid var(--line); }
 .bar-chart>div { flex:1; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; }
 .bar-chart i { width:100%; max-width:22px; background:linear-gradient(#94c970,var(--green)); border-radius:5px 5px 0 0; opacity:.88; }

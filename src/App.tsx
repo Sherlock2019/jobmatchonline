@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Fragment, Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { PhoneMockup } from './components/PhoneMockup';
 import { DemoBadge } from './components/DemoBadge';
 import { InviteFriendModal } from './components/InviteFriendModal';
@@ -102,7 +102,11 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const openRegister = () => setAuthModal('register');
   const complete = (user: SessionUser) => { setAuthModal(null); onLogin(user); };
   const trustPipeline = [
-    { label: 'Steps to hire', classic: 8, jobsmatch: 3, unit: ' steps', color: '#FF3B30' },
+    {
+      label: 'Steps to hire', classic: 8, jobsmatch: 4, unit: ' steps', color: '#FF3B30',
+      classicSteps: ['Search & apply', 'Resume screening', 'Recruiter phone screen', 'Technical/skills test', 'First interview', 'Panel interview', 'Reference checks', 'Offer & hire'],
+      jobsmatchSteps: ['Mutual match', 'Qualified conversation', 'Feedback exchange', 'Interview & hire'],
+    },
     { label: 'Time to hire', classic: 32, jobsmatch: 9, unit: ' days', color: '#FF9500' },
     { label: 'Match-to-interview rate', classic: 18, jobsmatch: 61, unit: '%', color: '#34C759' },
     { label: 'Feedback ratio', classic: 22, jobsmatch: 89, unit: '%', color: '#32ADE6' },
@@ -151,14 +155,14 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     <JourneyPipeline />
     <section className="value-section" id="how"><div className="section-heading centered"><span className="eyebrow"><Sparkles size={14} /> A better signal</span><h2>Hiring works better when<br />both sides choose.</h2></div><div className="value-grid"><Feature icon={BarChart3} title="Fit, explained" text="Go beyond keywords with transparent skill, experience, and preference signals." /><Feature icon={Handshake} title="Intent, confirmed" text="A conversation opens only after both sides express interest. No cold outreach." /><Feature icon={MapIcon} title="Geolocation of Opportunities" text="Choose a city and private distance range, then meet for coffee only when both sides agree." /><Feature icon={ShieldCheck} title="People, respected" text="Salary and work style are clear up front. Candidate controls stay at the center." /></div></section>
     <section className="trust-section" id="trust"><div className="trust-copy"><span className="section-kicker light">Better Results</span><h2>More, better, faster hiring — with human mutual job matching.</h2><p>Every recommendation carries its reason. Every connection starts with consent. Every candidate gets control over what employers can see.</p><button className="white-button" onClick={openLogin}>Open recruiter workspace <ArrowRight size={17} /></button></div><div className="gauge-grid">
-      <Gauge pct={72} value="9 days" classicValue="32 days" label="Time to hire" />
-      <Gauge pct={76} value="11 days" classicValue="45 days" label="Time to find a role" />
-      <Gauge pct={46} value="46%" classicValue="18%" label="Match-to-hire conversion" />
-      <Gauge pct={94} value="94%" classicValue="58%" label="Candidate satisfaction rate" />
-      <Gauge pct={89} value="89%" classicValue="34%" label="Recruiter satisfaction rate" />
-      <Gauge pct={92} value="92%" classicValue="41%" label="Would recommend JobsMatchNow" />
+      <Gauge pct={72} classicPct={20} value="9 days" classicValue="32 days" label="Time to hire" />
+      <Gauge pct={76} classicPct={18} value="11 days" classicValue="45 days" label="Time to find a role" />
+      <Gauge pct={46} classicPct={18} value="46%" classicValue="18%" label="Match-to-hire conversion" />
+      <Gauge pct={94} classicPct={58} value="94%" classicValue="58%" label="Candidate satisfaction rate" />
+      <Gauge pct={89} classicPct={34} value="89%" classicValue="34%" label="Recruiter satisfaction rate" />
+      <Gauge pct={92} classicPct={41} value="92%" classicValue="41%" label="Would recommend JobsMatchNow" />
       <small>Illustrative product targets for the demo experience.</small>
-    </div><div className="trust-pipeline"><h3>Classic Hiring vs. New JobsMatchNow Process</h3><p>How the hiring pipeline itself compares, step for step.</p><div className="pipeline-rows">{trustPipeline.map((row) => { const max = Math.max(row.classic, row.jobsmatch) || 1; const deltaPct = row.classic ? Math.round(Math.abs(row.jobsmatch - row.classic) / row.classic * 100) : 0; return <div className="pipeline-row" key={row.label}><span className="pipeline-row-label">{row.label}</span><div className="pipeline-bar-track classic"><i style={{ width: `${(row.classic / max) * 100}%` }} /><b>{row.classic}{row.unit}</b></div><div className="pipeline-bar-track jobsmatch"><i style={{ width: `${(row.jobsmatch / max) * 100}%`, background: row.color }} /><b>{row.jobsmatch}{row.unit}</b></div><span className="pipeline-delta" style={{ color: row.color }}>{deltaPct}% better</span></div>; })}<div className="pipeline-legend"><span><i className="classic" /> Classic hiring</span><span><i className="jobsmatch" /> JobsMatchNow</span></div><div className="pipeline-popularity"><Star size={16} fill="currentColor" /><div><strong>4.8/5 popularity</strong><span>Average candidate rating from verified reviews, powered by our built-in recommendation &amp; review feature.</span></div></div></div></div></section>
+    </div><div className="trust-pipeline"><h3>Classic Hiring vs. New JobsMatchNow Process</h3><p>How the hiring pipeline itself compares, step for step.</p><div className="pipeline-rows">{trustPipeline.map((row) => { const max = Math.max(row.classic, row.jobsmatch) || 1; const deltaPct = row.classic ? Math.round(Math.abs(row.jobsmatch - row.classic) / row.classic * 100) : 0; return <Fragment key={row.label}><div className="pipeline-row"><span className="pipeline-row-label">{row.label}</span><div className="pipeline-bar-track classic"><i style={{ width: `${(row.classic / max) * 100}%` }} /><b>{row.classic}{row.unit}</b></div><div className="pipeline-bar-track jobsmatch"><i style={{ width: `${(row.jobsmatch / max) * 100}%`, background: row.color }} /><b>{row.jobsmatch}{row.unit}</b></div><span className="pipeline-delta" style={{ color: row.color }}>{deltaPct}% better</span></div>{row.classicSteps && <div className="pipeline-steps"><div className="pipeline-steps-col"><span>Classic hiring — first contact to hire</span><ol>{row.classicSteps.map((step) => <li key={step}>{step}</li>)}</ol></div><div className="pipeline-steps-col new"><span>JobsMatchNow — first contact to hire</span><ol>{row.jobsmatchSteps!.map((step) => <li key={step} className={step === 'Feedback exchange' ? 'is-new' : undefined}>{step}{step === 'Feedback exchange' && <b className="new-badge">NEW</b>}</li>)}</ol></div></div>}</Fragment>; })}<div className="pipeline-legend"><span><i className="classic" /> Classic hiring</span><span><i className="jobsmatch" /> JobsMatchNow</span></div><div className="pipeline-popularity"><Star size={16} fill="currentColor" /><div><strong>4.8/5 popularity</strong><span>Average candidate rating from verified reviews, powered by our built-in recommendation &amp; review feature.</span></div></div></div></div></section>
     <LatestShowcase onRegister={openRegister} onLogin={openLogin} />
     <FeedbackSection />
     <footer><Brand /><span>Perfect matches should feel human.</span><small>© 2026 JobsMatchNow</small></footer>
@@ -170,11 +174,14 @@ function Feature({ icon: Icon, title, text }: { icon: typeof Target; title: stri
   return <article><div className="feature-icon"><Icon size={32} /></div><h3>{title}</h3><p>{text}</p></article>;
 }
 
-function Gauge({ pct, value, classicValue, label }: { pct: number; value: string; classicValue: string; label: string }) {
+function Gauge({ pct, classicPct, value, classicValue, label }: { pct: number; classicPct: number; value: string; classicValue: string; label: string }) {
   const deg = Math.max(0, Math.min(100, pct)) * 3.6;
+  const classicDeg = Math.max(0, Math.min(100, classicPct)) * 3.6;
   return <div className="gauge-tile">
     <div className="gauge-ring" style={{ background: `conic-gradient(#34C759 ${deg}deg, rgba(255,255,255,.12) ${deg}deg 360deg)` }}>
-      <div className="gauge-inner"><strong className="gauge-new">{value}</strong></div>
+      <div className="gauge-ring-classic" style={{ background: `conic-gradient(#FF2D55 ${classicDeg}deg, rgba(255,255,255,.1) ${classicDeg}deg 360deg)` }}>
+        <div className="gauge-inner"><strong className="gauge-new">{value}</strong></div>
+      </div>
     </div>
     <span>{label}</span>
     <em className="gauge-classic">Classic: {classicValue}</em>
