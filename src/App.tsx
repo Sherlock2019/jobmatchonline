@@ -18,6 +18,7 @@ import { RecruiterProfilePage } from './components/profile/RecruiterProfilePage'
 import { CandidateCards } from './components/profile/CandidateCards';
 import { JobCards } from './components/jobs/JobCards';
 import { CandidateHome, CandidateProfileModal, DashboardTitle, EmptyRow, RecruiterHome } from './components/home/MatchHome';
+import { SelectedCandidates } from './components/home/SelectedCandidates';
 import { NotesBox } from './components/NotesBox';
 // Lazy-loaded: pulls in pdf.js only when a resume is actually opened.
 const ResumeViewerModal = lazy(() => import('./components/ResumeViewerModal').then((m) => ({ default: m.ResumeViewerModal })));
@@ -27,6 +28,7 @@ import { CompanyLogoMark, JobHeaderBadge } from './components/jobs/JobHeaderBadg
 import { GapCoach, JobDetailModal, MatchDetailModal, ScreeningModal } from './components/coach/CoachModals';
 import { CandidateStarters, RecruiterStarters } from './components/messages/ConversationStarters';
 import { ScheduleCallModal } from './components/messages/ScheduleCallModal';
+import { FeedbackEmailModal, RecommendationEmailModal } from './components/messages/FeedbackModals';
 import { googleCalendarUrl, icsDataUrl, outlookCalendarUrl } from './lib/calendar';
 import type { ScreeningAnswer } from './types';
 import { comparisonRows } from './content/landingContent';
@@ -42,17 +44,18 @@ const candidateNav: NavItem[] = [
   { label: 'Jobs that like you', short: 'Likes You', icon: Target, anchor: 'td-chasing' },
   { label: 'Jobs You Should Consider', short: 'Swipe', icon: Sparkles, view: 'discover' },
   { label: 'Saved', icon: BookmarkIcon, view: 'saved' },
-  { label: 'Conversations', short: 'Chat', icon: MessageCircle, anchor: 'td-conversations' },
+  { label: 'Conversations', short: 'Chat', icon: MessageCircle, view: 'messages' },
   { label: 'Meetings', icon: Calendar, view: 'meetings' },
   { label: 'Reports', icon: BarChart3, view: 'analytics' },
 ];
 const employerNav: NavItem[] = [
   { label: 'Home', icon: Compass, view: 'home' },
   { label: 'My Jobs', icon: BriefcaseBusiness, anchor: 'td-roles' },
-  { label: 'Candidates', icon: Users, view: 'discover' },
+  { label: 'Selected Candidates', short: 'Candidates', icon: Users, view: 'selected' },
   { label: 'Saved', icon: BookmarkIcon, view: 'saved' },
-  { label: 'Conversations', short: 'Chat', icon: MessageCircle, anchor: 'td-conversations' },
+  { label: 'Conversations', short: 'Chat', icon: MessageCircle, view: 'messages' },
   { label: 'Meetings', icon: Calendar, view: 'meetings' },
+  { label: 'Coffee Invitations', short: 'Coffee', icon: Coffee, view: 'coffee' },
   { label: 'Reports', icon: BarChart3, view: 'analytics' },
 ];
 
@@ -296,7 +299,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   return <div className={`app-shell role-${role}`}>
     <aside className={mobileNav ? 'sidebar open' : 'sidebar'}><div className="sidebar-head"><Brand /><button className="mobile-close" onClick={() => setMobileNav(false)} aria-label="Close menu"><X /></button></div>
       <div className="workspace-switch"><span>Profile</span><button onClick={() => { setView('profile'); setMobileNav(false); }}>{data?.viewer.photo ? <img className="avatar-mini" src={data.viewer.photo} alt="" /> : <div className="avatar-mini">{initials}</div>}<div><strong>{data?.viewer.name || session.name}</strong><small>{role === 'candidate' ? 'Candidate' : 'Recruiter'}</small></div><ArrowRight size={15} /></button></div>
-      <nav className="sidebar-nav">{nav.map((item) => { const Icon = item.icon; return <button key={item.label} className={navActive(item) ? 'active' : ''} onClick={() => gotoNav(item)}><Icon size={19} /><span>{item.label}</span>{item.anchor === 'td-conversations' && notifications.length > 0 && <em>{Math.min(notifications.length, 9)}</em>}</button>; })}</nav>
+      <nav className="sidebar-nav">{nav.map((item) => { const Icon = item.icon; return <button key={item.label} className={navActive(item) ? 'active' : ''} onClick={() => gotoNav(item)}><Icon size={19} /><span>{item.label}</span>{item.view === 'messages' && notifications.length > 0 && <em>{Math.min(notifications.length, 9)}</em>}</button>; })}</nav>
       <button className="sidebar-invite-btn" onClick={() => setInviteOpen(true)}><Gift size={17} /> Invite a Friend to Join Us — Bonus!</button>
       <div className="sidebar-bottom"><button onClick={() => { window.location.href = 'mailto:support@jobsmatchnow.com'; }}><CircleHelp size={18} />Help center</button><button onClick={() => setSettingsOpen(true)}><Settings size={18} />Settings</button><button className="logout-button" onClick={onExit}><LogOut size={18} />Log out</button></div>
     </aside>
@@ -335,6 +338,8 @@ function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profil
   if (view === 'analytics') return <Analytics role={role} data={data} />;
   if (view === 'jobs') return <Jobs data={data} reload={reload} onAddJobs={onAddJobs} manualJobRequest={manualJobRequest} onOpenMessages={onOpenMessages} editJobId={editJobId} />;
   if (view === 'matches') return <Matches data={data} navigate={navigate} onOpenMessages={onOpenMessages} />;
+  if (view === 'selected') return <SelectedCandidates data={data} setData={setData} onOpenMessages={onOpenMessages} />;
+  if (view === 'coffee') return <CoffeeInvitations data={data} onOpenMessages={onOpenMessages} />;
   if (role === 'candidate') return <CandidateProfilePage
     viewer={data.viewer} jobs={data.jobs} onEdit={onEditProfile} initialCard={profileCard} onCardChange={onProfileCardChange}
     onDeleteProfile={data.viewer.activeVariantId ? async () => { await api.deleteProfileVariant(data.viewer.activeVariantId!, data.viewer.id); reload(); navigate('home'); } : undefined}
@@ -742,6 +747,9 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
   useEffect(() => { setShowStarters(thread.length === 0); }, [match?.id]);
   const [scheduling, setScheduling] = useState(false);
   const [viewingProfile, setViewingProfile] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [recommendOpen, setRecommendOpen] = useState(false);
+  const [actionSent, setActionSent] = useState('');
   const [schedulingCoffee, setSchedulingCoffee] = useState(false);
   // One click: propose tomorrow at the next half-hour, persist it (shows in
   // this thread + Meetings for both sides), and open a pre-filled Google
@@ -798,10 +806,15 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
           </div>;
         })}
       </div>
+      {actionSent && <p className="action-sent-note"><Check size={13} /> {actionSent}</p>}
       <div className="coffee-quick-row">
         <button type="button" className="coffee-quick-btn" onClick={() => void quickCoffee()} disabled={schedulingCoffee}>
           <Coffee size={15} /> {schedulingCoffee ? 'Creating invite…' : "Let's have a cup of Coffee"}
         </button>
+        {role === 'employer' && <>
+          <button type="button" className="coffee-quick-btn feedback-quick-btn" onClick={() => setFeedbackOpen(true)}><Mail size={15} /> Send Feedback</button>
+          <button type="button" className="coffee-quick-btn recommend-quick-btn" onClick={() => setRecommendOpen(true)}><Send size={15} /> Recommendation Email</button>
+        </>}
       </div>
       {showStarters && (role === 'employer'
         ? <RecruiterStarters candidateName={match.candidate?.name || 'there'} archetype={match.candidate?.aboutMeArchetype} onPick={setText} />
@@ -810,6 +823,8 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
       {scheduling && <ScheduleCallModal match={match} viewer={data.viewer} onClose={() => setScheduling(false)}
         onScheduled={(call) => { setData({ ...data, calls: [...data.calls, call] }); setScheduling(false); }}
         onShareLink={async (shareText) => { const message = await api.message({ matchId: match.id, senderId: data.viewer.id, text: shareText }); setData({ ...data, messages: [...data.messages, message] }); setScheduling(false); }} />}
+      {feedbackOpen && <FeedbackEmailModal match={match} onClose={() => setFeedbackOpen(false)} onSent={() => { setFeedbackOpen(false); setActionSent('Feedback email sent.'); window.setTimeout(() => setActionSent(''), 4000); }} />}
+      {recommendOpen && <RecommendationEmailModal match={match} onClose={() => setRecommendOpen(false)} onSent={() => { setRecommendOpen(false); setActionSent('Recommendation email sent.'); window.setTimeout(() => setActionSent(''), 4000); }} />}
     </> : <EmptyState title="No conversations yet" />}</section>
     <aside className="context-panel">
       {role === 'candidate' && match?.job ? <CompanyLogoMark job={match.job} /> : <img src={match?.candidate?.photo} />}
@@ -894,6 +909,38 @@ function Meetings({ role, data, setData, onOpenMessages }: { role: Role; data: B
     {schedulingFor && <ScheduleCallModal match={schedulingFor} viewer={data.viewer} onClose={() => setSchedulingFor(null)}
       onScheduled={(call) => { setData({ ...data, calls: [...data.calls, call] }); setSchedulingFor(null); }}
       onShareLink={async (shareText) => { const message = await api.message({ matchId: schedulingFor.id, senderId: data.viewer.id, text: shareText }); setData({ ...data, messages: [...data.messages, message] }); setSchedulingFor(null); }} />}
+  </div>;
+}
+
+/** Every real coffee/one-on-one meeting a candidate has proactively asked
+ * for — filtered by call.createdBy so a recruiter-proposed call (handled on
+ * the Meetings page) doesn't get mixed in with an invite the candidate
+ * actually initiated. */
+function CoffeeInvitations({ data, onOpenMessages }: { data: Bootstrap; onOpenMessages: (matchId: string) => void }) {
+  const invites = data.calls
+    .filter((call) => data.matches.some((match) => match.id === call.matchId && match.employerId === data.viewer.id && match.candidateId === call.createdBy))
+    .sort((a, b) => b.startAt - a.startAt);
+  return <div className="page">
+    <div className="page-title"><div><span className="overline">Real, in-person</span><h1>Coffee Invitations</h1><p>Every candidate who proactively invited you to a one-on-one coffee chat or call.</p></div></div>
+    {invites.length
+      ? <div className="meetings-list">{invites.map((call) => {
+        const match = data.matches.find((entry) => entry.id === call.matchId);
+        const event = { title: call.title, description: call.notes, startAt: call.startAt, durationMinutes: call.durationMinutes };
+        const upcoming = call.startAt >= Date.now();
+        return <div className="schedule-card" key={call.id}>
+          {match?.candidate.photo ? <img className="meeting-photo" src={match.candidate.photo} alt="" /> : <div><Coffee size={16} /></div>}
+          <section><span>{match?.candidate.name}{match?.job.title ? ` · ${match.job.title}` : ''}</span><strong>{call.title}</strong>
+            <p>{new Date(call.startAt).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · {call.durationMinutes} min</p>
+          </section>
+          {upcoming && <div className="schedule-card-links">
+            <a href={googleCalendarUrl(event)} target="_blank" rel="noreferrer" title="Add to Google Calendar"><ExternalLink size={14} /> Google</a>
+            <a href={outlookCalendarUrl(event)} target="_blank" rel="noreferrer" title="Add to Outlook"><ExternalLink size={14} /> Outlook</a>
+            <a href={icsDataUrl(event)} download={`${call.title}.ics`} title="Download .ics"><Download size={14} /> .ics</a>
+          </div>}
+          <button className="meeting-btn" onClick={() => onOpenMessages(call.matchId)}>Open chat</button>
+        </div>;
+      })}</div>
+      : <EmptyRow>No candidate has invited you to a coffee chat yet.</EmptyRow>}
   </div>;
 }
 

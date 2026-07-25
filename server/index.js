@@ -1456,6 +1456,31 @@ app.patch('/api/matches/:id', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+app.patch('/api/matches/:id/pipeline', async (req, res, next) => {
+  try {
+    if (!Array.isArray(req.body.pipeline)) { const error = new Error('pipeline must be an array'); error.status = 400; throw error; }
+    const pipeline = req.body.pipeline.slice(0, 20).map((step) => ({
+      id: String(step.id || '').slice(0, 60),
+      name: String(step.name || '').slice(0, 120),
+      owner: String(step.owner || '').slice(0, 80),
+      hidden: step.hidden === true,
+    })).filter((step) => step.id && step.name);
+    const currentStepId = req.body.currentStepId ? String(req.body.currentStepId).slice(0, 60) : undefined;
+    const session = authSession(req);
+    if (!session && !demoAuth) { const error = new Error('Sign in to continue'); error.status = 401; throw error; }
+    const match = await store.transaction((db) => {
+      const item = db.matches.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Match not found'); error.status = 404; throw error; }
+      if (session && item.candidateId !== session.sub && item.employerId !== session.sub) { const error = new Error('Only the matched parties can update this match'); error.status = 403; throw error; }
+      assertDemoActor(req, db, item.employerId);
+      item.pipeline = pipeline;
+      if (currentStepId) item.currentStepId = currentStepId;
+      return item;
+    });
+    res.json(match);
+  } catch (error) { next(error); }
+});
+
 app.post('/api/messages', async (req, res, next) => {
   try {
     const matchId = reqString(req.body, 'matchId', { max: 128 });
@@ -1630,6 +1655,69 @@ app.post('/api/recommendation-requests', async (req, res, next) => {
       }).catch(() => undefined);
     }
     res.status(201).json({ request, mailer: mailerConfigured() });
+  } catch (error) { next(error); }
+});
+
+// A recruiter's personal note to a candidate who didn't move forward for a
+// specific role -- sent to the candidate's own email, not stored as a chat
+// message, so it reads as a considered decision rather than an in-app ping.
+app.post('/api/matches/:id/feedback-email', async (req, res, next) => {
+  try {
+    const message = reqString(req.body, 'message', { min: 3, max: 4000 });
+    const session = authSession(req);
+    if (!session && !demoAuth) { const error = new Error('Sign in to continue'); error.status = 401; throw error; }
+    const { candidate, employer, job } = await store.transaction((db) => {
+      const item = db.matches.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Match not found'); error.status = 404; throw error; }
+      if (session && item.employerId !== session.sub) { const error = new Error('Only the hiring recruiter can send this feedback'); error.status = 403; throw error; }
+      assertDemoActor(req, db, item.employerId);
+      return {
+        candidate: db.users.find((user) => user.id === item.candidateId),
+        employer: db.users.find((user) => user.id === item.employerId),
+        job: db.jobs.find((entry) => entry.id === item.jobId),
+      };
+    });
+    if (!candidate?.email) throw new ValidationError('message', 'This candidate has no email on file');
+    const sent = mailerConfigured();
+    if (sent) {
+      await sendMail({
+        to: candidate.email,
+        subject: `Feedback on your application${job ? ` for ${job.title}` : ''}`,
+        text: `Hi ${candidate.name || ''},\n\n${message}\n\n— ${employer?.name || 'The hiring team'}${employer?.company ? ` at ${employer.company}` : ''}`,
+      }).catch(() => undefined);
+    }
+    res.json({ ok: true, mailer: sent });
+  } catch (error) { next(error); }
+});
+
+// A recruiter passing a candidate along to a peer recruiter for a different
+// role -- an outbound referral email, not a JobsMatchNow account action.
+app.post('/api/matches/:id/recommend-email', async (req, res, next) => {
+  try {
+    const recruiterEmail = reqString(req.body, 'recruiterEmail', { max: 300 });
+    if (!/.+@.+\..+/.test(recruiterEmail)) throw new ValidationError('recruiterEmail', 'Enter a valid email address');
+    const message = optString(req.body, 'message', { max: 2000 }) || '';
+    const session = authSession(req);
+    if (!session && !demoAuth) { const error = new Error('Sign in to continue'); error.status = 401; throw error; }
+    const { candidate, employer } = await store.transaction((db) => {
+      const item = db.matches.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Match not found'); error.status = 404; throw error; }
+      if (session && item.employerId !== session.sub) { const error = new Error('Only the hiring recruiter can send this recommendation'); error.status = 403; throw error; }
+      assertDemoActor(req, db, item.employerId);
+      return {
+        candidate: db.users.find((user) => user.id === item.candidateId),
+        employer: db.users.find((user) => user.id === item.employerId),
+      };
+    });
+    const sent = mailerConfigured();
+    if (sent) {
+      await sendMail({
+        to: recruiterEmail,
+        subject: `${employer?.name || 'A colleague'} recommends ${candidate?.name || 'a candidate'} for your open roles`,
+        text: `Hi,\n\n${employer?.name || 'A colleague'}${employer?.company ? ` at ${employer.company}` : ''} thinks ${candidate?.name || 'this candidate'} could be a great fit for one of your open roles.\n\n${message ? `${message}\n\n` : ''}${candidate?.title ? `Current role: ${candidate.title}\n` : ''}\n— Sent via JobsMatchNow`,
+      }).catch(() => undefined);
+    }
+    res.json({ ok: true, mailer: sent });
   } catch (error) { next(error); }
 });
 
