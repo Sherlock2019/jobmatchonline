@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Check, Eye, Loader2, Lock, Pencil, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
 import type { Job, Person } from '../../types';
 import { CandidateCards } from './CandidateCards';
+import { DemoBadge } from '../DemoBadge';
 
 const EDIT_STEPS = [0, 1, 2, 3, 5];
 
@@ -41,6 +42,7 @@ export function CandidateProfilePage({ viewer, jobs, onEdit, initialCard = 0, on
 
     <div className="rp-visibility">
       <strong>Recruiter visibility</strong><span><i className="public" /> Public before match</span><span><i className="after" /> Visible after mutual match</span><span><i className="private" /> Private</span>
+      {(viewer.demo || viewer.sample) && <DemoBadge label={viewer.sample ? 'Starter sample profile — auto-generated for you' : 'Demo profile — not a real candidate'} />}
       <label>Preview against<select value={jobId} onChange={(event) => setJobId(event.target.value)}><option value="">General recruiter view</option>{jobs.slice(0, 12).map((job) => <option key={job.id} value={job.id}>{job.title} · {job.company}</option>)}</select></label>
     </div>
 

@@ -6,6 +6,7 @@ import type { InterviewKit, InterviewPrep, Job, JobMatch, Note, Person, Screenin
 import { JobCards } from '../jobs/JobCards';
 import { JobHeaderBadge } from '../jobs/JobHeaderBadge';
 import { NotesBox } from '../NotesBox';
+import { DemoBadge } from '../DemoBadge';
 
 function CoachModalShell({ onClose, children, wide }: { onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return <motion.div className="modal-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
@@ -28,6 +29,7 @@ export function JobDetailModal({ job, onClose, viewerId, notes, onNoteSaved }: {
   }, [tab, prep, job.id]);
 
   return <CoachModalShell onClose={onClose} wide>
+    {(job.demo || job.sample) && <DemoBadge label={job.sample ? 'Starter sample job — auto-generated for you' : 'Demo job offer — not a real opening'} />}
     <JobHeaderBadge job={job} className="coach-job-header" />
     <div className="coach-tabs" role="tablist">
       <button role="tab" aria-selected={tab === 'overview'} className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><BriefcaseBusiness size={14} /> Overview</button>

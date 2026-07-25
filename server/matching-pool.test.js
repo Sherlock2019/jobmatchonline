@@ -41,3 +41,23 @@ test('demo matching is isolated and cross-pool swipe targets are rejected', () =
   assert.equal(targetIsInMatchingPool(db, db.users[0], 'job', 'demo-job'), false);
   assert.equal(targetIsInMatchingPool(db, db.users[2], 'candidate', 'real-candidate'), false);
 });
+
+test('sample candidates/jobs bridge into a real viewer pool, ordinary demo data still does not', () => {
+  const sampleDb = {
+    users: [...db.users, { id: 'sample-candidate', role: 'candidate', sample: true }],
+    jobs: [...db.jobs, { id: 'sample-job', employerId: 'demo-employer', sample: true }],
+    swipes: [
+      ...db.swipes,
+      { id: 'sample-like-swipe', actorId: 'sample-candidate', targetType: 'job', targetId: 'real-job' },
+      { id: 'sample-employer-like', actorId: 'demo-employer', targetType: 'candidate', targetId: 'real-candidate' },
+    ],
+    matches: db.matches,
+  };
+  const realPool = matchingPool(sampleDb, sampleDb.users[0]);
+  assert.ok(realPool.userIds.has('sample-candidate'), 'sample candidate is visible to a real viewer');
+  assert.ok(realPool.jobIds.has('sample-job'), 'sample job is visible to a real viewer');
+  assert.ok(realPool.userIds.has('demo-employer'), 'a sample job\'s employer is reachable in a real viewer pool');
+  assert.ok(realPool.swipes.some((s) => s.id === 'sample-like-swipe'), 'the sample candidate\'s swipe on a real job is visible');
+  assert.ok(realPool.swipes.some((s) => s.id === 'sample-employer-like'), 'the sample job\'s employer swipe on a real candidate is visible');
+  assert.ok(!realPool.jobIds.has('demo-job'), 'an ordinary (non-sample) demo job still does not leak into the real pool');
+});

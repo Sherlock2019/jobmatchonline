@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { PhoneMockup } from './components/PhoneMockup';
+import { DemoBadge } from './components/DemoBadge';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
 import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, Download, ExternalLink, Eye, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
@@ -904,6 +905,7 @@ function JobOfferDetail({ job, data, onBack, onEdit, onDelete, deleting, onOpenM
           : <><button className="danger-button small" onClick={() => setConfirming(true)}><Trash2 size={14} /> Delete role</button><button className="primary-button small" onClick={onEdit}>Edit role</button></>}
       </div>
     </div>
+    {(job.demo || job.sample) && <DemoBadge label={job.sample ? 'Starter sample job — auto-generated for you' : 'Demo job offer — not a real opening'} />}
     <JobHeaderBadge job={job} />
     <section className="td-section" id="job-detail-matches">
       <DashboardTitle icon={Check} title="Job Matches" subtitle={`Candidates who mutually matched for ${job.title}.`} />

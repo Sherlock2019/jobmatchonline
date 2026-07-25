@@ -9,6 +9,7 @@ import { JobDetailModal } from '../coach/CoachModals';
 import { CandidateCards } from '../profile/CandidateCards';
 import { CompanyLogoMark, JobHeaderBadge } from '../jobs/JobHeaderBadge';
 import { NotesBox } from '../NotesBox';
+import { DemoBadge } from '../DemoBadge';
 
 type HomeProps = {
   data: Bootstrap;
@@ -130,6 +131,7 @@ export function CandidateProfileModal({ candidate, onClose, onTalk, viewerId, no
   return <div className="mh-modal-scrim" role="presentation" onMouseDown={onClose}>
     <section className="mh-profile-modal" role="dialog" aria-modal="true" aria-label={`Recruiter view of ${candidate.name}`} onMouseDown={(event) => event.stopPropagation()}>
       <header><div><span className="overline">Canonical recruiter profile</span><h2>{candidate.name}</h2></div><button onClick={onClose} aria-label="Close profile"><X /></button></header>
+      {(candidate.demo || candidate.sample) && <DemoBadge label={candidate.sample ? 'Starter sample candidate — auto-generated for you' : 'Demo profile — not a real candidate'} />}
       <CandidateCards person={candidate} match={candidate.match} unlocked={unlocked} />
       {viewerId && notes && onNoteSaved && <NotesBox viewerId={viewerId} targetId={candidate.id} targetType="candidate" notes={notes} onSaved={onNoteSaved} />}
       <footer><button className="secondary-button" onClick={onClose}>Back</button>{onTalk && <button className="primary-button" onClick={onTalk}><Coffee size={16} /> Let’s Talk</button>}</footer>
