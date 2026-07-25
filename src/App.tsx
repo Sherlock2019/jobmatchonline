@@ -106,12 +106,13 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
       label: 'Steps to hire', classic: 8, jobsmatch: 4, unit: ' steps', color: '#FF3B30',
       classicSteps: ['Search & apply', 'Resume screening', 'Recruiter phone screen', 'Technical/skills test', 'First interview', 'Panel interview', 'Reference checks', 'Offer & hire'],
       jobsmatchSteps: ['Mutual match', 'Qualified conversation', 'Feedback exchange', 'Interview & hire'],
+      feature: 'Mutual Matching + Feedback Exchange', note: 'Both sides opt in before a step counts, and a required feedback exchange collapses several screening rounds into one.',
     },
-    { label: 'Time to hire', classic: 32, jobsmatch: 9, unit: ' days', color: '#FF9500' },
-    { label: 'Match-to-interview rate', classic: 18, jobsmatch: 61, unit: '%', color: '#34C759' },
-    { label: 'Feedback ratio', classic: 22, jobsmatch: 89, unit: '%', color: '#32ADE6' },
-    { label: 'Candidate satisfaction', classic: 58, jobsmatch: 96, unit: '%', color: '#AF52DE' },
-    { label: 'Recruiter success rate', classic: 34, jobsmatch: 78, unit: '%', color: '#FF2D55' },
+    { label: 'Time to hire', classic: 32, jobsmatch: 9, unit: ' days', color: '#FF9500', feature: 'Instant Job Import', note: 'Roles go live in minutes and reach genuinely interested candidates immediately, instead of sitting in a weekly review queue.' },
+    { label: 'Match-to-interview rate', classic: 18, jobsmatch: 61, unit: '%', color: '#34C759', feature: 'Explainable Match Score', note: 'Skill, salary, and location fit are scored before either side reaches out, so far more matches turn into real conversations.' },
+    { label: 'Feedback ratio', classic: 22, jobsmatch: 89, unit: '%', color: '#32ADE6', feature: 'Feedback Exchange', note: 'A quick feedback step is now built into every conversation, replacing the silence candidates get from traditional pipelines.' },
+    { label: 'Candidate satisfaction', classic: 58, jobsmatch: 96, unit: '%', color: '#AF52DE', feature: 'Salary Revealed Up Front + Visibility Inspector', note: 'Candidates always know the comp range and can see exactly what recruiters see about them, before ever matching.' },
+    { label: 'Recruiter success rate', classic: 34, jobsmatch: 78, unit: '%', color: '#FF2D55', feature: 'Candidates Worth Your Time + Hiring Insights', note: 'Only genuinely opted-in candidates reach recruiters, backed by real funnel and match-quality data on every role.' },
   ];
   const modals = <AnimatePresence>
     {authModal === 'login' && <LoginModal onClose={() => setAuthModal(null)} onComplete={complete} />}
@@ -162,7 +163,7 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
       <Gauge pct={89} classicPct={34} value="89%" classicValue="34%" label="Recruiter satisfaction rate" />
       <Gauge pct={92} classicPct={41} value="92%" classicValue="41%" label="Would recommend JobsMatchNow" />
       <small>Illustrative product targets for the demo experience.</small>
-    </div><div className="trust-pipeline"><h3>Classic Hiring vs. New JobsMatchNow Process</h3><p>How the hiring pipeline itself compares, step for step.</p><div className="pipeline-rows">{trustPipeline.map((row) => { const max = Math.max(row.classic, row.jobsmatch) || 1; const deltaPct = row.classic ? Math.round(Math.abs(row.jobsmatch - row.classic) / row.classic * 100) : 0; return <Fragment key={row.label}><div className="pipeline-row"><span className="pipeline-row-label">{row.label}</span><div className="pipeline-bar-track classic"><i style={{ width: `${(row.classic / max) * 100}%` }} /><b>{row.classic}{row.unit}</b></div><div className="pipeline-bar-track jobsmatch"><i style={{ width: `${(row.jobsmatch / max) * 100}%`, background: row.color }} /><b>{row.jobsmatch}{row.unit}</b></div><span className="pipeline-delta" style={{ color: row.color }}>{deltaPct}% better</span></div>{row.classicSteps && <div className="pipeline-steps"><div className="pipeline-steps-col"><span>Classic hiring — first contact to hire</span><ol>{row.classicSteps.map((step) => <li key={step}>{step}</li>)}</ol></div><div className="pipeline-steps-col new"><span>JobsMatchNow — first contact to hire</span><ol>{row.jobsmatchSteps!.map((step) => <li key={step} className={step === 'Feedback exchange' ? 'is-new' : undefined}>{step}{step === 'Feedback exchange' && <b className="new-badge">NEW</b>}</li>)}</ol></div></div>}</Fragment>; })}<div className="pipeline-legend"><span><i className="classic" /> Classic hiring</span><span><i className="jobsmatch" /> JobsMatchNow</span></div><div className="pipeline-popularity"><Star size={16} fill="currentColor" /><div><strong>4.8/5 popularity</strong><span>Average candidate rating from verified reviews, powered by our built-in recommendation &amp; review feature.</span></div></div></div></div></section>
+    </div><div className="trust-pipeline"><h3>Classic Hiring vs. New JobsMatchNow Process</h3><p>How the hiring pipeline itself compares, step for step.</p><div className="pipeline-rows">{trustPipeline.map((row) => { const max = Math.max(row.classic, row.jobsmatch) || 1; const deltaPct = row.classic ? Math.round(Math.abs(row.jobsmatch - row.classic) / row.classic * 100) : 0; return <Fragment key={row.label}><div className="pipeline-row"><span className="pipeline-row-label">{row.label}</span><div className="pipeline-bar-track classic"><i style={{ width: `${(row.classic / max) * 100}%` }} /><b>{row.classic}{row.unit}</b></div><div className="pipeline-bar-track jobsmatch"><i style={{ width: `${(row.jobsmatch / max) * 100}%`, background: row.color }} /><b>{row.jobsmatch}{row.unit}</b></div><span className="pipeline-delta" style={{ color: row.color }}>{deltaPct}% better</span></div>{row.classicSteps && <div className="pipeline-steps"><div className="pipeline-steps-col"><span>Classic hiring — first contact to hire</span><ol>{row.classicSteps.map((step) => <li key={step}>{step}</li>)}</ol></div><div className="pipeline-steps-col new"><span>JobsMatchNow — first contact to hire</span><ol>{row.jobsmatchSteps!.map((step) => <li key={step} className={step === 'Feedback exchange' ? 'is-new' : undefined}>{step}{step === 'Feedback exchange' && <b className="new-badge">NEW</b>}</li>)}</ol></div></div>}<p className="pipeline-feature-note">Powered by <b>{row.feature}</b> — {row.note}</p></Fragment>; })}<div className="pipeline-legend"><span><i className="classic" /> Classic hiring</span><span><i className="jobsmatch" /> JobsMatchNow</span></div><div className="pipeline-popularity"><Star size={16} fill="currentColor" /><div><strong>4.8/5 popularity</strong><span>Average candidate rating from verified reviews, powered by our built-in recommendation &amp; review feature.</span></div></div></div></div></section>
     <LatestShowcase onRegister={openRegister} onLogin={openLogin} />
     <FeedbackSection />
     <footer><Brand /><span>Perfect matches should feel human.</span><small>© 2026 JobsMatchNow</small></footer>
@@ -176,12 +177,10 @@ function Feature({ icon: Icon, title, text }: { icon: typeof Target; title: stri
 
 function Gauge({ pct, classicPct, value, classicValue, label }: { pct: number; classicPct: number; value: string; classicValue: string; label: string }) {
   const deg = Math.max(0, Math.min(100, pct)) * 3.6;
-  const classicDeg = Math.max(0, Math.min(100, classicPct)) * 3.6;
+  const classicDeg = Math.min(Math.max(0, Math.min(100, classicPct)) * 3.6, deg);
   return <div className="gauge-tile">
-    <div className="gauge-ring" style={{ background: `conic-gradient(#34C759 ${deg}deg, rgba(255,255,255,.12) ${deg}deg 360deg)` }}>
-      <div className="gauge-ring-classic" style={{ background: `conic-gradient(#FF2D55 ${classicDeg}deg, rgba(255,255,255,.1) ${classicDeg}deg 360deg)` }}>
-        <div className="gauge-inner"><strong className="gauge-new">{value}</strong></div>
-      </div>
+    <div className="gauge-ring" style={{ background: `conic-gradient(#FF3B30 0deg ${classicDeg}deg, #0A84FF ${classicDeg}deg ${deg}deg, rgba(255,255,255,.12) ${deg}deg 360deg)` }}>
+      <div className="gauge-inner"><strong className="gauge-new">{value}</strong></div>
     </div>
     <span>{label}</span>
     <em className="gauge-classic">Classic: {classicValue}</em>
