@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   ArrowRight, Bell, Bookmark, BriefcaseBusiness, Building2, Check, ChevronDown, Coffee,
-  Eye, Heart, MapPin, MessageCircle, Pencil, Sparkles, Star, Target, TrendingUp, User, X,
+  Eye, Heart, MapPin, MessageCircle, Pencil, RotateCcw, Sparkles, Star, Target, TrendingUp, User, X,
 } from 'lucide-react';
 import { api } from '../../api';
 import type { Bootstrap, Job, MatchEvidence, Note, Person, RoleMatchGroup, View } from '../../types';
@@ -179,6 +179,12 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
     finally { setSwitchingProfile(false); }
   };
   const removeVariant = async (id: string) => { await api.deleteProfileVariant(id, data.viewer.id); await reload(); };
+  // Manual refresh: re-fetches the whole bootstrap so every section below
+  // (matches, jobs, invitations) reflects whichever profile is active now.
+  const refreshAll = async () => {
+    setSwitchingProfile(true);
+    try { await reload(); } finally { setSwitchingProfile(false); }
+  };
   const startAddingVariant = () => {
     setVariantName(''); setVariantTitle(data.viewer.title || ''); setVariantSkills((data.viewer.skills || []).join(', '));
     setAddingVariant(true);
@@ -236,8 +242,23 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
     </section>
 
     <section className="td-section" id="td-profile">
-      <header className="td-section-title td-profile-title-row">
-        <div><User size={16} /><span><strong>My Current Job Profile</strong><small>How recruiters see you.</small></span></div>
+      <DashboardTitle icon={User} title="My Current Job Profile" subtitle="How recruiters see you." action="Edit profile" onAction={() => navigate('profile')} />
+      {addingVariant && <div className="td-variant-form">
+        <input value={variantName} onChange={(event) => setVariantName(event.target.value)} placeholder="Profile name, e.g. Frontend Engineer" autoFocus />
+        <input value={variantTitle} onChange={(event) => setVariantTitle(event.target.value)} placeholder="Title for this persona" />
+        <input value={variantSkills} onChange={(event) => setVariantSkills(event.target.value)} placeholder="Skills, comma separated" />
+        <div className="td-variant-form-actions">
+          <button className="secondary-button small" onClick={() => setAddingVariant(false)}>Cancel</button>
+          <button className="primary-button small" onClick={() => void saveVariant()} disabled={!variantName.trim()}>Save profile</button>
+        </div>
+      </div>}
+      <div className="td-profile-card">
+        <img src={data.viewer.photo} alt="" />
+        <div className="td-profile-card-info">
+          <strong>{data.viewer.name}</strong>
+          <span>{data.viewer.title}</span>
+          <div className="td-profile-card-meta"><span>{completion}% complete</span>{data.viewer.location && <span>{data.viewer.location}</span>}</div>
+        </div>
         <div className="td-variant-switcher td-variant-switcher-inline">
           <select
             className="td-variant-select"
@@ -254,25 +275,15 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
             aria-label="Delete this profile"
             onClick={() => void removeVariant(data.viewer.activeVariantId!)}
           ><X size={13} /></button>}
+          <button
+            type="button"
+            className="td-variant-refresh-btn"
+            aria-label="Refresh all sections for the current profile"
+            title="Refresh matches, jobs, and every section below for the current profile"
+            disabled={switchingProfile}
+            onClick={() => void refreshAll()}
+          ><RotateCcw size={14} /></button>
           {!addingVariant && <button className="td-variant-add" onClick={startAddingVariant}>+ Create Another Profile</button>}
-        </div>
-        <button onClick={() => navigate('profile')}>Edit profile<ArrowRight size={13} /></button>
-      </header>
-      {addingVariant && <div className="td-variant-form">
-        <input value={variantName} onChange={(event) => setVariantName(event.target.value)} placeholder="Profile name, e.g. Frontend Engineer" autoFocus />
-        <input value={variantTitle} onChange={(event) => setVariantTitle(event.target.value)} placeholder="Title for this persona" />
-        <input value={variantSkills} onChange={(event) => setVariantSkills(event.target.value)} placeholder="Skills, comma separated" />
-        <div className="td-variant-form-actions">
-          <button className="secondary-button small" onClick={() => setAddingVariant(false)}>Cancel</button>
-          <button className="primary-button small" onClick={() => void saveVariant()} disabled={!variantName.trim()}>Save profile</button>
-        </div>
-      </div>}
-      <div className="td-profile-card">
-        <img src={data.viewer.photo} alt="" />
-        <div className="td-profile-card-info">
-          <strong>{data.viewer.name}</strong>
-          <span>{data.viewer.title}</span>
-          <div className="td-profile-card-meta"><span>{completion}% complete</span>{data.viewer.location && <span>{data.viewer.location}</span>}</div>
         </div>
         <button className="secondary-button small" onClick={() => navigate('profile')}>View profile</button>
       </div>
