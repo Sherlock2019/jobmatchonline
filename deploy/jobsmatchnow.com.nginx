@@ -12,6 +12,17 @@ server {
     index index.html;
     client_max_body_size 2m;
 
+    # The main nginx.conf ships "gzip on" but with gzip_types/gzip_proxied
+    # commented out -- meaning API JSON responses proxied from Node (the
+    # ~500KB bootstrap payload) were going over the wire uncompressed.
+    # JSON/JS/CSS compress 70-85%, so this is real transfer-time savings.
+    gzip_proxied any;
+    gzip_vary on;
+    gzip_comp_level 6;
+    gzip_min_length 512;
+    gzip_types text/plain text/css application/json application/javascript
+      text/javascript application/xml text/xml image/svg+xml font/woff2;
+
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
