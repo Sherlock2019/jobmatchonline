@@ -237,7 +237,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
 
 function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profileCard, onProfileCardChange, reload, onAddJobs, manualJobRequest, openMatchId, onOpenMessages, editJobId, onEditJob }: { view: View; role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void; onEditProfile: (step: number) => void; profileCard: number; onProfileCardChange: (card: number) => void; reload: () => void; onAddJobs: () => void; manualJobRequest: number; openMatchId?: string; onOpenMessages: (matchId: string) => void; editJobId?: string; onEditJob: (jobId: string) => void }) {
   if (view === 'home') return role === 'candidate'
-    ? <CandidateHome data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} />
+    ? <CandidateHome key={data.viewer.activeVariantId || 'base'} data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} />
     : <RecruiterHome data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} onAddJobs={onAddJobs} onOpenMessages={onOpenMessages} onEditJob={onEditJob} />;
   if (view === 'discover') return <Discover role={role} data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} />;
   if (view === 'companies') return <Companies data={data} navigate={navigate} />;

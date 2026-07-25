@@ -167,7 +167,17 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
   const [variantName, setVariantName] = useState('');
   const [variantTitle, setVariantTitle] = useState('');
   const [variantSkills, setVariantSkills] = useState('');
-  const activateVariant = async (id: string) => { await api.activateProfileVariant(id, data.viewer.id); await reload(); };
+  const [switchingProfile, setSwitchingProfile] = useState(false);
+  // Activating a variant already rewrites title/skills/desiredRoles onto the
+  // live profile and reload() re-fetches the *entire* bootstrap, so every
+  // section (matches, scores, everything) is already recomputed fresh from
+  // the new profile — this just makes the switch feel like a real page
+  // change instead of a quiet background update.
+  const activateVariant = async (id: string) => {
+    setSwitchingProfile(true);
+    try { await api.activateProfileVariant(id, data.viewer.id); await reload(); }
+    finally { setSwitchingProfile(false); }
+  };
   const removeVariant = async (id: string) => { await api.deleteProfileVariant(id, data.viewer.id); await reload(); };
   const startAddingVariant = () => {
     setVariantName(''); setVariantTitle(data.viewer.title || ''); setVariantSkills((data.viewer.skills || []).join(', '));
@@ -202,6 +212,11 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
     { icon: Coffee, label: 'Let’s Talk Invitations', value: conversations.length, note: 'invitations', action: 'View invites', target: 'messages' },
   ];
 
+  if (switchingProfile) return <div className="profile-switch-overlay">
+    <div className="profile-switch-spinner" />
+    <p>Loading your profile…</p>
+  </div>;
+
   return <main className="td-dashboard td-candidate">
     <section className="td-candidate-hero">
       <div>
@@ -232,12 +247,23 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
         <button className="secondary-button small" onClick={() => navigate('profile')}>View profile</button>
       </div>
       <div className="td-profile-variants">
-        <span className="td-profile-variants-label">Profiles for different roles — switch which title/skills recruiters and matching see</span>
-        <div className="td-variant-pills">
-          {(data.viewer.profileVariants || []).map((variant) => <span key={variant.id} className={variant.id === data.viewer.activeVariantId ? 'td-variant-pill active' : 'td-variant-pill'}>
-            <button onClick={() => void activateVariant(variant.id)} title={variant.title}>{variant.name}</button>
-            <button className="td-variant-remove" aria-label={`Delete ${variant.name}`} onClick={() => void removeVariant(variant.id)}><X size={11} /></button>
-          </span>)}
+        <span className="td-profile-variants-label">Profiles for different roles — switching loads that profile like a different account, everywhere in the app</span>
+        <div className="td-variant-switcher">
+          <select
+            className="td-variant-select"
+            value={data.viewer.activeVariantId || 'base'}
+            disabled={switchingProfile}
+            onChange={(event) => { if (event.target.value !== 'base') void activateVariant(event.target.value); }}
+          >
+            <option value="base">{data.viewer.title || 'Default profile'} (default)</option>
+            {(data.viewer.profileVariants || []).map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}
+          </select>
+          {data.viewer.activeVariantId && <button
+            type="button"
+            className="td-variant-remove-btn"
+            aria-label="Delete this profile"
+            onClick={() => void removeVariant(data.viewer.activeVariantId!)}
+          ><X size={13} /></button>}
           {!addingVariant && <button className="td-variant-add" onClick={startAddingVariant}>+ Create Another Profile</button>}
         </div>
         {addingVariant && <div className="td-variant-form">

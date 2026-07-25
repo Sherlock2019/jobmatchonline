@@ -1,18 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, X } from 'lucide-react';
+import { Camera, RotateCcw, X } from 'lucide-react';
 
 /** Live camera capture via getUserMedia — works for a laptop webcam and a
  * phone browser's front/rear camera alike, no native app handoff needed.
- * Falls back to a clear error (with the caller's Upload button as the
- * escape hatch) if the camera can't be reached or permission is denied. */
+ * Falls back to a clear, retryable error (with the caller's Upload button
+ * as the escape hatch) if the camera can't be reached or permission is
+ * denied — a permission decision the browser/OS remembers is something
+ * only the user can undo in their settings; this just explains how. */
 export function CameraCaptureModal({ onCapture, onClose }: { onCapture: (blob: Blob) => void; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setError('');
+    setReady(false);
     if (!navigator.mediaDevices?.getUserMedia) {
       setError('Your browser doesn’t support camera capture here — use Upload instead.');
       return;
@@ -32,13 +37,14 @@ export function CameraCaptureModal({ onCapture, onClose }: { onCapture: (blob: B
       .catch((err) => {
         const name = err instanceof DOMException ? err.name : '';
         setError(
-          name === 'NotAllowedError' ? 'Camera permission was denied — allow camera access for this site, or use Upload instead.'
+          name === 'NotAllowedError'
+            ? 'Camera access is blocked for this site. Click the camera/lock icon in your browser’s address bar → Site settings → Camera → Allow (on Windows, also check Settings → Privacy & security → Camera is on for your browser), then try again.'
             : name === 'NotFoundError' ? 'No camera was found on this device — use Upload instead.'
-            : 'Could not access your camera (it may be blocked in this preview window) — use Upload instead.'
+              : 'Could not access your camera (it may be blocked in this preview window) — use Upload instead.'
         );
       });
     return () => { cancelled = true; streamRef.current?.getTracks().forEach((track) => track.stop()); };
-  }, []);
+  }, [attempt]);
 
   const capture = () => {
     const video = videoRef.current;
@@ -60,7 +66,10 @@ export function CameraCaptureModal({ onCapture, onClose }: { onCapture: (blob: B
       <button className="modal-close" onClick={onClose} aria-label="Close"><X /></button>
       <h3>Take a photo</h3>
       {error
-        ? <p className="camera-error">{error}</p>
+        ? <>
+          <p className="camera-error">{error}</p>
+          <button type="button" className="secondary-button camera-capture-btn" onClick={() => setAttempt((n) => n + 1)}><RotateCcw size={15} /> Try again</button>
+        </>
         : <>
           <video ref={videoRef} autoPlay playsInline muted className="camera-video" />
           <button type="button" className="primary-button camera-capture-btn" onClick={capture} disabled={!ready}><Camera size={16} /> Capture</button>
