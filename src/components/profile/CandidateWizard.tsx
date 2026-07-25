@@ -64,6 +64,9 @@ function composeAboutMe(archetype: Archetype, answers: AboutMeAnswers): string {
 // The six wizard steps mirror the profile cards recruiters swipe through, plus the About Me step.
 // The first four carry every must-have field; the last two are optional and skippable.
 export const CANDIDATE_STEPS = ['Snapshot', 'Technical stack', 'Preferences', 'About me', 'Human stack', 'Reviews & visibility', 'What I have built'] as const;
+// One color per step, matching the same step's card in the profile deck
+// (CandidateCards' NAV) — so the wizard and the deck share one color language.
+const STEP_COLORS = ['#00C7BE', '#007AFF', '#AF52DE', '#FF9500', '#FF9500', '#FF2D55', '#5856D6'];
 const CANDIDATE_REQUIRED_STEPS = 4;
 
 type Form = {
@@ -293,7 +296,7 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
   };
 
   return <div className="wizard-page">
-    <div className="wizard-card">
+    <div className="wizard-card" style={{ ['--step-accent' as string]: STEP_COLORS[step] }}>
       <header className="wz-head">
         <div><span className="overline">{step < CANDIDATE_REQUIRED_STEPS ? 'Set up your candidate profile' : 'Optional — add now or skip and edit later'}</span><h1>{CANDIDATE_STEPS[step]}</h1></div>
         <span className="wz-step-count">{step < CANDIDATE_REQUIRED_STEPS ? `Step ${step + 1} of ${CANDIDATE_REQUIRED_STEPS}` : `Optional ${step - CANDIDATE_REQUIRED_STEPS + 1} of ${CANDIDATE_STEPS.length - CANDIDATE_REQUIRED_STEPS}`}</span>
@@ -320,11 +323,13 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
               {form.photo && <img src={form.photo} alt="" />}
               <div className="wz-photo-actions">
                 <div className="wz-photo-btn-row">
-                  <button type="button" className="secondary-button small wz-photo-btn" onClick={() => setShowCamera(true)} disabled={uploadingPhoto}>
-                    {uploadingPhoto ? <Loader2 size={14} className="spin" /> : <Camera size={14} />} Take Photo
+                  <button type="button" className="ios-photo-tile camera" onClick={() => setShowCamera(true)} disabled={uploadingPhoto}>
+                    <span className="ios-photo-tile-icon">{uploadingPhoto ? <Loader2 size={18} className="spin" /> : <Camera size={18} />}</span>
+                    Take Photo
                   </button>
-                  <label className="secondary-button small wz-photo-btn">
-                    <Upload size={14} /> Upload Photo
+                  <label className="ios-photo-tile upload">
+                    <span className="ios-photo-tile-icon"><Upload size={18} /></span>
+                    Upload Photo
                     <input type="file" accept="image/*" hidden onChange={(event) => event.target.files?.[0] && uploadPhoto(event.target.files[0])} />
                   </label>
                 </div>

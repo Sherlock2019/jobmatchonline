@@ -1311,9 +1311,10 @@ img.avatar-mini { object-fit:cover; }
 .wizard-card { width:min(760px,100%); background:white; border:1px solid var(--line); border-radius:20px; padding:30px clamp(18px,4vw,38px) 24px; box-shadow:0 16px 50px rgba(33,56,41,.07); }
 .wz-head { display:flex; justify-content:space-between; align-items:flex-end; gap:14px; }
 .wz-head h1 { font:800 26px 'Manrope'; letter-spacing:-.04em; margin:6px 0 0; }
+.wz-head .overline { color:var(--step-accent, var(--green)); }
 .wz-step-count { color:var(--muted); font-size:10px; font-weight:700; white-space:nowrap; }
 .wz-progress { margin:16px 0 24px; height:6px; border-radius:6px; background:#f0e9ee; overflow:hidden; }
-.wz-progress i { display:block; height:100%; background:var(--brand-gradient); border-radius:6px; transition:width .3s ease; }
+.wz-progress i { display:block; height:100%; background:var(--step-accent, var(--brand-gradient)); border-radius:6px; transition:width .3s ease; }
 .wz-body { display:flex; flex-direction:column; gap:18px; }
 .wz-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 .wz-field { display:flex; flex-direction:column; gap:7px; min-width:0; }
@@ -1328,7 +1329,13 @@ img.avatar-mini { object-fit:cover; }
 .wz-photo-row { display:flex; align-items:center; gap:10px; }
 .wz-photo-row img { width:44px; height:44px; border-radius:12px; object-fit:cover; flex:none; }
 .wz-photo-actions { display:flex; flex-direction:column; gap:6px; flex:1; min-width:0; }
-.wz-photo-btn-row { display:flex; gap:8px; }
+.wz-photo-btn-row { display:flex; gap:10px; }
+.ios-photo-tile { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; width:84px; height:84px; padding:8px; border-radius:18px; background:#f7f7f9; border:1px solid #ececf0; box-shadow:0 1px 2px rgba(0,0,0,.04); font-size:10.5px; font-weight:700; color:#1c1c1e; cursor:pointer; text-align:center; line-height:1.15; transition:background .15s; }
+.ios-photo-tile:hover { background:#eef0f3; }
+.ios-photo-tile:disabled { opacity:.55; cursor:default; }
+.ios-photo-tile-icon { width:38px; height:38px; border-radius:50%; display:grid; place-items:center; color:#fff; flex:none; }
+.ios-photo-tile.camera .ios-photo-tile-icon { background:#007AFF; }
+.ios-photo-tile.upload .ios-photo-tile-icon { background:#34C759; }
 .wz-photo-btn { display:inline-flex; align-items:center; gap:6px; width:fit-content; cursor:pointer; }
 .wz-segmented { display:flex; flex-wrap:wrap; gap:7px; }
 .wz-segmented button { min-height:38px; padding:0 15px; border:1.5px solid var(--line); border-radius:999px; background:white; font-size:12px; font-weight:700; color:var(--muted); transition:.15s; }

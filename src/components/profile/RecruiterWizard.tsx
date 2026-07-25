@@ -7,6 +7,8 @@ import type { EmployerKind, Person } from '../../types';
 
 const COMPANY_SIZES = ['1-10', '11-50', '51-200', '201-1000', '1000+'] as const;
 export const RECRUITER_STEPS = ['Organization', 'Contact & finish'] as const;
+// Same teal used for the Company Profile home section, then brand pink for the finish step.
+const STEP_COLORS = ['#00C7BE', '#FF2D55'];
 
 type Form = {
   kind: EmployerKind;
@@ -113,7 +115,7 @@ export function RecruiterWizard({ viewer, initialStep = 0, onDone, onCancel }: {
   };
 
   return <div className="wizard-page">
-    <div className="wizard-card">
+    <div className="wizard-card" style={{ ['--step-accent' as string]: STEP_COLORS[step] }}>
       <header className="wz-head">
         <div><span className="overline">Set up your recruiter profile</span><h1>{RECRUITER_STEPS[step]}</h1></div>
         <span className="wz-step-count">Step {step + 1} of {RECRUITER_STEPS.length}</span>
@@ -141,11 +143,13 @@ export function RecruiterWizard({ viewer, initialStep = 0, onDone, onCancel }: {
                 {form.companyLogo && <img src={form.companyLogo} alt="" />}
                 <div className="wz-photo-actions">
                   <div className="wz-photo-btn-row">
-                    <button type="button" className="secondary-button small wz-photo-btn" onClick={() => setShowCameraFor('companyLogo')} disabled={uploadingImage === 'companyLogo'}>
-                      {uploadingImage === 'companyLogo' ? <Loader2 size={14} className="spin" /> : <Camera size={14} />} Take Photo
+                    <button type="button" className="ios-photo-tile camera" onClick={() => setShowCameraFor('companyLogo')} disabled={uploadingImage === 'companyLogo'}>
+                      <span className="ios-photo-tile-icon">{uploadingImage === 'companyLogo' ? <Loader2 size={18} className="spin" /> : <Camera size={18} />}</span>
+                      Take Photo
                     </button>
-                    <label className="secondary-button small wz-photo-btn">
-                      <Upload size={14} /> Upload Photo
+                    <label className="ios-photo-tile upload">
+                      <span className="ios-photo-tile-icon"><Upload size={18} /></span>
+                      Upload Photo
                       <input type="file" accept="image/*" hidden onChange={(event) => event.target.files?.[0] && uploadImage(event.target.files[0], 'companyLogo')} />
                     </label>
                   </div>
@@ -179,11 +183,13 @@ export function RecruiterWizard({ viewer, initialStep = 0, onDone, onCancel }: {
               {form.photo && <img src={form.photo} alt="" />}
               <div className="wz-photo-actions">
                 <div className="wz-photo-btn-row">
-                  <button type="button" className="secondary-button small wz-photo-btn" onClick={() => setShowCameraFor('photo')} disabled={uploadingImage === 'photo'}>
-                    {uploadingImage === 'photo' ? <Loader2 size={14} className="spin" /> : <Camera size={14} />} Take Photo
+                  <button type="button" className="ios-photo-tile camera" onClick={() => setShowCameraFor('photo')} disabled={uploadingImage === 'photo'}>
+                    <span className="ios-photo-tile-icon">{uploadingImage === 'photo' ? <Loader2 size={18} className="spin" /> : <Camera size={18} />}</span>
+                    Take Photo
                   </button>
-                  <label className="secondary-button small wz-photo-btn">
-                    <Upload size={14} /> Upload Photo
+                  <label className="ios-photo-tile upload">
+                    <span className="ios-photo-tile-icon"><Upload size={18} /></span>
+                    Upload Photo
                     <input type="file" accept="image/*" hidden onChange={(event) => event.target.files?.[0] && uploadImage(event.target.files[0], 'photo')} />
                   </label>
                 </div>
