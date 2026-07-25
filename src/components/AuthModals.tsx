@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { ArrowRight, BriefcaseBusiness, Download, Linkedin, Loader2, LogIn, Mail, ShieldCheck, Trash2, User, X } from 'lucide-react';
 import { api, apiBase } from '../api';
 import { authProviders } from '../lib/auth';
+import { ConductModal } from './ConductModal';
 import type { AuthConfig, Role, SessionUser } from '../types';
 
 function GoogleMark() {
@@ -35,7 +36,7 @@ function useAuthConfig() {
  * button starts the real OpenID Connect redirect flow; otherwise it falls back
  * to mock SSO (demo mode only).
  */
-function SsoButtons({ config, role, busy, onMockSso }: { config: AuthConfig; role?: Role; busy: SsoBusy; onMockSso: (provider: 'linkedin' | 'google') => void }) {
+function SsoButtons({ config, role, busy, onMockSso, disabled }: { config: AuthConfig; role?: Role; busy: SsoBusy; onMockSso: (provider: 'linkedin' | 'google') => void; disabled?: boolean }) {
   const start = (provider: 'linkedin' | 'google') => {
     if (config.sso[provider]) { window.location.href = `${apiBase}/api/auth/oauth/${provider}${role ? `?role=${role}` : ''}`; return; }
     onMockSso(provider);
@@ -45,11 +46,11 @@ function SsoButtons({ config, role, busy, onMockSso }: { config: AuthConfig; rol
   const visible = (provider: 'linkedin' | 'google') => config.sso[provider] || config.demoAuth;
   if (!visible('linkedin') && !visible('google')) return null;
   return <div className="sso-stack">
-    {visible('linkedin') && <button type="button" className="sso-button sso-linkedin" disabled={busy !== null} onClick={() => start('linkedin')}>
+    {visible('linkedin') && <button type="button" className="sso-button sso-linkedin" disabled={busy !== null || disabled} onClick={() => start('linkedin')}>
       {busy === 'linkedin' ? <Loader2 size={16} className="spin" /> : <Linkedin size={16} fill="currentColor" />}
       {busy === 'linkedin' ? 'Connecting to LinkedIn…' : `Continue with LinkedIn${config.sso.linkedin ? '' : ' (demo)'}`}
     </button>}
-    {visible('google') && <button type="button" className="sso-button sso-google" disabled={busy !== null} onClick={() => start('google')}>
+    {visible('google') && <button type="button" className="sso-button sso-google" disabled={busy !== null || disabled} onClick={() => start('google')}>
       {busy === 'google' ? <Loader2 size={16} className="spin" /> : <GoogleMark />}
       {busy === 'google' ? 'Connecting to Google…' : `Continue with Google${config.sso.google ? '' : ' (demo)'}`}
     </button>}
@@ -133,6 +134,8 @@ export function RegisterModal({ onClose, onComplete }: { onClose: () => void; on
   const [busy, setBusy] = useState<SsoBusy>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [conductAccepted, setConductAccepted] = useState(false);
+  const [conductOpen, setConductOpen] = useState(false);
   const needsPassword = !config.demoAuth;
   const passwordOk = !needsPassword || password.length >= config.passwordMinLength;
 
@@ -148,15 +151,20 @@ export function RegisterModal({ onClose, onComplete }: { onClose: () => void; on
       <button type="button" className={role === 'candidate' ? 'role-option active' : 'role-option'} onClick={() => setRole('candidate')} aria-pressed={role === 'candidate'}><User size={17} /><strong>Candidate</strong><small>Find your next role</small></button>
       <button type="button" className={role === 'employer' ? 'role-option active' : 'role-option'} onClick={() => setRole('employer')} aria-pressed={role === 'employer'}><BriefcaseBusiness size={17} /><strong>Company / Headhunter</strong><small>Find great people</small></button>
     </div>
-    <SsoButtons config={config} role={role} busy={busy} onMockSso={(provider) => { setBusy(provider); run(() => authProviders[provider].signIn({ registerRole: role })); }} />
+    <label className="conduct-checkbox">
+      <input type="checkbox" checked={conductAccepted} onChange={(event) => setConductAccepted(event.target.checked)} />
+      <span>I agree to the <button type="button" onClick={() => setConductOpen(true)}>Code of Conduct</button></span>
+    </label>
+    <SsoButtons config={config} role={role} busy={busy} disabled={!conductAccepted} onMockSso={(provider) => { setBusy(provider); run(() => authProviders[provider].signIn({ registerRole: role, conductAccepted })); }} />
     <div className="auth-divider"><span>or continue with email</span></div>
-    <form className="auth-form" onSubmit={(event) => { event.preventDefault(); if (!name.trim() || !email.trim() || !passwordOk) return; setSubmitting(true); run(() => authProviders.email.signIn({ register: { role, name: name.trim(), email: email.trim(), password: password || undefined } })); }}>
+    <form className="auth-form" onSubmit={(event) => { event.preventDefault(); if (!name.trim() || !email.trim() || !passwordOk || !conductAccepted) return; setSubmitting(true); run(() => authProviders.email.signIn({ register: { role, name: name.trim(), email: email.trim(), password: password || undefined, conductAccepted } })); }}>
       <input className="auth-input" placeholder="Full name" value={name} onChange={(event) => setName(event.target.value)} required aria-label="Full name" autoComplete="name" />
       <input className="auth-input" type="email" placeholder="Email address" value={email} onChange={(event) => setEmail(event.target.value)} required aria-label="Email address" autoComplete="email" />
       {needsPassword && <input className="auth-input" type="password" placeholder={`Password (min ${config.passwordMinLength} characters)`} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={config.passwordMinLength} aria-label="Password" autoComplete="new-password" />}
-      <button type="submit" className="primary-button auth-submit" disabled={submitting || !name.trim() || !email.trim() || !passwordOk}>{submitting ? <Loader2 size={16} className="spin" /> : <><Mail size={16} /> Create my account</>}</button>
+      <button type="submit" className="primary-button auth-submit" disabled={submitting || !name.trim() || !email.trim() || !passwordOk || !conductAccepted}>{submitting ? <Loader2 size={16} className="spin" /> : <><Mail size={16} /> Create my account</>}</button>
     </form>
     {error && <p className="auth-error">{error}</p>}
+    {conductOpen && <ConductModal onClose={() => setConductOpen(false)} />}
   </ModalShell>;
 }
 

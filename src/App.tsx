@@ -4,6 +4,7 @@ import { DemoBadge } from './components/DemoBadge';
 import { InviteFriendModal } from './components/InviteFriendModal';
 import { SupportModal } from './components/SupportModal';
 import { ReportModal } from './components/ReportModal';
+import { ConductModal } from './components/ConductModal';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
 import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, CreditCard, Download, ExternalLink, Eye, FileText, Filter, Flag, Gift, Handshake, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, Map as MapIcon, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
@@ -120,6 +121,7 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     if (window.location.pathname.startsWith('/ref/')) window.history.replaceState({}, '', '/');
   }, [refCode]);
   const [authModal, setAuthModal] = useState<'login' | 'register' | null>(null);
+  const [conductOpen, setConductOpen] = useState(false);
   const openLogin = () => setAuthModal('login');
   const openRegister = () => setAuthModal('register');
   const complete = (user: SessionUser) => { setAuthModal(null); onLogin(user); };
@@ -263,8 +265,9 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
         </div>
       </div>
     </section>
-    <footer><Brand /><span>Perfect matches should feel human.</span><small>© 2026 JobsMatchNow</small></footer>
+    <footer><Brand /><span>Perfect matches should feel human.</span><button type="button" className="text-button footer-conduct-link" onClick={() => setConductOpen(true)}>Code of Conduct</button><small>© 2026 JobsMatchNow</small></footer>
     {modals}
+    <AnimatePresence>{conductOpen && <ConductModal onClose={() => setConductOpen(false)} />}</AnimatePresence>
   </main>;
 }
 
@@ -322,6 +325,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   const [notifOpen, setNotifOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [conductOpen, setConductOpen] = useState(false);
   const [jobImportOpen, setJobImportOpen] = useState(false);
   const [manualJobRequest, setManualJobRequest] = useState(0);
   const [activeAnchor, setActiveAnchor] = useState('');
@@ -388,10 +392,11 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
       <div className="workspace-switch"><span>Profile</span><button onClick={() => { setView('profile'); setMobileNav(false); }}>{data?.viewer.photo ? <img className="avatar-mini" src={data.viewer.photo} alt="" /> : <div className="avatar-mini">{initials}</div>}<div><strong>{data?.viewer.name || session.name}</strong><small>{role === 'candidate' ? 'Candidate' : 'Recruiter'}</small></div><ArrowRight size={15} /></button></div>
       <nav className="sidebar-nav">{nav.map((item) => { const Icon = item.icon; return <button key={item.label} className={navActive(item) ? 'active' : ''} onClick={() => gotoNav(item)}><Icon size={19} /><span>{item.label}</span>{item.view === 'messages' && notifications.length > 0 && <em>{Math.min(notifications.length, 9)}</em>}</button>; })}</nav>
       <button className="sidebar-invite-btn" onClick={() => setInviteOpen(true)}><Gift size={17} /> Invite a Friend to Join Us — Bonus!</button>
-      <div className="sidebar-bottom"><button onClick={() => setSupportOpen(true)}><CircleHelp size={18} />Help center</button><button onClick={() => setSettingsOpen(true)}><Settings size={18} />Settings</button><button className="logout-button" onClick={onExit}><LogOut size={18} />Log out</button></div>
+      <div className="sidebar-bottom"><button onClick={() => setConductOpen(true)}><ShieldCheck size={18} />Code of Conduct</button><button onClick={() => setSupportOpen(true)}><CircleHelp size={18} />Help center</button><button onClick={() => setSettingsOpen(true)}><Settings size={18} />Settings</button><button className="logout-button" onClick={onExit}><LogOut size={18} />Log out</button></div>
     </aside>
     {inviteOpen && data && <InviteFriendModal userId={data.viewer.id} onClose={() => setInviteOpen(false)} />}
     <AnimatePresence>{supportOpen && <SupportModal viewer={data?.viewer} onClose={() => setSupportOpen(false)} />}</AnimatePresence>
+    <AnimatePresence>{conductOpen && <ConductModal onClose={() => setConductOpen(false)} />}</AnimatePresence>
     {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
     <section className="app-main">{session.emailVerified === false && <div className="verify-banner"><span><ShieldCheck size={15} /> Verify your email to secure your account and unlock everything.</span><button onClick={() => setSettingsOpen(true)}>Verify now</button></div>}<header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} onKeyDown={(event) => { if (event.key === 'Enter') setView('discover'); }} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><div className="notif-wrap"><button aria-label="Notifications" onClick={() => setNotifOpen((v) => !v)}><Bell size={19} />{notifications.length > 0 && <i />}</button>{notifOpen && <><button className="notif-scrim" aria-label="Close notifications" onClick={() => setNotifOpen(false)} /><div className="notif-dropdown"><header>Notifications</header>{notifications.length === 0 ? <p className="notif-empty">No notifications yet.</p> : notifications.map((n) => <button key={n.id} className="notif-item" onClick={() => { setNotifOpen(false); if (n.kind === 'billing') setView('billing'); else if (n.matchId) openMessages(n.matchId); }}><span className={`notif-icon ${n.kind}`}>{n.kind === 'match' ? <Heart size={14} fill="currentColor" /> : n.kind === 'billing' ? <CreditCard size={14} /> : <MessageCircle size={14} />}</span><span className="notif-text">{n.text}<small>{timeAgo(n.at)}</small></span></button>)}</div></>}</div>{data?.viewer.demo && <button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Recruiter view' : 'Candidate view'}<ChevronDown size={14} /></button>}</div></header>
       {loading ? <LoadingState /> : error ? <ErrorState message={error} retry={load} /> : data && (
@@ -837,6 +842,7 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
   const [scheduling, setScheduling] = useState(false);
   const [viewingProfile, setViewingProfile] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [conductOpen, setConductOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [recommendOpen, setRecommendOpen] = useState(false);
   const [actionSent, setActionSent] = useState('');
@@ -911,6 +917,8 @@ function Messages({ role, data, setData, initialMatchId }: { role: Role; data: B
         ? <RecruiterStarters candidateName={match.candidate?.name || 'there'} archetype={match.candidate?.aboutMeArchetype} onPick={setText} />
         : <CandidateStarters onPick={setText} />)}
       <form className="composer" onSubmit={send}><input value={text} onChange={(e) => setText(e.target.value)} placeholder="Write a message…" /><button type="submit" disabled={!text.trim()}><Send size={17} /></button></form>
+      <p className="composer-footnote">Keep it respectful — see our <button type="button" className="text-button" onClick={() => setConductOpen(true)}>Code of Conduct</button>.</p>
+      {conductOpen && <ConductModal onClose={() => setConductOpen(false)} />}
       {scheduling && <ScheduleCallModal match={match} viewer={data.viewer} onClose={() => setScheduling(false)}
         onScheduled={(call) => { setData({ ...data, calls: [...data.calls, call] }); setScheduling(false); }}
         onShareLink={async (shareText) => { const message = await api.message({ matchId: match.id, senderId: data.viewer.id, text: shareText }); setData({ ...data, messages: [...data.messages, message] }); setScheduling(false); }} />}

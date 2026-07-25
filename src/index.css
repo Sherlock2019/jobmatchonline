@@ -195,6 +195,12 @@ button { cursor:pointer; }
 @media(max-width:700px){ .trust-detail-table { font-size:10.5px; } }
 .landing footer { max-width:1200px; height:120px; margin:auto; display:flex; align-items:center; gap:35px; color:var(--muted); }
 .landing footer small { margin-left:auto; }
+.footer-conduct-link { color:var(--muted); text-decoration:underline; font-size:13px; }
+.conduct-modal .conduct-body h4 { margin:16px 0 4px; font:800 13px 'Manrope'; }
+.conduct-modal .conduct-body p { margin:0 0 4px; font-size:13px; line-height:1.6; color:var(--muted); }
+.conduct-checkbox { display:flex; align-items:flex-start; gap:8px; font-size:12.5px; color:var(--muted); margin:10px 0; }
+.conduct-checkbox input { margin-top:2px; }
+.conduct-checkbox button { color:var(--ink); font-weight:700; text-decoration:underline; background:none; border:none; padding:0; cursor:pointer; }
 
 /* ── Landing: journey pipeline ── */
 .journey-section { max-width:1240px; margin:0 auto; padding:90px 22px 40px; }
@@ -996,6 +1002,8 @@ img.avatar-mini { object-fit:cover; }
 .recommend-quick-btn:hover { background:#e3f1fe; }
 .action-sent-note { display:flex; align-items:center; gap:6px; margin:0 20px 8px; color:#0c7a43; font-size:12px; font-weight:700; }
 .composer { min-height:calc(72px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); padding:12px 20px calc(12px + env(safe-area-inset-bottom)); display:flex; align-items:center; gap:8px; }
+.composer-footnote { margin:0; padding:0 20px 10px; font-size:11px; color:var(--muted); text-align:center; }
+.composer-footnote .text-button { font-size:11px; text-decoration:underline; }
 .composer input { flex:1; height:44px; border:1px solid var(--line); border-radius:12px; padding:0 15px; outline:0; font-size:10px; }
 .composer input:focus { border-color:#89a897; box-shadow:0 0 0 3px #edf5ef; }
 .composer button { width:42px; height:42px; border:0; background:var(--green); color:white; display:grid; place-items:center; border-radius:11px; }

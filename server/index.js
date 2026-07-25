@@ -399,6 +399,11 @@ app.get('/api/auth/oauth/:provider/callback', async (req, res, next) => {
         title: statePayload.role === 'candidate' ? 'New member' : 'Recruiter',
         photo: identity.picture || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(identity.name || 'user')}`,
         skills: [], languages: [], experienceLevel: 'mid', completeness: 15, onboarding: true, createdAt: Date.now(),
+        // The real-SSO redirect can't carry a request body, so this path can't
+        // be server-enforced the way /api/auth/register is — the Register
+        // modal disables the SSO buttons client-side until the checkbox is
+        // checked, and that's the acceptance being recorded here.
+        conductAcceptedAt: Date.now(),
       };
       db.users.push(created);
       return created;
@@ -481,6 +486,7 @@ app.post('/api/auth/register', authLimiter, async (req, res, next) => {
     // Real accounts require a password; demo mode keeps the near-instant flow.
     if (!demoAuth && !validPassword(password)) throw new ValidationError('password', `Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
     if (password !== undefined && !validPassword(password)) throw new ValidationError('password', `Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
+    if (req.body.conductAccepted !== true) throw new ValidationError('conductAccepted', 'You must agree to the Code of Conduct to register');
     const user = await store.transaction((db) => {
       const existing = db.users.find((item) => item.email && item.email.toLowerCase() === email.toLowerCase());
       if (existing) {
@@ -502,6 +508,7 @@ app.post('/api/auth/register', authLimiter, async (req, res, next) => {
         title: role === 'candidate' ? 'New member' : 'Recruiter',
         photo: photo || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,
         skills: [], languages: [], experienceLevel: 'mid', completeness: 15, onboarding: true, createdAt: Date.now(),
+        conductAcceptedAt: Date.now(),
       };
       db.users.push(created);
       if (role === 'employer') {
