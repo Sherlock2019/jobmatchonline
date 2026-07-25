@@ -19,7 +19,15 @@ export function matchingPool(db, viewer) {
   // viewer's pool too -- otherwise the "employer liked you" swipe it comes
   // with would be filtered out and never show up.
   const sampleJobEmployerIds = new Set(mySampleJobs.map((job) => job.employerId));
-  const users = db.users.filter((user) => (user.demo === true) === demo || (user.sample === true && user.sampleFor === viewer.id) || sampleJobEmployerIds.has(user.id));
+  const users = db.users.filter((user) => {
+    // Sample records have no demo field at all, so (user.demo===true)===demo
+    // below would otherwise evaluate to true for ANY real viewer (undefined
+    // !== true, and a real viewer's own `demo` is also false) -- an early
+    // return keeps them scoped to sampleFor instead of silently falling into
+    // the ordinary real/demo bucket.
+    if (user.sample === true) return user.sampleFor === viewer.id;
+    return (user.demo === true) === demo || sampleJobEmployerIds.has(user.id);
+  });
   const userIds = new Set(users.map((user) => user.id));
   const jobs = db.jobs.filter((job) => {
     if (job.sample === true) return job.sampleFor === viewer.id;
