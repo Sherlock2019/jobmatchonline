@@ -118,7 +118,7 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
       <div className="hero-copy">
         <div className="eyebrow"><Sparkles size={14} /> Find jobs you’ll love — and the people who’ll love the role and your company.</div>
         <h1>Stop chasing jobs and candidates.<br /><span>Let the perfect match chase you.</span></h1>
-        <p>Job seekers, let the perfect role find you. Hiring teams, let the right candidates come to you. A connection opens only when both sides choose.</p>
+        <p>Job seekers, let the perfect role find you. Hiring teams, let the right candidates come to you. A connection opens only when both sides choose. Your next dream job — or dream candidate — might be just a few clicks away.</p>
         <div className="location-pitch-app"><MapPin size={18} /><span><small>Geolocation of Opportunities</small><strong>Match nearby. Meet for a cup of coffee in your city.</strong></span></div>
         <div className="hero-actions"><button className="primary-button" onClick={openRegister}>Register free <ArrowRight size={18} /></button><button className="secondary-button" onClick={openLogin}>Log in</button><button className="secondary-button demo-test-button" onClick={openLogin}><Sparkles size={18} /> Test demo matching</button></div>
         <div className="proof-row"><span><Check size={14} /> Explainable fit</span><span><Check size={14} /> Private distance range</span><span><Check size={14} /> Salary up front</span></div>
