@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowRight, BriefcaseBusiness, Check, FileText, Heart, Loader2, LogIn, MapPin, MessageCircle, PenLine, Send, Sparkles, Star, UserPlus, X } from 'lucide-react';
+import { ArrowRight, BarChart3, Bell, BriefcaseBusiness, Check, Coffee, Eye, FileText, Heart, Layers3, Loader2, LogIn, MapPin, MessageCircle, PenLine, Send, ShieldCheck, Sparkles, Star, Target, UserPlus, X } from 'lucide-react';
 import { api } from '../api';
 import { appleColor } from '../lib/colors';
 import type { Job, Person, Review } from '../types';
@@ -31,6 +31,56 @@ export function JourneyPipeline() {
         <p>{step.text}</p>
         {index < JOURNEY.length - 1 && <ArrowRight className="journey-arrow" size={18} />}
       </div>)}
+    </div>
+  </section>;
+}
+
+const CANDIDATE_FEATURES = [
+  { icon: Heart, title: 'Mutual Matching', text: 'No cold applications, no recruiter spam — a conversation only opens once both sides say yes.' },
+  { icon: Target, title: 'Explainable Match Score', text: 'See exactly why you matched — a transparent skills, salary, location, and work-mode breakdown.' },
+  { icon: Sparkles, title: 'Salary Revealed Up Front', text: 'Salary fit is scored before you ever talk, so you don’t invest in a conversation over a comp mismatch.' },
+  { icon: FileText, title: 'Resume Autofill', text: 'Upload once, and your whole profile fills itself in — skip the retyping.' },
+  { icon: Eye, title: 'Visibility Inspector', text: 'See your profile exactly as a recruiter will, before you ever match — full control over what’s shown and when.' },
+  { icon: Layers3, title: 'Multiple Profile Variants', text: 'One account, several tailored personas — switch your title and skills instantly per role you’re chasing.' },
+  { icon: ShieldCheck, title: 'Verified Recommendations', text: 'Real testimonials from real colleagues, tied to a verifiable email — social proof, not self-reported claims.' },
+];
+
+const RECRUITER_FEATURES = [
+  { icon: BriefcaseBusiness, title: 'Instant Job Import', text: 'Bulk-import from an ATS feed, paste a LinkedIn post, or add manually — a role is live in minutes, not hours.' },
+  { icon: Heart, title: 'Candidates Worth Your Time', text: 'Only see candidates who’ve genuinely opted in — no résumé blasts, no ghosted outreach.' },
+  { icon: Target, title: 'Explainable Match Score', text: 'The same transparent breakdown for every candidate — less guesswork, faster shortlisting.' },
+  { icon: BarChart3, title: 'Hiring Insights', text: 'Real funnel, response-rate, and match-quality dashboards for every role you post.' },
+  { icon: Sparkles, title: 'Salary Set Up Front', text: 'Fewer offers falling apart over comp surprises late in the process.' },
+  { icon: Coffee, title: '“Let’s Have a Coffee” Scheduling', text: 'One tap to a real conversation — proposes a time and drops straight into your calendar.' },
+  { icon: Bell, title: 'Coffee Requests', text: 'See who already likes your roles, ranked by fit, before you spend a minute reaching out.' },
+];
+
+export function FeaturesTable() {
+  return <section className="section features-section" id="features">
+    <div className="section-heading centered">
+      <span className="eyebrow"><Sparkles size={14} /> Why JobsMatchNow</span>
+      <h2>Better, faster, easier job search and recruitment — powered by killer mutual matching.</h2>
+      <p>Everything below exists for one reason: matches that are worth your time.</p>
+    </div>
+    <div className="features-columns">
+      <div className="features-column">
+        <h3>For Candidates</h3>
+        <div className="features-table">
+          {CANDIDATE_FEATURES.map((feature) => <div className="features-row" key={feature.title}>
+            <div className="features-icon"><feature.icon size={18} /></div>
+            <div><strong>{feature.title}</strong><p>{feature.text}</p></div>
+          </div>)}
+        </div>
+      </div>
+      <div className="features-column">
+        <h3>For Recruiters</h3>
+        <div className="features-table">
+          {RECRUITER_FEATURES.map((feature) => <div className="features-row" key={feature.title}>
+            <div className="features-icon"><feature.icon size={18} /></div>
+            <div><strong>{feature.title}</strong><p>{feature.text}</p></div>
+          </div>)}
+        </div>
+      </div>
     </div>
   </section>;
 }
