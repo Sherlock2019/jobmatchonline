@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Camera, Check, FileText, Loader2, MapPin, Sparkles, Upload } from 'lucide-react';
 import { api } from '../../api';
+import { CameraCaptureModal } from '../CameraCaptureModal';
 import { Chips, Field, LevelTagInput, Repeat, Segmented, TagInput, TextInput, Toggle } from './fields';
 import type { AgePrivacy, ContactChannel, ContactChannelType, Education, LanguageTag, Person, Recommendation, ResumeMeta, Seniority, SkillTag, WorkExperience } from '../../types';
 
@@ -193,6 +194,7 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
   const [uploading, setUploading] = useState(false);
   const [autofilling, setAutofilling] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const [autofillNote, setAutofillNote] = useState('');
   const [geoBusy, setGeoBusy] = useState(false);
   const [error, setError] = useState('');
@@ -239,7 +241,7 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
     finally { setSaving(false); }
   };
 
-  const uploadPhoto = async (file: File) => {
+  const uploadPhoto = async (file: File | Blob) => {
     if (file.size > 5 * 1024 * 1024) { setError('Photo must be 5MB or smaller'); return; }
     setUploadingPhoto(true); setError('');
     try { const { photo } = await api.uploadPhoto(viewer.id, file); patch({ photo }); }
@@ -317,10 +319,15 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
             <div className="wz-photo-row">
               {form.photo && <img src={form.photo} alt="" />}
               <div className="wz-photo-actions">
-                <label className="secondary-button small wz-photo-btn">
-                  {uploadingPhoto ? <Loader2 size={14} className="spin" /> : <Camera size={14} />} {uploadingPhoto ? 'Uploading…' : 'Take / upload photo'}
-                  <input type="file" accept="image/*" capture="user" hidden onChange={(event) => event.target.files?.[0] && uploadPhoto(event.target.files[0])} />
-                </label>
+                <div className="wz-photo-btn-row">
+                  <button type="button" className="secondary-button small wz-photo-btn" onClick={() => setShowCamera(true)} disabled={uploadingPhoto}>
+                    {uploadingPhoto ? <Loader2 size={14} className="spin" /> : <Camera size={14} />} Take Photo
+                  </button>
+                  <label className="secondary-button small wz-photo-btn">
+                    <Upload size={14} /> Upload Photo
+                    <input type="file" accept="image/*" hidden onChange={(event) => event.target.files?.[0] && uploadPhoto(event.target.files[0])} />
+                  </label>
+                </div>
                 <TextInput value={form.photo} onChange={(e) => patch({ photo: e.target.value })} placeholder="or paste a photo URL" />
               </div>
             </div>
@@ -516,5 +523,6 @@ export function CandidateWizard({ viewer, initialStep = 0, onDone, onCancel }: {
         </div>
       </footer>
     </div>
+    {showCamera && <CameraCaptureModal onClose={() => setShowCamera(false)} onCapture={(blob) => { setShowCamera(false); void uploadPhoto(blob); }} />}
   </div>;
 }

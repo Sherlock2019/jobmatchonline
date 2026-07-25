@@ -119,17 +119,22 @@ button { cursor:pointer; }
 .feature-icon { width:42px; height:42px; display:grid; place-items:center; color:var(--green); background:#fff0f5; border-radius:13px; }
 .value-grid h3 { font:700 20px 'Manrope'; margin:24px 0 10px; }
 .value-grid p { color:var(--muted); line-height:1.65; margin:0; font-size:14px; }
-.trust-section { max-width:1200px; margin:0 auto 45px; background:linear-gradient(135deg,#fd267a,#ff4458 55%,#ff6036); color:white; border-radius:29px; padding:70px; display:grid; grid-template-columns:1fr .85fr; gap:100px; box-shadow:0 28px 70px rgba(253,38,122,.2); }
+.trust-section { max-width:1200px; margin:0 auto 45px; background:linear-gradient(150deg,#22242c,#101218 75%); color:white; border-radius:29px; padding:70px; display:grid; grid-template-columns:1fr .85fr; gap:100px; box-shadow:0 28px 70px rgba(0,0,0,.35); }
 .section-kicker.light { color:var(--lime); }
 .trust-section h2 { margin-bottom:24px; }
-.trust-copy>p { color:#d9e8df; font-size:17px; line-height:1.65; max-width:530px; }
+.trust-copy>p { color:#c7cbd6; font-size:17px; line-height:1.65; max-width:530px; }
 .trust-copy button { margin-top:24px; }
 .metrics { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-.metrics>div { background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.14); border-radius:17px; padding:24px; display:flex; flex-direction:column; }
-.metrics>div:first-child { grid-column:span 2; }
-.metrics strong { color:var(--lime); font:800 35px 'Manrope'; }
-.metrics span { color:#d9e8df; font-size:12px; }
-.metrics small { grid-column:span 2; color:#9fc0ad; font-size:9px; }
+.metrics>div { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:17px; padding:24px; display:flex; flex-direction:column; }
+.metrics>div:first-child { grid-column:span 2; background:color-mix(in srgb, #007AFF 18%, #1c1e24); border-color:color-mix(in srgb, #007AFF 45%, transparent); }
+.metrics>div:first-child strong { color:#5AC8FA; }
+.metrics>div:nth-child(2) { background:color-mix(in srgb, #34C759 18%, #1c1e24); border-color:color-mix(in srgb, #34C759 45%, transparent); }
+.metrics>div:nth-child(2) strong { color:#34C759; }
+.metrics>div:nth-child(3) { background:color-mix(in srgb, #FF9500 18%, #1c1e24); border-color:color-mix(in srgb, #FF9500 45%, transparent); }
+.metrics>div:nth-child(3) strong { color:#FF9500; }
+.metrics strong { font:800 35px 'Manrope'; }
+.metrics span { color:#c7cbd6; font-size:12px; }
+.metrics small { grid-column:span 2; color:#7d8694; font-size:9px; }
 .landing footer { max-width:1200px; height:120px; margin:auto; display:flex; align-items:center; gap:35px; color:var(--muted); }
 .landing footer small { margin-left:auto; }
 
@@ -657,6 +662,11 @@ img.avatar-mini { object-fit:cover; }
 .modal-scrim { position:fixed; inset:0; z-index:100; background:rgba(9,20,13,.72); backdrop-filter:blur(8px); display:grid; place-items:center; padding:20px; }
 .match-modal { width:min(440px,100%); background:white; border-radius:24px; text-align:center; position:relative; box-shadow:0 35px 100px rgba(0,0,0,.3); overflow:hidden; }
 .modal-close { position:absolute; right:17px; top:17px; border:0; background:#f1f3f0; border-radius:50%; width:34px; height:34px; display:grid; place-items:center; z-index:2; }
+.camera-modal { width:min(420px,100%); background:#101218; color:#fff; border-radius:20px; padding:20px; position:relative; box-shadow:0 35px 100px rgba(0,0,0,.4); }
+.camera-modal h3 { margin:0 0 14px; font-size:15px; font-weight:800; }
+.camera-video { width:100%; aspect-ratio:1; object-fit:cover; border-radius:14px; transform:scaleX(-1); background:#000; }
+.camera-capture-btn { width:100%; margin-top:14px; justify-content:center; }
+.camera-error { font-size:13px; color:#ffb4bf; line-height:1.5; margin:20px 0; }
 .modal-close.on-dark { background:rgba(255,255,255,.14); color:#fff; }
 .match-hero { background:radial-gradient(circle at 50% 15%,#2a2f3d,#101218 72%); color:#fff; padding:40px 30px 28px; }
 .match-script { font:italic 700 40px 'Georgia',serif; }
@@ -1318,6 +1328,7 @@ img.avatar-mini { object-fit:cover; }
 .wz-photo-row { display:flex; align-items:center; gap:10px; }
 .wz-photo-row img { width:44px; height:44px; border-radius:12px; object-fit:cover; flex:none; }
 .wz-photo-actions { display:flex; flex-direction:column; gap:6px; flex:1; min-width:0; }
+.wz-photo-btn-row { display:flex; gap:8px; }
 .wz-photo-btn { display:inline-flex; align-items:center; gap:6px; width:fit-content; cursor:pointer; }
 .wz-segmented { display:flex; flex-wrap:wrap; gap:7px; }
 .wz-segmented button { min-height:38px; padding:0 15px; border:1.5px solid var(--line); border-radius:999px; background:white; font-size:12px; font-weight:700; color:var(--muted); transition:.15s; }

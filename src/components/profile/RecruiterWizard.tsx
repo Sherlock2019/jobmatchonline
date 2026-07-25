@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Building2, Check, Loader2, MapPin, UserSearch } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, Camera, Check, Loader2, MapPin, Upload, UserSearch } from 'lucide-react';
 import { api } from '../../api';
+import { CameraCaptureModal } from '../CameraCaptureModal';
 import { Field, Segmented, TagInput, TextInput } from './fields';
 import type { EmployerKind, Person } from '../../types';
 
@@ -80,7 +81,16 @@ export function RecruiterWizard({ viewer, initialStep = 0, onDone, onCancel }: {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [geoBusy, setGeoBusy] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState<'companyLogo' | 'photo' | null>(null);
+  const [showCameraFor, setShowCameraFor] = useState<'companyLogo' | 'photo' | null>(null);
   const patch = (changes: Partial<Form>) => setForm((current) => ({ ...current, ...changes }));
+  const uploadImage = async (file: File | Blob, target: 'companyLogo' | 'photo') => {
+    if (file.size > 5 * 1024 * 1024) { setError('Image must be 5MB or smaller'); return; }
+    setUploadingImage(target); setError('');
+    try { const { photo } = await api.uploadPhoto(viewer.id, file); patch({ [target]: photo } as Partial<Form>); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Upload failed'); }
+    finally { setUploadingImage(null); }
+  };
   const errors = useMemo(() => stepErrors(step, form), [step, form]);
   const finishing = step === RECRUITER_STEPS.length - 1;
   const captureLocation = async () => {
@@ -126,7 +136,23 @@ export function RecruiterWizard({ viewer, initialStep = 0, onDone, onCancel }: {
         {form.kind === 'company' ? <>
           <div className="wz-row">
             <Field label="Company name" required><TextInput value={form.company} onChange={(e) => patch({ company: e.target.value })} /></Field>
-            <Field label="Logo URL"><TextInput value={form.companyLogo} onChange={(e) => patch({ companyLogo: e.target.value })} placeholder="https://…" /></Field>
+            <Field label="Company logo">
+              <div className="wz-photo-row">
+                {form.companyLogo && <img src={form.companyLogo} alt="" />}
+                <div className="wz-photo-actions">
+                  <div className="wz-photo-btn-row">
+                    <button type="button" className="secondary-button small wz-photo-btn" onClick={() => setShowCameraFor('companyLogo')} disabled={uploadingImage === 'companyLogo'}>
+                      {uploadingImage === 'companyLogo' ? <Loader2 size={14} className="spin" /> : <Camera size={14} />} Take Photo
+                    </button>
+                    <label className="secondary-button small wz-photo-btn">
+                      <Upload size={14} /> Upload Photo
+                      <input type="file" accept="image/*" hidden onChange={(event) => event.target.files?.[0] && uploadImage(event.target.files[0], 'companyLogo')} />
+                    </label>
+                  </div>
+                  <TextInput value={form.companyLogo} onChange={(e) => patch({ companyLogo: e.target.value })} placeholder="or paste a logo URL" />
+                </div>
+              </div>
+            </Field>
           </div>
           <div className="wz-row">
             <Field label="Website" required><TextInput value={form.website} onChange={(e) => patch({ website: e.target.value })} placeholder="company.com" /></Field>
@@ -148,7 +174,23 @@ export function RecruiterWizard({ viewer, initialStep = 0, onDone, onCancel }: {
             <Field label="Recruiter name" required><TextInput value={form.name} onChange={(e) => patch({ name: e.target.value })} /></Field>
             <Field label="Recruiter title" required><TextInput value={form.title} onChange={(e) => patch({ title: e.target.value })} placeholder="e.g. Principal Recruiter" /></Field>
           </div>
-          <Field label="Photo URL"><div className="wz-photo-row">{form.photo && <img src={form.photo} alt="" />}<TextInput value={form.photo} onChange={(e) => patch({ photo: e.target.value })} placeholder="https://…" /></div></Field>
+          <Field label="Profile photo">
+            <div className="wz-photo-row">
+              {form.photo && <img src={form.photo} alt="" />}
+              <div className="wz-photo-actions">
+                <div className="wz-photo-btn-row">
+                  <button type="button" className="secondary-button small wz-photo-btn" onClick={() => setShowCameraFor('photo')} disabled={uploadingImage === 'photo'}>
+                    {uploadingImage === 'photo' ? <Loader2 size={14} className="spin" /> : <Camera size={14} />} Take Photo
+                  </button>
+                  <label className="secondary-button small wz-photo-btn">
+                    <Upload size={14} /> Upload Photo
+                    <input type="file" accept="image/*" hidden onChange={(event) => event.target.files?.[0] && uploadImage(event.target.files[0], 'photo')} />
+                  </label>
+                </div>
+                <TextInput value={form.photo} onChange={(e) => patch({ photo: e.target.value })} placeholder="or paste a photo URL" />
+              </div>
+            </div>
+          </Field>
           <Field label="Specializations" required><TagInput value={form.specializations} onChange={(specializations) => patch({ specializations })} suggestions={['Product design', 'Engineering', 'Executive search', 'Data', 'Marketing']} /></Field>
           <Field label="Regions covered" required><TagInput value={form.regions} onChange={(regions) => patch({ regions })} suggestions={['Vietnam', 'APAC', 'Europe', 'Remote worldwide']} /></Field>
           <Field label="Clients represented" hint="Shown as social proof on your profile."><TagInput value={form.clients} onChange={(clients) => patch({ clients })} placeholder="Client or industry — press Enter" /></Field>
@@ -177,5 +219,6 @@ export function RecruiterWizard({ viewer, initialStep = 0, onDone, onCancel }: {
         </button>
       </footer>
     </div>
+    {showCameraFor && <CameraCaptureModal onClose={() => setShowCameraFor(null)} onCapture={(blob) => { const target = showCameraFor; setShowCameraFor(null); void uploadImage(blob, target); }} />}
   </div>;
 }
