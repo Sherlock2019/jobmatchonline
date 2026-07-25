@@ -32,7 +32,7 @@ export interface Person {
   id: string; role: Role; kind?: EmployerKind; name: string; email?: string; provider?: string; title: string;
   demoOrder?: number;
   location?: string; distanceKm?: number; company?: string; photo: string; skills: string[]; languages: string[];
-  experienceLevel: string; completeness?: number; availability?: string; match?: MatchEvidence; onboarding?: boolean; salaryHidden?: boolean; demo?: boolean; sample?: boolean; superLikedYou?: boolean; likedYou?: boolean; viewedYou?: boolean; verified?: boolean;
+  experienceLevel: string; completeness?: number; availability?: string; match?: MatchEvidence; onboarding?: boolean; salaryHidden?: boolean; demo?: boolean; sample?: boolean; invitesSent?: number; superLikedYou?: boolean; likedYou?: boolean; viewedYou?: boolean; verified?: boolean;
   // Candidate profile model (item 4)
   headline?: string; phone?: string; city?: string; country?: string; distanceRangeKm?: number;
   birthdate?: string; discloseAge?: boolean; agePrivacy?: AgePrivacy; nationality?: string; contactChannels?: ContactChannel[];

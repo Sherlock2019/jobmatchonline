@@ -1,8 +1,9 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { PhoneMockup } from './components/PhoneMockup';
 import { DemoBadge } from './components/DemoBadge';
+import { InviteFriendModal } from './components/InviteFriendModal';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
-import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, Download, ExternalLink, Eye, FileText, Filter, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, Download, ExternalLink, Eye, FileText, Filter, Gift, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
 import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
@@ -164,6 +165,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   const [profileSaved, setProfileSaved] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [jobImportOpen, setJobImportOpen] = useState(false);
   const [manualJobRequest, setManualJobRequest] = useState(0);
   const [activeAnchor, setActiveAnchor] = useState('');
@@ -213,8 +215,10 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
     <aside className={mobileNav ? 'sidebar open' : 'sidebar'}><div className="sidebar-head"><Brand /><button className="mobile-close" onClick={() => setMobileNav(false)} aria-label="Close menu"><X /></button></div>
       <div className="workspace-switch"><span>Profile</span><button onClick={() => { setView('profile'); setMobileNav(false); }}>{data?.viewer.photo ? <img className="avatar-mini" src={data.viewer.photo} alt="" /> : <div className="avatar-mini">{initials}</div>}<div><strong>{data?.viewer.name || session.name}</strong><small>{role === 'candidate' ? 'Candidate' : 'Recruiter'}</small></div><ArrowRight size={15} /></button></div>
       <nav className="sidebar-nav">{nav.map((item) => { const Icon = item.icon; return <button key={item.label} className={navActive(item) ? 'active' : ''} onClick={() => gotoNav(item)}><Icon size={19} /><span>{item.label}</span>{item.anchor === 'td-conversations' && notifications.length > 0 && <em>{Math.min(notifications.length, 9)}</em>}</button>; })}</nav>
+      <button className="sidebar-invite-btn" onClick={() => setInviteOpen(true)}><Gift size={17} /> Invite a Friend to Join Us — Bonus!</button>
       <div className="sidebar-bottom"><button onClick={() => { window.location.href = 'mailto:support@jobsmatchnow.com'; }}><CircleHelp size={18} />Help center</button><button onClick={() => setSettingsOpen(true)}><Settings size={18} />Settings</button><button className="logout-button" onClick={onExit}><LogOut size={18} />Log out</button></div>
     </aside>
+    {inviteOpen && data && <InviteFriendModal userId={data.viewer.id} onClose={() => setInviteOpen(false)} />}
     {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
     <section className="app-main">{session.emailVerified === false && <div className="verify-banner"><span><ShieldCheck size={15} /> Verify your email to secure your account and unlock everything.</span><button onClick={() => setSettingsOpen(true)}>Verify now</button></div>}<header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} onKeyDown={(event) => { if (event.key === 'Enter') setView('discover'); }} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><div className="notif-wrap"><button aria-label="Notifications" onClick={() => setNotifOpen((v) => !v)}><Bell size={19} />{notifications.length > 0 && <i />}</button>{notifOpen && <><button className="notif-scrim" aria-label="Close notifications" onClick={() => setNotifOpen(false)} /><div className="notif-dropdown"><header>Notifications</header>{notifications.length === 0 ? <p className="notif-empty">No notifications yet.</p> : notifications.map((n) => <button key={n.id} className="notif-item" onClick={() => { setNotifOpen(false); setView('messages'); }}><span className={`notif-icon ${n.kind}`}>{n.kind === 'match' ? <Heart size={14} fill="currentColor" /> : <MessageCircle size={14} />}</span><span className="notif-text">{n.text}<small>{timeAgo(n.at)}</small></span></button>)}</div></>}</div>{data?.viewer.demo && <button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Candidate view' : 'Recruiter view'}<ChevronDown size={14} /></button>}</div></header>
       {loading ? <LoadingState /> : error ? <ErrorState message={error} retry={load} /> : data && (

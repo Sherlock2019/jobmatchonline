@@ -608,6 +608,22 @@ app.patch('/api/users/:id', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// "Invite a friend" -- just tracks that an invite was sent (the app has no
+// billing/paywall today, so there's nothing yet to actually credit; this
+// exists so the count is real data whenever a rewards program is built).
+app.post('/api/users/:id/invite', async (req, res, next) => {
+  try {
+    requireSelf(req, req.params.id);
+    const invitesSent = await store.transaction((db) => {
+      const item = db.users.find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('User not found'); error.status = 404; throw error; }
+      item.invitesSent = (item.invitesSent || 0) + 1;
+      return item.invitesSent;
+    });
+    res.json({ invitesSent });
+  } catch (error) { next(error); }
+});
+
 // UPLOADS_DIR keeps user files outside the release directory in production,
 // so resumes survive deploys (e.g. /var/lib/jobsmatchnow/uploads).
 const UPLOADS_ROOT = process.env.UPLOADS_DIR || path.join(dirname, 'uploads');
