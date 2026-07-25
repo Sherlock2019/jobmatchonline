@@ -14,7 +14,7 @@ function daysLeft(ts: number | null) {
   return Math.max(0, Math.ceil((ts - Date.now()) / 86400000));
 }
 
-export function BillingPage({ data, setData }: { data: Bootstrap; setData: (d: Bootstrap) => void }) {
+export function BillingPage({ data, setData, paymentResult, onDismissResult }: { data: Bootstrap; setData: (d: Bootstrap) => void; paymentResult?: 'success' | 'failed' | null; onDismissResult?: () => void }) {
   const viewer = data.viewer;
   const [payments, setPayments] = useState<Payment[]>([]);
   const [copied, setCopied] = useState(false);
@@ -26,6 +26,7 @@ export function BillingPage({ data, setData }: { data: Bootstrap; setData: (d: B
   const [error, setError] = useState('');
   const [proofPaymentId, setProofPaymentId] = useState<string | null>(null);
   const [referralStats, setReferralStats] = useState<{ successfulReferrals: number; pendingReferrals: number } | null>(null);
+  const [cardRedirecting, setCardRedirecting] = useState(false);
 
   useEffect(() => { api.myPayments(viewer.id).then((res) => setPayments(res.payments)).catch(() => undefined); }, [viewer.id]);
   useEffect(() => { api.billingReferral(viewer.id).then(setReferralStats).catch(() => undefined); }, [viewer.id]);
@@ -41,7 +42,7 @@ export function BillingPage({ data, setData }: { data: Bootstrap; setData: (d: B
     </div>;
   }
 
-  const { subscription, effectiveStatus, credits, referralCode, instructions } = data.billing;
+  const { subscription, effectiveStatus, credits, referralCode, instructions, vnpayEnabled, vnpayAmountVnd } = data.billing;
   const accessEndsAt = subscription.currentPeriodEndsAt || subscription.trialEndsAt;
   const referralLink = `${window.location.origin}/ref/${referralCode}`;
 
@@ -69,8 +70,24 @@ export function BillingPage({ data, setData }: { data: Bootstrap; setData: (d: B
     } catch (e) { setError(e instanceof Error ? e.message : 'Upload failed'); }
   };
 
+  // Redirects to VNPay's hosted page to pay by Visa/Mastercard/JCB (or any
+  // wallet, e.g. Google Pay, VNPay itself enables on that page). Confirmation
+  // happens server-side via VNPay's webhook, not here.
+  const payByCard = async () => {
+    setCardRedirecting(true); setError('');
+    try {
+      const { redirectUrl } = await api.startVnpayPayment(viewer.id);
+      window.location.href = redirectUrl;
+    } catch (e) { setError(e instanceof Error ? e.message : 'Card payment is not available yet'); setCardRedirecting(false); }
+  };
+
   return <div className="page billing-page">
     <div className="page-title"><div><span className="overline">Recruiter plan</span><h1>Billing</h1><p>USD 20/month per seat — your first 30 days are free.</p></div></div>
+
+    {paymentResult && <div className={`billing-result-banner billing-result-${paymentResult}`}>
+      {paymentResult === 'success' ? 'Payment confirmed — thanks!' : 'The card payment did not go through. You can try again or use bank transfer / VietQR below.'}
+      <button type="button" onClick={onDismissResult}>Dismiss</button>
+    </div>}
 
     <section className={`billing-status-card status-${effectiveStatus}`}>
       <span className="billing-status-badge">{STATUS_LABEL[effectiveStatus] || effectiveStatus}</span>
@@ -81,7 +98,12 @@ export function BillingPage({ data, setData }: { data: Bootstrap; setData: (d: B
 
     <section className="billing-grid">
       <div className="billing-pay-card">
-        <h3>Submit a payment — USD 20</h3>
+        {vnpayEnabled && <div className="billing-card-pay">
+          <h3>Pay by card — {vnpayAmountVnd?.toLocaleString('vi-VN')} VND</h3>
+          <p className="muted">Visa, Mastercard, JCB, or a linked wallet like Google Pay — via VNPay's secure page.</p>
+          <button type="button" className="primary-button" onClick={payByCard} disabled={cardRedirecting}>{cardRedirecting ? <Loader2 size={16} className="spin" /> : 'Pay by card (VNPay)'}</button>
+        </div>}
+        <h3>{vnpayEnabled ? 'Or pay by bank transfer — USD 20' : 'Submit a payment — USD 20'}</h3>
         <Field label="Payment method">
           <select className="wz-input wz-select" value={method} onChange={(event) => setMethod(event.target.value as PaymentMethod)}>
             <option value="vietqr">VietQR</option>

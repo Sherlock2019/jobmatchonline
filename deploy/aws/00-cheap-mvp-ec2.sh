@@ -39,6 +39,14 @@ $SSH "set -e
     || echo \"BILLING_CRON_SECRET=\$(head -c 48 /dev/urandom | base64 | tr -dc A-Za-z0-9 | head -c 40)\" | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
   grep -q '^ADMIN_PROMOTE_SECRET=' /etc/jobsmatchnow-api.env 2>/dev/null \
     || echo \"ADMIN_PROMOTE_SECRET=\$(head -c 48 /dev/urandom | base64 | tr -dc A-Za-z0-9 | head -c 40)\" | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
+  # VNPay (direct Visa/Mastercard/JCB card payment): the return URL is fixed
+  # and safe to auto-set; VNPAY_TMN_CODE/VNPAY_HASH_SECRET come from a real
+  # VNPay merchant account and must be added by hand once you have one —
+  # isVnpayConfigured() stays false (card payment hidden on the billing page)
+  # until both are set. RECRUITER_MONTHLY_PRICE_VND also needs a human to
+  # keep it near the current USD 20 exchange rate.
+  grep -q '^VNPAY_RETURN_URL=' /etc/jobsmatchnow-api.env 2>/dev/null \
+    || echo 'VNPAY_RETURN_URL=https://jobsmatchnow.com/api/billing/vnpay/return' | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
   sudo mkdir -p /var/lib/jobsmatchnow/uploads/resumes /var/lib/jobsmatchnow/uploads/payment-proofs
   sudo chown -R www-data:www-data /var/lib/jobsmatchnow/uploads
   echo 'postgres ready'"

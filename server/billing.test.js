@@ -8,6 +8,8 @@ import { attachReferralOnRegister, getOrCreateReferralCode, qualifyReferralIfEli
 import { runDailyBilling } from './billing/daily.js';
 import { requireAdminRole } from './billing/middleware.js';
 import { logBillingEvent } from './billing/audit.js';
+import { buildPaymentUrl, isVnpayConfigured, isVnpaySuccess, verifySignature } from './billing/providers/vnpay.js';
+import { confirmPayment } from './billing/confirm.js';
 
 function makeDb(overrides = {}) {
   return { users: [], subscriptions: [], subscriptionCredits: [], referrals: [], payments: [], billingEvents: [], billingNotifications: [], jobs: [], ...overrides };
@@ -280,6 +282,62 @@ test('candidate signup with ?ref=CODE creates no referral record', () => {
   db.users.push(candidate);
   attachReferralOnRegister(db, candidate, 'CODE1');
   assert.equal(db.referrals.length, 0);
+});
+
+// --- VNPay: direct Visa/Mastercard/JCB card payment ---
+
+// D. Unconfigured by default (no merchant credentials set) and refuses to
+// build a payment URL rather than producing a broken redirect.
+test('VNPay is unconfigured by default and refuses to build a payment URL', () => {
+  delete process.env.VNPAY_TMN_CODE;
+  delete process.env.VNPAY_HASH_SECRET;
+  assert.equal(isVnpayConfigured(), false);
+  assert.throws(() => buildPaymentUrl({ txnRef: 'p1', orderInfo: 'test', returnUrl: 'https://example.com/return' }), /not configured/);
+});
+
+// E. A correctly signed VNPay redirect verifies; tampering with any field
+// (e.g. the amount) invalidates the signature.
+test('a correctly signed VNPay redirect verifies, and tampering invalidates it', () => {
+  process.env.VNPAY_TMN_CODE = 'TESTTMN';
+  process.env.VNPAY_HASH_SECRET = 'test-secret-123';
+  try {
+    const url = buildPaymentUrl({ txnRef: 'pay-1', orderInfo: 'JobsMatchNow subscription', ipAddr: '1.2.3.4', returnUrl: 'https://example.com/return' });
+    const query = Object.fromEntries(new URL(url).searchParams);
+    assert.equal(verifySignature(query), true);
+    assert.equal(verifySignature({ ...query, vnp_Amount: String(Number(query.vnp_Amount) + 100) }), false);
+    assert.equal(verifySignature({ ...query, vnp_SecureHash: `${query.vnp_SecureHash.slice(0, -1)}0` }), false);
+  } finally {
+    delete process.env.VNPAY_TMN_CODE;
+    delete process.env.VNPAY_HASH_SECRET;
+  }
+});
+
+// F. VNPay's own success sentinel requires both fields to read "00" — a
+// declined card (any other response code) must never look like a success.
+test('isVnpaySuccess requires both response code and transaction status to read 00', () => {
+  assert.equal(isVnpaySuccess({ vnp_ResponseCode: '00', vnp_TransactionStatus: '00' }), true);
+  assert.equal(isVnpaySuccess({ vnp_ResponseCode: '00', vnp_TransactionStatus: '01' }), false);
+  assert.equal(isVnpaySuccess({ vnp_ResponseCode: '24', vnp_TransactionStatus: '00' }), false);
+});
+
+// G. The confirmation logic shared by the admin manual-confirm route and the
+// VNPay IPN webhook extends the subscription exactly once, even if called
+// twice for the same payment (VNPay retries IPN calls until acknowledged).
+test('shared confirmPayment extends the subscription exactly once, however it is confirmed', () => {
+  const now = Date.now();
+  const db = makeDb({
+    subscriptions: [{ id: 'sub1', recruiterUserId: 'r1', trialEndsAt: now - 1000, currentPeriodEndsAt: null, currentPeriodStartedAt: null }],
+    payments: [{ id: 'pay1', recruiterUserId: 'r1', subscriptionId: 'sub1', status: 'pending' }],
+    users: [{ id: 'r1', role: 'employer', email: 'r1@test.com' }],
+  });
+  const payment = db.payments[0];
+  confirmPayment(db, payment, { now, source: 'vnpay' });
+  assert.equal(payment.status, 'confirmed');
+  assert.equal(payment.confirmedBySource, 'vnpay');
+  assert.equal(db.subscriptions[0].currentPeriodEndsAt, now + 30 * DAY_MS);
+  const second = confirmPayment(db, payment, { now: now + 1000, source: 'vnpay' });
+  assert.equal(second.alreadyConfirmed, true);
+  assert.equal(db.subscriptions[0].currentPeriodEndsAt, now + 30 * DAY_MS);
 });
 
 // D. Candidate never receives subscription credits.

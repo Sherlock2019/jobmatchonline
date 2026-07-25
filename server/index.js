@@ -22,12 +22,14 @@ import { exchangeLinkedinCode, linkedinAuthorizationUrl, readSignedValue, signed
 import { oauthAuthorizationUrl, oauthExchangeCode, oauthProviders } from './integrations/oauth.js';
 import { logBillingEvent } from './billing/audit.js';
 import {
-  applyCredit, availableCredits, canUseRecruiterFeatures, computeEffectiveStatus, DAY_MS, extendFromPayment,
+  applyCredit, availableCredits, canUseRecruiterFeatures, computeEffectiveStatus, DAY_MS,
   findSubscription, getOrCreateTrialSubscription, isBillingExempt, PRICE_AMOUNT, PRICE_CURRENCY,
 } from './billing/subscriptions.js';
-import { attachReferralOnRegister, findReferrerByCode, getOrCreateReferralCode, qualifyReferralIfEligible, revokeReferralCreditForPayment } from './billing/referrals.js';
+import { attachReferralOnRegister, findReferrerByCode, getOrCreateReferralCode, revokeReferralCreditForPayment } from './billing/referrals.js';
 import { generateInvoiceNumber, generateTransferReference, MANUAL_METHOD_IDS, paymentInstructions } from './billing/providers/manual.js';
+import { buildPaymentUrl, isVnpayConfigured, isVnpaySuccess, VNPAY_AMOUNT_VND, verifySignature as verifyVnpaySignature } from './billing/providers/vnpay.js';
 import { assertRecruiterAccess, requireAdminRole } from './billing/middleware.js';
+import { confirmPayment } from './billing/confirm.js';
 import { runDailyBilling } from './billing/daily.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -380,6 +382,10 @@ app.get('/api/auth/oauth/:provider/callback', async (req, res, next) => {
       if (!found && identity.email) found = db.users.find((item) => item.demo !== true && item.email && item.email.toLowerCase() === identity.email);
       if (found) {
         Object.assign(found, { authProvider: provider, authSubject: identity.sub, provider, photo: found.photo || identity.picture });
+        // Admin accounts only ever authenticate through this Google SSO path
+        // (password login for role==='admin' is rejected below), so this is
+        // the one place a successful admin login can be logged.
+        if (found.role === 'admin') logBillingEvent(db, found.id, 'admin_login_success', 'user', found.id, { provider });
         return found;
       }
       const created = {
@@ -430,7 +436,10 @@ app.post('/api/auth/login', authLimiter, async (req, res, next) => {
       // Admin accounts never accept a password — Google SSO only, so admin
       // access always goes through Google's own sign-in (and whatever MFA
       // the admin has enabled there) rather than an app-local password.
-      if (user?.role === 'admin') { const error = new Error('Admin accounts must sign in with Google'); error.status = 403; throw error; }
+      if (user?.role === 'admin') {
+        await store.transaction((db2) => logBillingEvent(db2, user.id, 'admin_login_blocked_password_attempt', 'user', user.id, {}));
+        const error = new Error('Admin accounts must sign in with Google'); error.status = 403; throw error;
+      }
       // Same error for wrong email and wrong password — no account probing.
       if (!user?.passwordHash || !verifyPassword(password, user.passwordHash)) {
         const error = new Error('Email or password is incorrect'); error.status = 401; throw error;
@@ -1445,6 +1454,8 @@ app.get('/api/bootstrap', async (req, res, next) => {
         canPublishJob: canUseRecruiterFeatures(viewer, subscription) && computeEffectiveStatus(subscription) !== 'grace_period',
         credits: availableCredits(db, viewer.id),
         referralCode,
+        vnpayEnabled: isVnpayConfigured(),
+        vnpayAmountVnd: VNPAY_AMOUNT_VND,
       };
       // Bootstrap is a read, not a transaction — write a freshly-generated
       // code back once so it's stable on every future load.
@@ -1580,6 +1591,8 @@ function billingPayload(db, recruiter) {
     credits: availableCredits(db, recruiter.id),
     referralCode: getOrCreateReferralCode(db, recruiter),
     instructions: paymentInstructions(),
+    vnpayEnabled: isVnpayConfigured(),
+    vnpayAmountVnd: VNPAY_AMOUNT_VND,
   };
 }
 
@@ -1746,6 +1759,113 @@ app.get('/api/billing/payments/:id/proof', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// --- VNPay: direct Visa/Mastercard/JCB card payment ------------------------
+// Card number is entered on VNPay's own hosted page, never on ours. The
+// browser-facing return route is UX-only; the server-to-server IPN route
+// below is the sole authority that ever confirms a payment — see
+// server/billing/providers/vnpay.js for why.
+
+app.post('/api/billing/payments/vnpay/create', rateLimit({ windowMs: 3600000, max: 20, bucket: 'vnpay-create' }), async (req, res, next) => {
+  try {
+    if (!isVnpayConfigured()) { const error = new Error('Card payment is not configured yet — use bank transfer / VietQR for now'); error.status = 503; throw error; }
+    const recruiterId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const payment = await store.transaction((db) => {
+      const recruiter = db.users.find((user) => user.id === recruiterId);
+      if (!recruiter) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, recruiterId);
+      if (recruiter.role !== 'employer') { const error = new Error('Only recruiter accounts submit payments'); error.status = 400; throw error; }
+      const subscription = getOrCreateTrialSubscription(db, recruiterId);
+      const now = Date.now();
+      const created = {
+        id: crypto.randomUUID(),
+        recruiterUserId: recruiterId,
+        subscriptionId: subscription.id,
+        amount: VNPAY_AMOUNT_VND,
+        currency: 'VND',
+        paymentMethod: 'vnpay',
+        status: 'pending',
+        paymentReference: null,
+        invoiceNumber: generateInvoiceNumber(db),
+        payerName: null,
+        bankName: null,
+        transferDate: null,
+        proofFileUrl: null,
+        adminNote: null,
+        confirmedByAdminId: null,
+        confirmedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      db.payments.push(created);
+      logBillingEvent(db, recruiterId, 'vnpay_payment_created', 'payment', created.id, { invoiceNumber: created.invoiceNumber });
+      return created;
+    });
+    const returnUrl = process.env.VNPAY_RETURN_URL;
+    if (!returnUrl) { const error = new Error('VNPAY_RETURN_URL is not configured'); error.status = 503; throw error; }
+    const redirectUrl = buildPaymentUrl({
+      txnRef: payment.id,
+      orderInfo: `JobsMatchNow subscription ${payment.invoiceNumber}`,
+      ipAddr: req.ip,
+      returnUrl,
+    });
+    res.status(201).json({ payment, redirectUrl });
+  } catch (error) { next(error); }
+});
+
+// Browser-facing redirect target after the recruiter finishes on VNPay's
+// page. Confirms the payment (idempotent, signature-gated) as a UX
+// convenience in case the IPN call hasn't landed yet, but is never the only
+// path that can confirm a payment.
+app.get('/api/billing/vnpay/return', async (req, res) => {
+  try {
+    if (!verifyVnpaySignature(req.query)) return res.redirect('/?billing=failed');
+    const txnRef = String(req.query.vnp_TxnRef || '');
+    if (isVnpaySuccess(req.query)) {
+      await store.transaction((db) => {
+        const payment = db.payments.find((entry) => entry.id === txnRef && entry.paymentMethod === 'vnpay');
+        if (payment && payment.status !== 'confirmed') confirmPayment(db, payment, { source: 'vnpay' });
+      }).catch(() => undefined);
+      return res.redirect('/?billing=success');
+    }
+    return res.redirect('/?billing=failed');
+  } catch {
+    res.redirect('/?billing=failed');
+  }
+});
+
+// Server-to-server webhook VNPay calls directly — the authoritative
+// confirmation path. Must always reply with VNPay's own {RspCode,Message}
+// JSON shape (never a generic error page), or VNPay will keep retrying.
+app.get('/api/billing/vnpay/ipn', async (req, res) => {
+  try {
+    if (!verifyVnpaySignature(req.query)) return res.json({ RspCode: '97', Message: 'Invalid signature' });
+    const txnRef = String(req.query.vnp_TxnRef || '');
+    const result = await store.transaction((db) => {
+      const payment = db.payments.find((entry) => entry.id === txnRef && entry.paymentMethod === 'vnpay');
+      if (!payment) return { code: '01', message: 'Order not found' };
+      const expectedAmount = Math.round(payment.amount) * 100;
+      if (String(req.query.vnp_Amount) !== String(expectedAmount)) return { code: '04', message: 'Invalid amount' };
+      if (payment.status === 'confirmed') return { code: '02', message: 'Order already confirmed' };
+      if (!isVnpaySuccess(req.query)) {
+        payment.status = 'rejected';
+        payment.adminNote = `VNPay declined: response ${req.query.vnp_ResponseCode}`;
+        payment.updatedAt = Date.now();
+        logBillingEvent(db, payment.recruiterUserId, 'vnpay_payment_declined', 'payment', payment.id, { responseCode: req.query.vnp_ResponseCode });
+        return { code: '00', message: 'Confirm Success' };
+      }
+      const confirmed = confirmPayment(db, payment, { source: 'vnpay' });
+      return { code: '00', message: 'Confirm Success', confirmed };
+    });
+    if (result.confirmed && !result.confirmed.alreadyConfirmed) {
+      if (result.confirmed.recruiterEmail) await sendMail({ to: result.confirmed.recruiterEmail, subject: 'Payment confirmed — JobsMatchNow', text: `Hi ${result.confirmed.recruiterName || ''},\n\nYour card payment has been confirmed. Your recruiter access is active through ${new Date(result.confirmed.subscription.currentPeriodEndsAt).toDateString()}.\n\n— JobsMatchNow` }).catch(() => undefined);
+      if (result.confirmed.qualification && result.confirmed.referrerEmail) await sendMail({ to: result.confirmed.referrerEmail, subject: 'You earned a free month — JobsMatchNow', text: 'A recruiter you referred just completed their first paid month. You\'ve earned one free 30-day month, applied automatically the next time your subscription needs it.\n\n— JobsMatchNow' }).catch(() => undefined);
+    }
+    res.json({ RspCode: result.code, Message: result.message });
+  } catch {
+    res.json({ RspCode: '99', Message: 'Unknown error' });
+  }
+});
+
 // --- Admin billing dashboard & actions (real per-user admin role) ----------
 
 app.get('/api/admin/billing/payments', async (req, res, next) => {
@@ -1790,26 +1910,43 @@ app.get('/api/admin/billing/overview', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// Read-only marketplace snapshot for the solo admin — real (non-demo) users
+// only, so the seeded showcase accounts never inflate the numbers.
+app.get('/api/admin/analytics/overview', async (req, res, next) => {
+  try {
+    requireAdminRole(authSession(req));
+    const db = await store.read();
+    const now = Date.now();
+    const since = (days) => now - days * DAY_MS;
+    const demoUserIds = new Set(db.users.filter((user) => user.demo === true).map((user) => user.id));
+    const realUsers = db.users.filter((user) => !demoUserIds.has(user.id));
+    const candidates = realUsers.filter((user) => user.role === 'candidate');
+    const recruiters = realUsers.filter((user) => user.role === 'employer');
+    const realJobs = db.jobs.filter((job) => !demoUserIds.has(job.employerId));
+    const realMatches = db.matches.filter((match) => !demoUserIds.has(match.employerId) && !demoUserIds.has(match.candidateId));
+    res.json({
+      totalCandidates: candidates.length,
+      newCandidates7d: candidates.filter((user) => user.createdAt >= since(7)).length,
+      newCandidates30d: candidates.filter((user) => user.createdAt >= since(30)).length,
+      totalRecruiters: recruiters.length,
+      newRecruiters7d: recruiters.filter((user) => user.createdAt >= since(7)).length,
+      newRecruiters30d: recruiters.filter((user) => user.createdAt >= since(30)).length,
+      totalJobs: realJobs.length,
+      activeJobs: realJobs.filter((job) => String(job.status).toLowerCase() !== 'expired').length,
+      totalMatches: realMatches.length,
+      newMatches7d: realMatches.filter((match) => match.createdAt >= since(7)).length,
+      totalMessages: db.messages.filter((message) => realMatches.some((match) => match.id === message.matchId)).length,
+    });
+  } catch (error) { next(error); }
+});
+
 app.post('/api/admin/billing/payments/:id/confirm', async (req, res, next) => {
   try {
     const session = requireAdminRole(authSession(req));
     const result = await store.transaction((db) => {
       const payment = db.payments.find((entry) => entry.id === req.params.id);
       if (!payment) { const error = new Error('Payment not found'); error.status = 404; throw error; }
-      if (payment.status === 'confirmed') return { payment, alreadyConfirmed: true }; // idempotent: re-confirming is a no-op
-      if (!['submitted', 'pending'].includes(payment.status)) { const error = new Error(`Cannot confirm a payment in status "${payment.status}"`); error.status = 409; throw error; }
-      const now = Date.now();
-      payment.status = 'confirmed';
-      payment.confirmedAt = now;
-      payment.confirmedByAdminId = session.sub;
-      payment.updatedAt = now;
-      const subscription = db.subscriptions.find((entry) => entry.id === payment.subscriptionId) || findSubscription(db, payment.recruiterUserId);
-      extendFromPayment(subscription, payment, now);
-      logBillingEvent(db, session.sub, 'payment_confirmed', 'payment', payment.id, { recruiterUserId: payment.recruiterUserId, newExpiry: subscription.currentPeriodEndsAt });
-      const qualification = qualifyReferralIfEligible(db, payment);
-      const recruiter = db.users.find((entry) => entry.id === payment.recruiterUserId);
-      const referrer = qualification ? db.users.find((entry) => entry.id === qualification.referral.referrerUserId) : null;
-      return { payment, subscription, qualification, recruiterEmail: recruiter?.email, recruiterName: recruiter?.name, referrerEmail: referrer?.email };
+      return confirmPayment(db, payment, { adminId: session.sub, source: 'admin' });
     });
     if (!result.alreadyConfirmed) {
       if (result.recruiterEmail) await sendMail({ to: result.recruiterEmail, subject: 'Payment confirmed — JobsMatchNow', text: `Hi ${result.recruiterName || ''},\n\nYour payment of ${result.payment.currency} ${result.payment.amount} has been confirmed. Your recruiter access is active through ${new Date(result.subscription.currentPeriodEndsAt).toDateString()}.\n\n— JobsMatchNow` }).catch(() => undefined);

@@ -21,6 +21,7 @@ import { CandidateHome, CandidateProfileModal, DashboardTitle, EmptyRow, Recruit
 import { SelectedCandidates } from './components/home/SelectedCandidates';
 import { BillingPage } from './components/billing/BillingPage';
 import { AdminBillingPage } from './components/billing/AdminBillingPage';
+import { AdminAnalyticsPage } from './components/billing/AdminAnalyticsPage';
 import { NotesBox } from './components/NotesBox';
 // Lazy-loaded: pulls in pdf.js only when a resume is actually opened.
 const ResumeViewerModal = lazy(() => import('./components/ResumeViewerModal').then((m) => ({ default: m.ResumeViewerModal })));
@@ -285,9 +286,17 @@ function Gauge({ pct, classicPct, value, classicValue, label, classicNum, newNum
  * Bootstrap dashboard (jobs/matches/swipes make no sense for an admin
  * account), just the billing moderation dashboard and a way to log out. */
 function AdminWorkspace({ session, onExit }: { session: SessionUser; onExit: () => void }) {
+  const [tab, setTab] = useState<'analytics' | 'billing'>('analytics');
   return <div className="admin-shell">
-    <header className="admin-topbar"><Brand /><span>Admin — {session.name}</span><button className="secondary-button" onClick={onExit}><LogOut size={15} /> Log out</button></header>
-    <AdminBillingPage />
+    <header className="admin-topbar">
+      <Brand />
+      <nav className="admin-tabs">
+        <button type="button" className={tab === 'analytics' ? 'active' : ''} onClick={() => setTab('analytics')}>Analytics</button>
+        <button type="button" className={tab === 'billing' ? 'active' : ''} onClick={() => setTab('billing')}>Billing &amp; Subscriptions</button>
+      </nav>
+      <span>Admin — {session.name}</span><button className="secondary-button" onClick={onExit}><LogOut size={15} /> Log out</button>
+    </header>
+    {tab === 'analytics' ? <AdminAnalyticsPage /> : <AdminBillingPage />}
   </div>;
 }
 
@@ -327,6 +336,21 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
 
   const load = () => { setLoading(true); setError(''); api.bootstrap(session.id).then(setData).catch((e) => setError(e.message)).finally(() => setLoading(false)); };
   useEffect(load, [session.id]);
+  // VNPay redirects the browser back to /?billing=success|failed once the
+  // recruiter finishes on VNPay's hosted page. That redirect is UX-only (the
+  // IPN webhook is what actually confirmed the payment), so this just routes
+  // to the billing page and refreshes data to reflect whatever the webhook
+  // already did.
+  const [vnpayResult, setVnpayResult] = useState<'success' | 'failed' | null>(null);
+  useEffect(() => {
+    const result = new URLSearchParams(window.location.search).get('billing');
+    if (result !== 'success' && result !== 'failed') return;
+    setVnpayResult(result);
+    setView('billing');
+    window.history.replaceState({}, '', window.location.pathname);
+    if (result === 'success') load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Demo convenience: jump between the flagship candidate and recruiter personas.
   const changeRole = (next: Role) => { api.login(`${next}-demo`).then(({ user }) => onSwitchUser(user)); };
   const nav = role === 'candidate' ? candidateNav : employerNav;
@@ -368,7 +392,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
               : <RecruiterWizard viewer={data.viewer} initialStep={editStep ?? 0}
                   onDone={() => { setEditStep(null); setView('profile'); setProfileSaved(true); window.setTimeout(() => setProfileSaved(false), 2600); load(); }}
                   onCancel={data.viewer.onboarding ? undefined : () => setEditStep(null)} />)
-          : <ViewRouter view={view} role={role} data={data} setData={setData} navigate={setView} onEditProfile={setEditStep} profileCard={profileCard} onProfileCardChange={setProfileCard} reload={load} onAddJobs={() => setJobImportOpen(true)} manualJobRequest={manualJobRequest} openMatchId={openMatchId} onOpenMessages={openMessages} editJobId={editJobId} onEditJob={openJobEditor} />
+          : <ViewRouter view={view} role={role} data={data} setData={setData} navigate={setView} onEditProfile={setEditStep} profileCard={profileCard} onProfileCardChange={setProfileCard} reload={load} onAddJobs={() => setJobImportOpen(true)} manualJobRequest={manualJobRequest} openMatchId={openMatchId} onOpenMessages={openMessages} editJobId={editJobId} onEditJob={openJobEditor} paymentResult={vnpayResult} onDismissResult={() => setVnpayResult(null)} />
       )}
     </section>
     {profileSaved && <div className="profile-saved-toast" role="status"><Check size={15} /> Profile updated. Recruiter view refreshed.</div>}
@@ -378,7 +402,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   </div>;
 }
 
-function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profileCard, onProfileCardChange, reload, onAddJobs, manualJobRequest, openMatchId, onOpenMessages, editJobId, onEditJob }: { view: View; role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void; onEditProfile: (step: number) => void; profileCard: number; onProfileCardChange: (card: number) => void; reload: () => void; onAddJobs: () => void; manualJobRequest: number; openMatchId?: string; onOpenMessages: (matchId: string) => void; editJobId?: string; onEditJob: (jobId: string) => void }) {
+function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profileCard, onProfileCardChange, reload, onAddJobs, manualJobRequest, openMatchId, onOpenMessages, editJobId, onEditJob, paymentResult, onDismissResult }: { view: View; role: Role; data: Bootstrap; setData: (d: Bootstrap) => void; navigate: (v: View) => void; onEditProfile: (step: number) => void; profileCard: number; onProfileCardChange: (card: number) => void; reload: () => void; onAddJobs: () => void; manualJobRequest: number; openMatchId?: string; onOpenMessages: (matchId: string) => void; editJobId?: string; onEditJob: (jobId: string) => void; paymentResult?: 'success' | 'failed' | null; onDismissResult?: () => void }) {
   if (view === 'home') return role === 'candidate'
     ? <CandidateHome key={data.viewer.activeVariantId || 'base'} data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} />
     : <RecruiterHome data={data} setData={setData} navigate={navigate} onEditProfile={onEditProfile} onAddJobs={onAddJobs} onOpenMessages={onOpenMessages} onEditJob={onEditJob} />;
@@ -393,7 +417,7 @@ function ViewRouter({ view, role, data, setData, navigate, onEditProfile, profil
   if (view === 'matches') return <Matches data={data} navigate={navigate} onOpenMessages={onOpenMessages} />;
   if (view === 'selected') return <SelectedCandidates data={data} setData={setData} onOpenMessages={onOpenMessages} />;
   if (view === 'coffee') return <CoffeeInvitations data={data} onOpenMessages={onOpenMessages} />;
-  if (view === 'billing') return <BillingPage data={data} setData={setData} />;
+  if (view === 'billing') return <BillingPage data={data} setData={setData} paymentResult={paymentResult} onDismissResult={onDismissResult} />;
   if (role === 'candidate') return <CandidateProfilePage
     viewer={data.viewer} jobs={data.jobs} onEdit={onEditProfile} initialCard={profileCard} onCardChange={onProfileCardChange}
     onDeleteProfile={data.viewer.activeVariantId ? async () => { await api.deleteProfileVariant(data.viewer.activeVariantId!, data.viewer.id); reload(); navigate('home'); } : undefined}
