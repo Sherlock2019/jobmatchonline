@@ -110,24 +110,25 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     { label: 'Recruiter success rate', classic: 34, jobsmatch: 78, unit: '%', color: '#FF2D55', feature: 'Qualified Mutual Matches + Hiring Insights + Candidate Feedback', note: 'Recruiters spend their time on candidates who already match the role and have actively confirmed their interest, supported by clear compatibility and pipeline data.' },
   ];
   const traditionalSteps = [
-    ['1. Candidate sends a job application', 'Same day'],
-    ['2. Recruiter receives and processes applications', '1 day'],
-    ['3. Resume screening', '3 days'],
-    ['4. Resume compared with the job description', '1 day'],
-    ['5. Recruiter screening call', '3 days'],
-    ['6. Interview and assessment rounds', '14 days'],
-    ['7. Reference and background checks', '7 days'],
-    ['8. Offer negotiation', '2 days'],
-    ['9. Offer acceptance and hire', '1 day'],
+    ['Candidate sends a job application', 'Same day'],
+    ['Recruiter receives and processes applications', '1 day'],
+    ['Resume screening', '3 days'],
+    ['Resume compared with the job description', '1 day'],
+    ['Recruiter screening call', '3 days'],
+    ['Interview and assessment rounds', '14 days'],
+    ['Reference and background checks', '7 days'],
+    ['Offer negotiation', '2 days'],
+    ['Offer acceptance and hire', '1 day'],
   ];
   const jobsmatchNowSteps = [
-    ['1. Application, receipt, resume screening, job-description analysis, and mutual matching combined', 'Same day'],
-    ['2. Recruiter screening call or direct local meetup', '1 day'],
-    ['3. Interview and assessment rounds', '14 days'],
-    ['4. Reference and background checks', '7 days'],
-    ['5. Offer negotiation', '2 days'],
-    ['6. Offer acceptance and hire', '1 day'],
+    ['Application, receipt, resume screening, job-description analysis, and mutual matching combined', 'Same day'],
+    ['Recruiter screening call or direct local meetup', '1 day'],
+    ['Interview and assessment rounds', '14 days'],
+    ['Reference and background checks', '7 days'],
+    ['Offer negotiation', '2 days'],
+    ['Offer acceptance and hire', '1 day'],
   ];
+  const timeColor = (t: string) => (/same day/i.test(t) ? '#34C759' : /^1 day/.test(t) ? '#32ADE6' : /^[23] days/.test(t) ? '#FF9500' : '#FF3B30');
   const modals = <AnimatePresence>
     {authModal === 'login' && <LoginModal onClose={() => setAuthModal(null)} onComplete={complete} />}
     {authModal === 'register' && <RegisterModal onClose={() => setAuthModal(null)} onComplete={complete} />}
@@ -171,7 +172,7 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     <section className="value-section" id="how"><div className="section-heading centered"><span className="eyebrow"><Sparkles size={14} /> A better signal</span><h2>Hiring works better when<br />both sides choose.</h2></div><div className="value-grid"><Feature icon={BarChart3} title="Fit, explained" text="Go beyond keywords with transparent skill, experience, and preference signals." /><Feature icon={Handshake} title="Intent, confirmed" text="A conversation opens only after both sides express interest. No cold outreach." /><Feature icon={MapIcon} title="Geolocation of Opportunities" text="Choose a city and private distance range, then meet for coffee only when both sides agree." /><Feature icon={ShieldCheck} title="People, respected" text="Salary and work style are clear up front. Candidate controls stay at the center." /></div></section>
     <section className="trust-section" id="trust"><div className="trust-copy"><span className="section-kicker light">Better Results</span><h2>More, better, faster hiring — with human mutual job matching.</h2><p>Every recommendation carries its reason. Every connection starts with consent. Every candidate gets control over what employers can see.</p><button className="white-button" onClick={openLogin}>Open recruiter workspace <ArrowRight size={17} /></button></div><div className="gauge-grid">
       <Gauge pct={22} classicPct={8} value="25 days" classicValue="32 days" label="Time to hire" classicNum={32} newNum={25} lowerIsBetter />
-      <Gauge pct={76} classicPct={18} value="11 days" classicValue="45 days" label="Time to find a role" classicNum={45} newNum={11} lowerIsBetter />
+      <Gauge pct={59} classicPct={20} value="11 days" classicValue="27 days" label="Time to find a role" classicNum={27} newNum={11} lowerIsBetter />
       <Gauge pct={46} classicPct={18} value="46%" classicValue="18%" label="Match-to-hire conversion" classicNum={18} newNum={46} />
       <Gauge pct={94} classicPct={58} value="94%" classicValue="58%" label="Candidate satisfaction rate" classicNum={58} newNum={94} />
       <Gauge pct={89} classicPct={34} value="89%" classicValue="34%" label="Recruiter satisfaction rate" classicNum={34} newNum={89} />
@@ -179,14 +180,15 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
       <small>Illustrative product targets for the demo experience.</small>
     </div><div className="trust-pipeline"><h3>Classic Hiring vs. New JobsMatchNow Process</h3><p>How the hiring pipeline itself compares, step for step.</p><div className="pipeline-rows">{trustPipeline.map((row) => { const max = Math.max(row.classic, row.jobsmatch) || 1; const deltaPct = row.classic ? Math.round(Math.abs(row.jobsmatch - row.classic) / row.classic * 100) : 0; return <Fragment key={row.label}><div className="pipeline-row"><span className="pipeline-row-label">{row.label}</span><div className="pipeline-bar-track classic"><i style={{ width: `${(row.classic / max) * 100}%` }} /><b>{row.classic}{row.unit}</b></div><div className="pipeline-bar-track jobsmatch"><i style={{ width: `${(row.jobsmatch / max) * 100}%`, background: row.color }} /><b>{row.jobsmatch}{row.unit}</b></div><span className="pipeline-delta" style={{ color: row.color }}>{deltaPct}% better</span></div><p className="pipeline-feature-note">Powered by <b>{row.feature}</b> — {row.note}</p></Fragment>; })}<div className="pipeline-legend"><span><i className="classic" /> Classic hiring</span><span><i className="jobsmatch" /> JobsMatchNow</span></div><div className="pipeline-popularity"><Star size={16} fill="currentColor" /><div><strong>4.8/5 popularity</strong><span>Average candidate rating from verified reviews, powered by our built-in recommendation &amp; review feature.</span></div></div></div>
       <div className="trust-detail">
-        <h4>Traditional Hiring vs. JobsMatchNow</h4>
+        <h4>Traditional Hiring vs. JobsMatchNow Steps</h4>
         <div className="trust-detail-table-wrap">
-          <table className="trust-detail-table">
-            <thead><tr><th>Traditional Hiring</th><th>Estimated time</th><th>JobsMatchNow</th><th>Estimated time</th></tr></thead>
-            <tbody>{traditionalSteps.map((row, i) => <tr key={row[0]}><td>{row[0]}</td><td>{row[1]}</td><td>{jobsmatchNowSteps[i]?.[0]}</td><td>{jobsmatchNowSteps[i]?.[1]}</td></tr>)}</tbody>
-            <tfoot><tr><td><b>Estimated total</b></td><td><b>32 days</b></td><td><b>Estimated total</b></td><td><b>25 days</b></td></tr></tfoot>
+          <table className="trust-detail-table colorful">
+            <thead><tr><th colSpan={2} className="trad-head">Traditional Hiring</th><th colSpan={2} className="new-head">JobsMatchNow</th></tr></thead>
+            <tbody>{traditionalSteps.map((row, i) => { const jm = jobsmatchNowSteps[i]; return <tr key={row[0]} className={i === 0 ? 'combined-row' : undefined}><td className="step-cell"><span className="step-num trad">{i + 1}</span>{row[0]}</td><td><span className="time-pill" style={{ background: timeColor(row[1]) }}>{row[1]}</span></td><td className="step-cell">{jm && <><span className="step-num new">{i + 1}</span>{jm[0]}{i === 0 && <b className="combo-badge">4-in-1 ⚡</b>}</>}</td><td>{jm && <span className="time-pill" style={{ background: timeColor(jm[1]) }}>{jm[1]}</span>}</td></tr>; })}</tbody>
+            <tfoot><tr><td><b>Estimated total</b></td><td><b className="total-pill trad">32 days</b></td><td><b>Estimated total</b></td><td><b className="total-pill new">25 days</b></td></tr></tfoot>
           </table>
         </div>
+        <div className="time-legend"><span><i style={{ background: '#34C759' }} /> Same day</span><span><i style={{ background: '#32ADE6' }} /> 1 day</span><span><i style={{ background: '#FF9500' }} /> 2–3 days</span><span><i style={{ background: '#FF3B30' }} /> 7+ days</span></div>
         <div className="trust-detail-block">
           <strong>Steps simplified or skipped with JobsMatchNow</strong>
           <p>Traditional steps 1–4 are combined into one intelligent matching step:</p>
