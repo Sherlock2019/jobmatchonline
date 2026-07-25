@@ -183,7 +183,7 @@ function Gauge({ pct, classicPct, value, classicValue, label }: { pct: number; c
       <div className="gauge-inner"><strong className="gauge-new">{value}</strong></div>
     </div>
     <span>{label}</span>
-    <em className="gauge-classic">Classic: {classicValue}</em>
+    <div className="gauge-compare"><em className="gauge-classic">Classic: {classicValue}</em><em className="gauge-new-line">New: {value}</em></div>
   </div>;
 }
 
