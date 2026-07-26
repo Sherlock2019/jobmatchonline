@@ -9,7 +9,10 @@ import { runDailyBilling } from './billing/daily.js';
 import { requireAdminRole } from './billing/middleware.js';
 import { logBillingEvent } from './billing/audit.js';
 import { buildPaymentUrl, isVnpayConfigured, isVnpaySuccess, verifySignature } from './billing/providers/vnpay.js';
+import { isStripeConfigured, verifyWebhookSignature as verifyStripeSignature } from './billing/providers/stripe.js';
+import { approveLink, isPaypalConfigured } from './billing/providers/paypal.js';
 import { confirmPayment } from './billing/confirm.js';
+import crypto from 'node:crypto';
 
 function makeDb(overrides = {}) {
   return { users: [], subscriptions: [], subscriptionCredits: [], referrals: [], payments: [], billingEvents: [], billingNotifications: [], jobs: [], ...overrides };
@@ -379,4 +382,54 @@ test('candidate later changing role to recruiter does not automatically qualify 
   attachReferralOnRegister(db, user, 'CODE1');
   user.role = 'employer';
   assert.equal(db.referrals.some((entry) => entry.referredUserId === 'c1'), false);
+});
+
+// --- Stripe: recruiter subscription checkout (France-registered merchant) ---
+
+// H. Unconfigured by default and refuses to build a payment URL.
+test('Stripe is unconfigured by default', () => {
+  delete process.env.STRIPE_SECRET_KEY;
+  delete process.env.STRIPE_PRICE_ID;
+  assert.equal(isStripeConfigured(), false);
+});
+
+// I. A correctly signed Stripe webhook verifies; tampering, a wrong secret,
+// and a stale timestamp (replay protection) all invalidate it.
+test('a correctly signed Stripe webhook verifies, and tampering/replay invalidate it', () => {
+  process.env.STRIPE_SECRET_KEY = 'sk_test_x';
+  process.env.STRIPE_PRICE_ID = 'price_x';
+  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test123';
+  try {
+    const rawBody = JSON.stringify({ type: 'invoice.paid', data: { object: { id: 'in_1' } } });
+    const now = Math.floor(Date.now() / 1000);
+    const sign = (timestamp, secret) => crypto.createHmac('sha256', secret).update(`${timestamp}.${rawBody}`, 'utf8').digest('hex');
+    const validHeader = `t=${now},v1=${sign(now, 'whsec_test123')}`;
+    assert.equal(verifyStripeSignature(rawBody, validHeader), true);
+    assert.equal(verifyStripeSignature(rawBody, `t=${now},v1=${sign(now, 'wrong-secret')}`), false);
+    assert.equal(verifyStripeSignature(`${rawBody}tampered`, validHeader), false);
+    const staleTimestamp = now - 3600;
+    assert.equal(verifyStripeSignature(rawBody, `t=${staleTimestamp},v1=${sign(staleTimestamp, 'whsec_test123')}`), false);
+  } finally {
+    delete process.env.STRIPE_SECRET_KEY;
+    delete process.env.STRIPE_PRICE_ID;
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+  }
+});
+
+// --- PayPal: recruiter subscription checkout ---
+
+// J. Unconfigured by default.
+test('PayPal is unconfigured by default', () => {
+  delete process.env.PAYPAL_CLIENT_ID;
+  delete process.env.PAYPAL_CLIENT_SECRET;
+  delete process.env.PAYPAL_PLAN_ID;
+  assert.equal(isPaypalConfigured(), false);
+});
+
+// K. approveLink() picks out the `approve` rel from PayPal's links array.
+test('approveLink extracts the approve rel from a PayPal subscription response', () => {
+  const subscription = { links: [{ rel: 'self', href: 'https://api.paypal.com/v1/x' }, { rel: 'approve', href: 'https://paypal.com/approve/x' }] };
+  assert.equal(approveLink(subscription), 'https://paypal.com/approve/x');
+  assert.equal(approveLink({ links: [] }), null);
+  assert.equal(approveLink({}), null);
 });

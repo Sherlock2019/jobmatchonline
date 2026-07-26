@@ -42,7 +42,7 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
     </div>;
   }
 
-  const { subscription, effectiveStatus, credits, referralCode, instructions, vnpayEnabled, vnpayAmountVnd } = data.billing;
+  const { subscription, effectiveStatus, credits, referralCode, instructions, vnpayEnabled, vnpayAmountVnd, stripeEnabled, paypalEnabled } = data.billing;
   const accessEndsAt = subscription.currentPeriodEndsAt || subscription.trialEndsAt;
   const referralLink = `${window.location.origin}/ref/${referralCode}`;
 
@@ -70,13 +70,16 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
     } catch (e) { setError(e instanceof Error ? e.message : 'Upload failed'); }
   };
 
-  // Redirects to VNPay's hosted page to pay by Visa/Mastercard/JCB (or any
-  // wallet, e.g. Google Pay, VNPay itself enables on that page). Confirmation
-  // happens server-side via VNPay's webhook, not here.
-  const payByCard = async () => {
+  // Redirects to the provider's own hosted page — card numbers are entered
+  // there, never on our site. Confirmation happens server-side via each
+  // provider's webhook (or VNPay's IPN), never from this redirect alone.
+  const payVia = async (provider: 'vnpay' | 'stripe' | 'paypal') => {
     setCardRedirecting(true); setError('');
     try {
-      const { redirectUrl } = await api.startVnpayPayment(viewer.id);
+      const { redirectUrl } = provider === 'vnpay' ? await api.startVnpayPayment(viewer.id)
+        : provider === 'stripe' ? await api.startStripeCheckout(viewer.id)
+        : await api.startPaypalSubscription(viewer.id);
+      if (!redirectUrl) throw new Error('Could not start checkout');
       window.location.href = redirectUrl;
     } catch (e) { setError(e instanceof Error ? e.message : 'Card payment is not available yet'); setCardRedirecting(false); }
   };
@@ -101,9 +104,19 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
         {vnpayEnabled && <div className="billing-card-pay">
           <h3>Pay by card — {vnpayAmountVnd?.toLocaleString('vi-VN')} VND</h3>
           <p className="muted">Visa, Mastercard, JCB, or a linked wallet like Google Pay — via VNPay's secure page.</p>
-          <button type="button" className="primary-button" onClick={payByCard} disabled={cardRedirecting}>{cardRedirecting ? <Loader2 size={16} className="spin" /> : 'Pay by card (VNPay)'}</button>
+          <button type="button" className="primary-button" onClick={() => payVia('vnpay')} disabled={cardRedirecting}>{cardRedirecting ? <Loader2 size={16} className="spin" /> : 'Pay by card (VNPay)'}</button>
         </div>}
-        <h3>{vnpayEnabled ? 'Or pay by bank transfer — USD 20' : 'Submit a payment — USD 20'}</h3>
+        {stripeEnabled && <div className="billing-card-pay">
+          <h3>Pay by card — USD 20</h3>
+          <p className="muted">Visa, Mastercard, and more — via Stripe's secure checkout.</p>
+          <button type="button" className="primary-button" onClick={() => payVia('stripe')} disabled={cardRedirecting}>{cardRedirecting ? <Loader2 size={16} className="spin" /> : 'Pay by card (Stripe)'}</button>
+        </div>}
+        {paypalEnabled && <div className="billing-card-pay">
+          <h3>Pay with PayPal — USD 20</h3>
+          <p className="muted">Pay via your PayPal balance or a linked card.</p>
+          <button type="button" className="primary-button" onClick={() => payVia('paypal')} disabled={cardRedirecting}>{cardRedirecting ? <Loader2 size={16} className="spin" /> : 'Pay with PayPal'}</button>
+        </div>}
+        <h3>{vnpayEnabled || stripeEnabled || paypalEnabled ? 'Or pay by bank transfer — USD 20' : 'Submit a payment — USD 20'}</h3>
         <Field label="Payment method">
           <select className="wz-input wz-select" value={method} onChange={(event) => setMethod(event.target.value as PaymentMethod)}>
             <option value="vietqr">VietQR</option>

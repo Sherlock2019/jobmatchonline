@@ -28,6 +28,8 @@ import {
 import { attachReferralOnRegister, findReferrerByCode, getOrCreateReferralCode, revokeReferralCreditForPayment } from './billing/referrals.js';
 import { generateInvoiceNumber, generateTransferReference, MANUAL_METHOD_IDS, paymentInstructions } from './billing/providers/manual.js';
 import { buildPaymentUrl, isVnpayConfigured, isVnpaySuccess, VNPAY_AMOUNT_VND, verifySignature as verifyVnpaySignature } from './billing/providers/vnpay.js';
+import { createCheckoutSession, isStripeConfigured, verifyWebhookSignature as verifyStripeSignature } from './billing/providers/stripe.js';
+import { approveLink, createSubscription as createPaypalSubscription, isPaypalConfigured, verifyWebhookSignature as verifyPaypalSignature } from './billing/providers/paypal.js';
 import { assertRecruiterAccess, requireAdminRole } from './billing/middleware.js';
 import { confirmPayment } from './billing/confirm.js';
 import { runDailyBilling } from './billing/daily.js';
@@ -204,6 +206,89 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(origin && allowedOrigins.has(origin) ? 204 : 403);
   next();
 });
+
+// Stripe webhook needs the RAW request body to verify its signature, so this
+// is registered with its own express.raw() middleware and placed before the
+// global express.json() below — Express runs middleware/routes in
+// registration order, so this route's raw-body handling always wins for
+// this exact path, and every other route still gets normal JSON parsing.
+app.post('/api/billing/stripe/webhook', express.raw({ type: 'application/json', limit: '256kb' }), async (req, res) => {
+  try {
+    const rawBody = req.body.toString('utf8');
+    if (!verifyStripeSignature(rawBody, req.headers['stripe-signature'])) return res.status(400).json({ error: 'Invalid signature' });
+    const event = JSON.parse(rawBody);
+    const result = await store.transaction((db) => {
+      if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        const payment = db.payments.find((entry) => entry.id === session.client_reference_id && entry.paymentMethod === 'stripe');
+        if (!payment) return { skipped: true };
+        payment.paymentReference = session.subscription;
+        payment.updatedAt = Date.now();
+        const subscription = db.subscriptions.find((entry) => entry.id === payment.subscriptionId);
+        if (subscription) subscription.stripeSubscriptionId = session.subscription;
+        return { linked: true };
+      }
+      if (event.type === 'invoice.paid') {
+        const invoice = event.data.object;
+        if (db.payments.some((entry) => entry.paymentMethod === 'stripe' && entry.invoiceNumber === `stripe-${invoice.id}`)) return { alreadyProcessed: true };
+        let payment = db.payments.find((entry) => entry.paymentMethod === 'stripe' && entry.paymentReference === invoice.subscription && entry.status === 'pending');
+        if (payment) {
+          payment.invoiceNumber = `stripe-${invoice.id}`;
+        } else {
+          // A renewal, not the first payment — no pre-created local Payment
+          // exists yet, so make one against the recruiter this Stripe
+          // subscription was linked to in the checkout.session.completed step.
+          const subscription = db.subscriptions.find((entry) => entry.stripeSubscriptionId === invoice.subscription);
+          if (!subscription) return { skipped: true };
+          const now = Date.now();
+          payment = {
+            id: crypto.randomUUID(), recruiterUserId: subscription.recruiterUserId, subscriptionId: subscription.id,
+            amount: PRICE_AMOUNT, currency: PRICE_CURRENCY, paymentMethod: 'stripe', status: 'pending',
+            paymentReference: invoice.subscription, invoiceNumber: `stripe-${invoice.id}`, payerName: null, bankName: null,
+            transferDate: null, proofFileUrl: null, adminNote: null, confirmedByAdminId: null, confirmedAt: null,
+            createdAt: now, updatedAt: now,
+          };
+          db.payments.push(payment);
+        }
+        return confirmPayment(db, payment, { source: 'stripe' });
+      }
+      return { ignored: true };
+    });
+    if (result?.payment && !result.alreadyConfirmed && result.recruiterEmail) {
+      await sendMail({ to: result.recruiterEmail, subject: 'Payment confirmed — JobsMatchNow', text: `Hi ${result.recruiterName || ''},\n\nYour Stripe payment has been confirmed. Your recruiter access is active through ${new Date(result.subscription.currentPeriodEndsAt).toDateString()}.\n\n— JobsMatchNow` }).catch(() => undefined);
+    }
+    res.json({ received: true });
+  } catch {
+    res.status(400).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// PayPal's webhook also needs the raw body for signature verification
+// (delegated to PayPal's own verify-webhook-signature API — see
+// providers/paypal.js), so this is registered here too, before the global
+// express.json() below, for the same reason as the Stripe webhook above.
+app.post('/api/billing/paypal/webhook', express.raw({ type: 'application/json', limit: '256kb' }), async (req, res) => {
+  try {
+    const rawBody = req.body.toString('utf8');
+    const event = JSON.parse(rawBody);
+    if (!(await verifyPaypalSignature(req.headers, event))) return res.status(400).json({ error: 'Invalid signature' });
+    const result = await store.transaction((db) => {
+      if (event.event_type !== 'PAYMENT.SALE.COMPLETED' && event.event_type !== 'BILLING.SUBSCRIPTION.ACTIVATED') return { ignored: true };
+      const paypalSubscriptionId = event.resource?.billing_agreement_id || event.resource?.id;
+      if (!paypalSubscriptionId) return { ignored: true };
+      const payment = db.payments.find((entry) => entry.paymentMethod === 'paypal' && entry.paymentReference === paypalSubscriptionId && entry.status !== 'confirmed');
+      if (!payment) return { skipped: true };
+      return confirmPayment(db, payment, { source: 'paypal' });
+    });
+    if (result?.payment && !result.alreadyConfirmed && result.recruiterEmail) {
+      await sendMail({ to: result.recruiterEmail, subject: 'Payment confirmed — JobsMatchNow', text: `Hi ${result.recruiterName || ''},\n\nYour PayPal payment has been confirmed. Your recruiter access is active through ${new Date(result.subscription.currentPeriodEndsAt).toDateString()}.\n\n— JobsMatchNow` }).catch(() => undefined);
+    }
+    res.json({ received: true });
+  } catch {
+    res.status(400).json({ error: 'Webhook processing failed' });
+  }
+});
+
 app.use(express.json({ limit: '64kb' }));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, version: '1.0.0' }));
@@ -1471,6 +1556,8 @@ app.get('/api/bootstrap', async (req, res, next) => {
         referralCode,
         vnpayEnabled: isVnpayConfigured(),
         vnpayAmountVnd: VNPAY_AMOUNT_VND,
+        stripeEnabled: isStripeConfigured(),
+        paypalEnabled: isPaypalConfigured(),
       };
       // Bootstrap is a read, not a transaction — write a freshly-generated
       // code back once so it's stable on every future load.
@@ -1608,6 +1695,8 @@ function billingPayload(db, recruiter) {
     instructions: paymentInstructions(),
     vnpayEnabled: isVnpayConfigured(),
     vnpayAmountVnd: VNPAY_AMOUNT_VND,
+    stripeEnabled: isStripeConfigured(),
+    paypalEnabled: isPaypalConfigured(),
   };
 }
 
@@ -1879,6 +1968,79 @@ app.get('/api/billing/vnpay/ipn', async (req, res) => {
   } catch {
     res.json({ RspCode: '99', Message: 'Unknown error' });
   }
+});
+
+// --- Stripe: recruiter subscription checkout (France-registered merchant) --
+// The webhook (registered earlier, before express.json()) is the sole
+// confirmation authority; this route only starts the checkout.
+
+app.post('/api/billing/payments/stripe/create-checkout-session', rateLimit({ windowMs: 3600000, max: 20, bucket: 'stripe-create' }), async (req, res, next) => {
+  try {
+    if (!isStripeConfigured()) { const error = new Error('Card payment via Stripe is not configured yet'); error.status = 503; throw error; }
+    const recruiterId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const { payment, recruiterEmail } = await store.transaction((db) => {
+      const recruiter = db.users.find((user) => user.id === recruiterId);
+      if (!recruiter) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, recruiterId);
+      if (recruiter.role !== 'employer') { const error = new Error('Only recruiter accounts submit payments'); error.status = 400; throw error; }
+      const subscription = getOrCreateTrialSubscription(db, recruiterId);
+      const now = Date.now();
+      const created = {
+        id: crypto.randomUUID(), recruiterUserId: recruiterId, subscriptionId: subscription.id,
+        amount: PRICE_AMOUNT, currency: PRICE_CURRENCY, paymentMethod: 'stripe', status: 'pending',
+        paymentReference: null, invoiceNumber: generateInvoiceNumber(db), payerName: null, bankName: null,
+        transferDate: null, proofFileUrl: null, adminNote: null, confirmedByAdminId: null, confirmedAt: null,
+        createdAt: now, updatedAt: now,
+      };
+      db.payments.push(created);
+      logBillingEvent(db, recruiterId, 'stripe_checkout_created', 'payment', created.id, { invoiceNumber: created.invoiceNumber });
+      return { payment: created, recruiterEmail: recruiter.email };
+    });
+    const returnBase = process.env.WEB_APP_URL || 'https://jobsmatchnow.com';
+    const session = await createCheckoutSession({
+      clientReferenceId: payment.id, customerEmail: recruiterEmail,
+      successUrl: `${returnBase}/?billing=success`, cancelUrl: `${returnBase}/?billing=failed`,
+    });
+    res.status(201).json({ payment, redirectUrl: session.url });
+  } catch (error) { next(error); }
+});
+
+// --- PayPal: recruiter subscription checkout ------------------------------
+// Same shape as Stripe/VNPay: the webhook is authoritative, this route only
+// starts the subscription approval flow.
+
+app.post('/api/billing/payments/paypal/create-subscription', rateLimit({ windowMs: 3600000, max: 20, bucket: 'paypal-create' }), async (req, res, next) => {
+  try {
+    if (!isPaypalConfigured()) { const error = new Error('Card payment via PayPal is not configured yet'); error.status = 503; throw error; }
+    const recruiterId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const payment = await store.transaction((db) => {
+      const recruiter = db.users.find((user) => user.id === recruiterId);
+      if (!recruiter) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, recruiterId);
+      if (recruiter.role !== 'employer') { const error = new Error('Only recruiter accounts submit payments'); error.status = 400; throw error; }
+      const subscription = getOrCreateTrialSubscription(db, recruiterId);
+      const now = Date.now();
+      const created = {
+        id: crypto.randomUUID(), recruiterUserId: recruiterId, subscriptionId: subscription.id,
+        amount: PRICE_AMOUNT, currency: PRICE_CURRENCY, paymentMethod: 'paypal', status: 'pending',
+        paymentReference: null, invoiceNumber: generateInvoiceNumber(db), payerName: null, bankName: null,
+        transferDate: null, proofFileUrl: null, adminNote: null, confirmedByAdminId: null, confirmedAt: null,
+        createdAt: now, updatedAt: now,
+      };
+      db.payments.push(created);
+      logBillingEvent(db, recruiterId, 'paypal_subscription_created', 'payment', created.id, { invoiceNumber: created.invoiceNumber });
+      return created;
+    });
+    const returnBase = process.env.WEB_APP_URL || 'https://jobsmatchnow.com';
+    const subscription = await createPaypalSubscription({
+      customId: payment.id, returnUrl: `${returnBase}/?billing=success`, cancelUrl: `${returnBase}/?billing=failed`,
+    });
+    await store.transaction((db) => {
+      const item = db.payments.find((entry) => entry.id === payment.id);
+      if (item) item.paymentReference = subscription.id;
+    });
+    res.status(201).json({ payment, redirectUrl: approveLink(subscription) });
+  } catch (error) { next(error); }
 });
 
 // --- Admin billing dashboard & actions (real per-user admin role) ----------
@@ -2754,7 +2916,12 @@ app.get('*', (req, res, next) => req.path.startsWith('/api/') ? next() : res.sen
 app.use((error, _req, res, _next) => {
   const status = error.status || (error instanceof ValidationError ? 400 : 500);
   if (status >= 500) console.error(error);
-  res.status(status).json({ error: status >= 500 ? 'Unexpected server error' : error.message, field: error.field });
+  // Only the true fallback (no explicit status — an actually unhandled
+  // exception) gets its message redacted. A deliberately-thrown 503 (e.g.
+  // "VNPay/Stripe/PayPal is not configured yet") always ships with an
+  // authored, safe-to-show message, so redacting anything >= 500 was
+  // swallowing those into a useless generic string.
+  res.status(status).json({ error: status === 500 ? 'Unexpected server error' : error.message, field: error.field });
 });
 
 if (process.env.NODE_ENV !== 'test') {

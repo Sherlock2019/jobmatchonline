@@ -96,6 +96,8 @@ export const api = {
   trackReferral: (code: string) => request<{ ok: boolean }>('/api/billing/referral/track', { method: 'POST', body: JSON.stringify({ code }) }),
   submitPayment: (payload: { userId: string; paymentMethod: PaymentMethod; payerName?: string; bankName?: string; transferDate?: string }) => request<Payment>('/api/billing/payments', { method: 'POST', body: JSON.stringify(payload) }),
   startVnpayPayment: (userId: string) => request<{ payment: Payment; redirectUrl: string }>('/api/billing/payments/vnpay/create', { method: 'POST', body: JSON.stringify({ userId }) }),
+  startStripeCheckout: (userId: string) => request<{ payment: Payment; redirectUrl: string }>('/api/billing/payments/stripe/create-checkout-session', { method: 'POST', body: JSON.stringify({ userId }) }),
+  startPaypalSubscription: (userId: string) => request<{ payment: Payment; redirectUrl: string | null }>('/api/billing/payments/paypal/create-subscription', { method: 'POST', body: JSON.stringify({ userId }) }),
   uploadPaymentProof: async (paymentId: string, file: File): Promise<Payment> => {
     const response = await fetch(`${apiBase}/api/billing/payments/${paymentId}/proof`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': file.type }, body: file });
     const body = await response.json().catch(() => ({}));

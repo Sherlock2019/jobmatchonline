@@ -47,6 +47,14 @@ $SSH "set -e
   # keep it near the current USD 20 exchange rate.
   grep -q '^VNPAY_RETURN_URL=' /etc/jobsmatchnow-api.env 2>/dev/null \
     || echo 'VNPAY_RETURN_URL=https://jobsmatchnow.com/api/billing/vnpay/return' | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
+  grep -q '^WEB_APP_URL=' /etc/jobsmatchnow-api.env 2>/dev/null \
+    || echo 'WEB_APP_URL=https://jobsmatchnow.com' | sudo tee -a /etc/jobsmatchnow-api.env >/dev/null
+  # Stripe (France-registered merchant) and PayPal: no auto-generated secrets
+  # here — STRIPE_SECRET_KEY/STRIPE_PRICE_ID/STRIPE_WEBHOOK_SECRET and
+  # PAYPAL_CLIENT_ID/PAYPAL_CLIENT_SECRET/PAYPAL_PLAN_ID/PAYPAL_WEBHOOK_ID
+  # all come from those providers' own dashboards and must be added by hand.
+  # isStripeConfigured()/isPaypalConfigured() stay false (buttons hidden on
+  # the billing page) until each provider's full set is present.
   sudo mkdir -p /var/lib/jobsmatchnow/uploads/resumes /var/lib/jobsmatchnow/uploads/payment-proofs
   sudo chown -R www-data:www-data /var/lib/jobsmatchnow/uploads
   echo 'postgres ready'"

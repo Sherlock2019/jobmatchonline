@@ -122,17 +122,17 @@ export interface SubscriptionCredit {
   id: string; recruiterUserId: string; sourceType: 'referral' | 'admin_credit'; sourceReferenceId: string; durationDays: number;
   status: 'available' | 'consumed' | 'revoked' | 'expired'; grantedAt: number; consumedAt: number | null; revokedAt: number | null;
 }
-export type PaymentMethod = 'vietqr' | 'bank_transfer' | 'international_bank_transfer' | 'admin_credit' | 'vnpay';
+export type PaymentMethod = 'vietqr' | 'bank_transfer' | 'international_bank_transfer' | 'admin_credit' | 'vnpay' | 'google_play' | 'apple_iap' | 'stripe' | 'paypal';
 export type PaymentStatus = 'pending' | 'submitted' | 'confirmed' | 'rejected' | 'refunded' | 'reversed';
 export interface Payment {
   id: string; recruiterUserId: string; subscriptionId: string; amount: number; currency: string; paymentMethod: PaymentMethod;
   status: PaymentStatus; paymentReference: string | null; invoiceNumber: string; payerName: string | null; bankName: string | null;
   transferDate: string | null; proofFileUrl: string | null; adminNote: string | null; confirmedByAdminId: string | null;
-  confirmedBySource?: 'admin' | 'vnpay'; confirmedAt: number | null; createdAt: number; updatedAt: number;
+  confirmedBySource?: 'admin' | 'vnpay' | 'google_play' | 'apple_iap' | 'stripe' | 'paypal'; confirmedAt: number | null; createdAt: number; updatedAt: number;
   recruiter?: { id: string; name: string; email?: string; company?: string } | null;
 }
 export interface PaymentInstructions { bankAccountName: string; bankName: string; bankAccountNumber: string; bankSwift: string; vietQrImageUrl: string; supportEmail: string }
-export interface BillingInfo { subscription: Subscription; effectiveStatus: SubscriptionStatus; canPublishJob?: boolean; credits: SubscriptionCredit[]; referralCode: string; instructions?: PaymentInstructions; vnpayEnabled?: boolean; vnpayAmountVnd?: number }
+export interface BillingInfo { subscription: Subscription; effectiveStatus: SubscriptionStatus; canPublishJob?: boolean; credits: SubscriptionCredit[]; referralCode: string; instructions?: PaymentInstructions; vnpayEnabled?: boolean; vnpayAmountVnd?: number; stripeEnabled?: boolean; paypalEnabled?: boolean }
 export interface Referral { id: string; referrerUserId: string; referredUserId: string; referralCode: string; status: string; suspicious?: boolean; qualifiedPaymentId: string | null; qualifiedAt: number | null; createdAt: number }
 export interface BillingEvent { id: string; userId: string | null; eventType: string; entityType: string; entityId: string; metadata: Record<string, unknown>; createdAt: number }
 export interface AdminRecruiterStatus { recruiter: { id: string; name: string; email?: string; company?: string }; subscription?: Subscription; effectiveStatus: SubscriptionStatus }
