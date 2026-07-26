@@ -1166,7 +1166,7 @@ app.post('/api/jobs', async (req, res, next) => {
       // Fair-use flag only (never a hard block) once a recruiter crosses the
       // configured active-postings threshold — an admin reviews, nothing is
       // auto-deleted or hidden.
-      const activeCount = db.jobs.filter((job) => job.employerId === employerId && String(job.status).toLowerCase() !== 'expired').length;
+      const activeCount = db.jobs.filter((job) => job.employerId === employerId && !['expired', 'suspended'].includes(String(job.status).toLowerCase())).length;
       if (activeCount > ACTIVE_JOB_REVIEW_THRESHOLD && !employer.flaggedForJobReview) {
         employer.flaggedForJobReview = true;
         logBillingEvent(db, employerId, 'fair_use_flagged', 'user', employerId, { activeJobCount: activeCount, threshold: ACTIVE_JOB_REVIEW_THRESHOLD });
@@ -1371,9 +1371,10 @@ app.get('/api/bootstrap', async (req, res, next) => {
     const incomingEmployerLikes = pool.swipes.filter((s) => s.direction === 'like' && s.targetType === 'candidate' && s.targetId === viewer.id);
     const viewerJobIds = new Set(pool.jobs.filter((job) => job.employerId === viewer.id).map((job) => job.id));
     const candidatesWhoSuperLikedMyJobs = new Set(pool.swipes.filter((s) => s.superLike && s.targetType === 'job' && viewerJobIds.has(s.targetId)).map((s) => s.actorId));
-    // Expired postings (30 days, unless renewed) stay visible to their own
-    // recruiter so they can renew, but drop out of candidates' view.
-    const scoredJobs = pool.jobs.filter((job) => role !== 'candidate' || String(job.status).toLowerCase() !== 'expired').map((job) => {
+    // Expired postings (30 days, unless renewed) and admin-suspended postings
+    // stay visible to their own recruiter (to renew or see why), but drop out
+    // of candidates' view.
+    const scoredJobs = pool.jobs.filter((job) => role !== 'candidate' || !['expired', 'suspended'].includes(String(job.status).toLowerCase())).map((job) => {
       const employer = pool.users.find((user) => user.id === job.employerId);
       // Real haversine distance when both sides have coordinates; else demo fallback.
       const realDist = haversineKm(viewer.geo, job.geo);
@@ -1938,6 +1939,19 @@ app.get('/api/admin/analytics/overview', async (req, res, next) => {
     const recruiters = realUsers.filter((user) => user.role === 'employer');
     const realJobs = db.jobs.filter((job) => !demoUserIds.has(job.employerId));
     const realMatches = db.matches.filter((match) => !demoUserIds.has(match.employerId) && !demoUserIds.has(match.candidateId));
+
+    // Revenue: MRR is counted as (active subscriptions x the flat USD price),
+    // never by summing payment.amount directly — payments are recorded in
+    // whatever currency the method used (USD for manual, VND for VNPay), so
+    // summing raw amounts across methods would silently mix currencies.
+    const realRecruiterIds = new Set(recruiters.map((user) => user.id));
+    const realSubscriptions = db.subscriptions.filter((sub) => realRecruiterIds.has(sub.recruiterUserId) && sub.status !== 'cancelled');
+    const activeSubscriptions = realSubscriptions.filter((sub) => computeEffectiveStatus(sub, now) === 'active');
+    const mrr = activeSubscriptions.length * PRICE_AMOUNT;
+    const confirmedPayments = db.payments.filter((payment) => payment.status === 'confirmed' && realRecruiterIds.has(payment.recruiterUserId));
+    const recruitersEverPaid = new Set(confirmedPayments.map((payment) => payment.recruiterUserId));
+    const trialToPaidConversionPct = realSubscriptions.length ? Math.round((recruitersEverPaid.size / realSubscriptions.length) * 100) : 0;
+
     res.json({
       totalCandidates: candidates.length,
       newCandidates7d: candidates.filter((user) => user.createdAt >= since(7)).length,
@@ -1946,10 +1960,15 @@ app.get('/api/admin/analytics/overview', async (req, res, next) => {
       newRecruiters7d: recruiters.filter((user) => user.createdAt >= since(7)).length,
       newRecruiters30d: recruiters.filter((user) => user.createdAt >= since(30)).length,
       totalJobs: realJobs.length,
-      activeJobs: realJobs.filter((job) => String(job.status).toLowerCase() !== 'expired').length,
+      activeJobs: realJobs.filter((job) => !['expired', 'suspended'].includes(String(job.status).toLowerCase())).length,
       totalMatches: realMatches.length,
       newMatches7d: realMatches.filter((match) => match.createdAt >= since(7)).length,
       totalMessages: db.messages.filter((message) => realMatches.some((match) => match.id === message.matchId)).length,
+      mrr, mrrCurrency: PRICE_CURRENCY,
+      activeSubscriptions: activeSubscriptions.length,
+      trialToPaidConversionPct,
+      confirmedPaymentsCount: confirmedPayments.length,
+      confirmedPayments30d: confirmedPayments.filter((payment) => payment.confirmedAt >= since(30)).length,
     });
   } catch (error) { next(error); }
 });
@@ -2029,6 +2048,128 @@ app.post('/api/admin/users/:id/reactivate', async (req, res, next) => {
       return item;
     });
     res.json(adminUserSummary(user));
+  } catch (error) { next(error); }
+});
+
+// --- Admin: job moderation ---------------------------------------------------
+// Suspend/restore only — a status flip, never a delete, so a wrongly-flagged
+// job can always be put back exactly as it was.
+
+app.get('/api/admin/jobs', async (req, res, next) => {
+  try {
+    requireAdminRole(authSession(req));
+    const db = await store.read();
+    const status = optString(req.query, 'status', { max: 20 });
+    const q = optString(req.query, 'q', { max: 200 })?.toLowerCase();
+    let jobs = db.jobs.filter((job) => !job.demo);
+    if (status) jobs = jobs.filter((job) => String(job.status).toLowerCase() === status);
+    if (q) jobs = jobs.filter((job) => [job.title, job.company].some((field) => field && field.toLowerCase().includes(q)));
+    const withEmployer = jobs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map((job) => {
+      const employer = db.users.find((user) => user.id === job.employerId);
+      return {
+        id: job.id, title: job.title, company: job.company, status: job.status, createdAt: job.createdAt, applicants: job.applicants,
+        employer: employer ? { id: employer.id, name: employer.name, email: employer.email, flaggedForJobReview: employer.flaggedForJobReview === true } : null,
+      };
+    });
+    res.json({ jobs: withEmployer });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/jobs/:id/suspend', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const reason = reqString(req.body, 'reason', { max: 500 });
+    const job = await store.transaction((db) => {
+      const item = db.jobs.find((entry) => entry.id === req.params.id && !entry.demo);
+      if (!item) { const error = new Error('Job not found'); error.status = 404; throw error; }
+      item.previousStatus = item.status;
+      item.status = 'suspended';
+      item.suspendReason = reason;
+      logBillingEvent(db, session.sub, 'job_suspended', 'job', item.id, { reason });
+      return item;
+    });
+    res.json(job);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/jobs/:id/restore', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const job = await store.transaction((db) => {
+      const item = db.jobs.find((entry) => entry.id === req.params.id && !entry.demo);
+      if (!item) { const error = new Error('Job not found'); error.status = 404; throw error; }
+      item.status = item.previousStatus || 'active';
+      item.previousStatus = null;
+      item.suspendReason = null;
+      logBillingEvent(db, session.sub, 'job_restored', 'job', item.id, {});
+      return item;
+    });
+    res.json(job);
+  } catch (error) { next(error); }
+});
+
+// --- Admin: unified action queue --------------------------------------------
+// A single triage list combining everything that genuinely needs an admin's
+// attention right now — open reports, open support requests, payments
+// awaiting confirmation, trials ending soon, and fair-use flags — so there's
+// one place to scan instead of four separate tabs. Read-only summary view;
+// the actual resolve/confirm/etc. actions still live on their own tabs.
+
+app.get('/api/admin/action-queue', async (req, res, next) => {
+  try {
+    requireAdminRole(authSession(req));
+    const db = await store.read();
+    const now = Date.now();
+    const URGENT_CATEGORIES = new Set(['scam_or_fraud', 'harassment', 'discrimination', 'payment_request']);
+    const items = [];
+
+    for (const report of db.reports || []) {
+      if (report.status !== 'open') continue;
+      const reporter = db.users.find((user) => user.id === report.reporterUserId);
+      items.push({
+        id: `report-${report.id}`, type: 'report', priority: URGENT_CATEGORIES.has(report.category) ? 'urgent' : 'high',
+        summary: `${report.category.replace(/_/g, ' ')} report on ${report.targetType} (${report.targetId})`,
+        detail: report.description, submittedBy: reporter?.name || report.reporterUserId, createdAt: report.createdAt,
+      });
+    }
+    for (const request of db.supportRequests || []) {
+      if (request.status !== 'open') continue;
+      items.push({
+        id: `support-${request.id}`, type: 'support', priority: 'high',
+        summary: `Support request from ${request.name}`, detail: request.message, submittedBy: request.email, createdAt: request.createdAt,
+      });
+    }
+    for (const payment of db.payments) {
+      if (!['submitted', 'pending'].includes(payment.status)) continue;
+      const recruiter = db.users.find((user) => user.id === payment.recruiterUserId);
+      items.push({
+        id: `payment-${payment.id}`, type: 'payment', priority: 'high',
+        summary: `Payment awaiting confirmation — ${payment.currency} ${payment.amount} (${payment.invoiceNumber})`,
+        detail: payment.paymentMethod, submittedBy: recruiter?.name || payment.recruiterUserId, createdAt: payment.createdAt,
+      });
+    }
+    for (const user of db.users) {
+      if (user.demo || user.role !== 'employer' || !user.flaggedForJobReview) continue;
+      items.push({
+        id: `fair-use-${user.id}`, type: 'fair_use_flag', priority: 'medium',
+        summary: `${user.name} flagged for high job-posting volume`, detail: null, submittedBy: user.name, createdAt: now,
+      });
+    }
+    const subsByRecruiter = new Map(db.subscriptions.map((entry) => [entry.recruiterUserId, entry]));
+    for (const user of db.users) {
+      if (user.demo || user.role !== 'employer') continue;
+      const subscription = subsByRecruiter.get(user.id);
+      if (!subscription || computeEffectiveStatus(subscription, now) !== 'trialing') continue;
+      if (!subscription.trialEndsAt || subscription.trialEndsAt - now > 7 * DAY_MS) continue;
+      items.push({
+        id: `trial-${user.id}`, type: 'trial_ending', priority: 'medium',
+        summary: `${user.name}'s trial ends ${new Date(subscription.trialEndsAt).toDateString()}`, detail: null, submittedBy: user.name, createdAt: now,
+      });
+    }
+
+    const priorityRank = { urgent: 0, high: 1, medium: 2 };
+    items.sort((a, b) => (priorityRank[a.priority] - priorityRank[b.priority]) || (a.createdAt - b.createdAt));
+    res.json({ items });
   } catch (error) { next(error); }
 });
 

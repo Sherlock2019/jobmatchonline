@@ -9,7 +9,23 @@
       "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3 && npm test*)",
       "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3/server && node --test*)",
       "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3 && git status --short\")",
-      "PowerShell(wsl bash -lc 'cd /home/dzoan/jobmatch3 && git log*)"
+      "PowerShell(wsl bash -lc 'cd /home/dzoan/jobmatch3 && git log*)",
+      "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3 && git add -A*)",
+      "PowerShell(wsl bash -lc 'cd /home/dzoan/jobmatch3 && git add -A*)",
+      "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3 && git commit*)",
+      "PowerShell(wsl bash -lc 'cd /home/dzoan/jobmatch3 && git commit*)",
+      "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3 && git push origin master\")",
+      "PowerShell(wsl bash -lc 'cd /home/dzoan/jobmatch3 && git push origin master')",
+      "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3 && git log -1 --oneline\")",
+      "PowerShell(wsl bash -lc 'cd /home/dzoan/jobmatch3 && bash deploy/deploy-production.sh*)",
+      "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3 && bash deploy/deploy-production.sh*)",
+      "PowerShell(wsl bash -lc 'cd /home/dzoan/jobmatch3 && ./deploy/deploy-production.sh*)",
+      "PowerShell(wsl bash -lc 'cd /home/dzoan/jobmatch3 && bash deploy/aws/00-cheap-mvp-ec2.sh*)",
+      "PowerShell(wsl bash -lc \"cd /home/dzoan/jobmatch3 && bash deploy/aws/00-cheap-mvp-ec2.sh*)",
+      "PowerShell(wsl bash -lc 'cd /home/dzoan/jobmatch3 && bash ./deploy/aws/00-cheap-mvp-ec2.sh*)",
+      "PowerShell(wsl bash -lc 'cd /home/dzoan/jobmatch3 && rm -f /tmp/*-test-db.json*)",
+      "PowerShell(wsl bash \"/mnt/c/Users/doans/AppData/Local/Temp/claude/--wsl--Ubuntu-home-dzoan-jobmatch3/*)",
+      "PowerShell(wsl bash /mnt/c/Users/doans/AppData/Local/Temp/claude/--wsl--Ubuntu-home-dzoan-jobmatch3/*)"
     ]
   }
 }

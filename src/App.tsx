@@ -27,6 +27,8 @@ import { AdminBillingPage } from './components/billing/AdminBillingPage';
 import { AdminAnalyticsPage } from './components/billing/AdminAnalyticsPage';
 import { AdminUsersPage } from './components/billing/AdminUsersPage';
 import { AdminSafetyPage } from './components/billing/AdminSafetyPage';
+import { AdminJobsPage } from './components/billing/AdminJobsPage';
+import { AdminActionQueuePage } from './components/billing/AdminActionQueuePage';
 import { NotesBox } from './components/NotesBox';
 // Lazy-loaded: pulls in pdf.js only when a resume is actually opened.
 const ResumeViewerModal = lazy(() => import('./components/ResumeViewerModal').then((m) => ({ default: m.ResumeViewerModal })));
@@ -293,20 +295,24 @@ function Gauge({ pct, classicPct, value, classicValue, label, classicNum, newNum
  * Bootstrap dashboard (jobs/matches/swipes make no sense for an admin
  * account), just the billing moderation dashboard and a way to log out. */
 function AdminWorkspace({ session, onExit }: { session: SessionUser; onExit: () => void }) {
-  const [tab, setTab] = useState<'analytics' | 'users' | 'billing' | 'safety'>('analytics');
+  const [tab, setTab] = useState<'queue' | 'analytics' | 'users' | 'jobs' | 'billing' | 'safety'>('queue');
   return <div className="admin-shell">
     <header className="admin-topbar">
       <Brand />
       <nav className="admin-tabs">
+        <button type="button" className={tab === 'queue' ? 'active' : ''} onClick={() => setTab('queue')}>Action Queue</button>
         <button type="button" className={tab === 'analytics' ? 'active' : ''} onClick={() => setTab('analytics')}>Analytics</button>
         <button type="button" className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Candidates &amp; Recruiters</button>
+        <button type="button" className={tab === 'jobs' ? 'active' : ''} onClick={() => setTab('jobs')}>Jobs</button>
         <button type="button" className={tab === 'billing' ? 'active' : ''} onClick={() => setTab('billing')}>Billing &amp; Subscriptions</button>
         <button type="button" className={tab === 'safety' ? 'active' : ''} onClick={() => setTab('safety')}>Safety &amp; Support</button>
       </nav>
       <span>Admin — {session.name}</span><button className="secondary-button" onClick={onExit}><LogOut size={15} /> Log out</button>
     </header>
+    {tab === 'queue' && <AdminActionQueuePage />}
     {tab === 'analytics' && <AdminAnalyticsPage />}
     {tab === 'users' && <AdminUsersPage />}
+    {tab === 'jobs' && <AdminJobsPage />}
     {tab === 'billing' && <AdminBillingPage />}
     {tab === 'safety' && <AdminSafetyPage />}
   </div>;

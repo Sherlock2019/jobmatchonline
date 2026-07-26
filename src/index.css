@@ -674,6 +674,9 @@ img.avatar-mini { object-fit:cover; }
 .billing-status-pill { display:inline-block; padding:3px 10px; border-radius:999px; font-size:10.5px; font-weight:700; text-transform:capitalize; background:#eef6e4; color:var(--green); }
 .billing-status-pill.status-submitted, .billing-status-pill.status-pending { background:#fff3d6; color:#9a6700; }
 .billing-status-pill.status-rejected, .billing-status-pill.status-refunded, .billing-status-pill.status-reversed, .billing-status-pill.status-suspended { background:#fde2e2; color:#b42318; }
+.billing-status-pill.queue-priority-urgent { background:#fde2e2; color:#b42318; }
+.billing-status-pill.queue-priority-high { background:#fff3d6; color:#9a6700; }
+.billing-status-pill.queue-priority-medium { background:#eef2fb; color:#3452b4; }
 .billing-empty { border:1px dashed var(--line); border-radius:16px; padding:60px 20px; text-align:center; color:var(--muted); }
 .billing-empty p { margin:0 0 16px; }
 @media(max-width:860px){ .billing-grid { grid-template-columns:1fr; } }

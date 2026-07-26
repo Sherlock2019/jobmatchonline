@@ -157,6 +157,22 @@ export interface AdminUserSummary {
   completeness?: number; emailVerified: boolean; createdAt: number; suspendedAt: number | null; suspendReason: string | null; flaggedForJobReview: boolean;
 }
 export interface AdminUserDetail { user: AdminUserSummary; jobsPosted?: number; matchCount: number; messageCount: number; reportsSubmitted: number; reportsReceived: number }
+export interface AdminJobSummary {
+  id: string; title: string; company: string; status: string; createdAt?: number; applicants: number;
+  employer: { id: string; name: string; email?: string; flaggedForJobReview: boolean } | null;
+}
+export type ActionQueueType = 'report' | 'support' | 'payment' | 'fair_use_flag' | 'trial_ending';
+export interface ActionQueueItem {
+  id: string; type: ActionQueueType; priority: 'urgent' | 'high' | 'medium'; summary: string;
+  detail: string | null; submittedBy: string; createdAt: number;
+}
+export interface AdminAnalyticsOverview {
+  totalCandidates: number; newCandidates7d: number; newCandidates30d: number;
+  totalRecruiters: number; newRecruiters7d: number; newRecruiters30d: number;
+  totalJobs: number; activeJobs: number; totalMatches: number; newMatches7d: number; totalMessages: number;
+  mrr: number; mrrCurrency: string; activeSubscriptions: number; trialToPaidConversionPct: number;
+  confirmedPaymentsCount: number; confirmedPayments30d: number;
+}
 
 /** Minimal identity persisted for the demo session. */
 export interface SessionUser { id: string; role: Role; kind?: EmployerKind; name: string; email?: string; photo?: string; provider?: string; isNew?: boolean; demo?: boolean; title?: string; company?: string; emailVerified?: boolean }

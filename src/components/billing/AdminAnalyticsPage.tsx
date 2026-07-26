@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { api } from '../../api';
-
-type Overview = Awaited<ReturnType<typeof api.adminAnalyticsOverview>>;
+import type { AdminAnalyticsOverview } from '../../types';
 
 export function AdminAnalyticsPage() {
-  const [overview, setOverview] = useState<Overview | null>(null);
+  const [overview, setOverview] = useState<AdminAnalyticsOverview | null>(null);
 
   useEffect(() => { api.adminAnalyticsOverview().then(setOverview).catch(() => undefined); }, []);
 
@@ -13,6 +12,17 @@ export function AdminAnalyticsPage() {
 
   return <div className="page admin-analytics-page">
     <div className="page-title"><div><span className="overline">Admin</span><h1>Analytics</h1><p>Marketplace snapshot — real accounts only, seed/demo data excluded.</p></div></div>
+
+    <section className="admin-section">
+      <h3>Revenue</h3>
+      <div className="admin-stat-row">
+        <div className="admin-stat"><strong>{overview.mrrCurrency} {overview.mrr}</strong><span>MRR (active subscriptions × plan price)</span></div>
+        <div className="admin-stat"><strong>{overview.activeSubscriptions}</strong><span>Active paid subscriptions</span></div>
+        <div className="admin-stat"><strong>{overview.trialToPaidConversionPct}%</strong><span>Trial-to-paid conversion (ever)</span></div>
+        <div className="admin-stat"><strong>{overview.confirmedPaymentsCount}</strong><span>Confirmed payments (all time)</span></div>
+        <div className="admin-stat"><strong>{overview.confirmedPayments30d}</strong><span>Confirmed payments — last 30 days</span></div>
+      </div>
+    </section>
 
     <section className="admin-section">
       <h3>Candidates</h3>

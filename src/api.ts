@@ -1,4 +1,4 @@
-import type { AdminRecruiterStatus, AdminUserDetail, AdminUserSummary, AuthConfig, BillingEvent, BillingInfo, Bootstrap, EmployerKind, InterviewKit, InterviewPrep, Job, JobDraft, JobImportResult, JobMatch, Message, Note, Payment, PaymentMethod, PipelineStep, Person, ProfileVariant, RecommendationRequest, Referral, Report, ReportCategory, ResumeMeta, Review, Role, ScheduledCall, ScreeningAnswer, SessionUser, SupportRequest, WeightedSkill } from './types';
+import type { ActionQueueItem, AdminAnalyticsOverview, AdminJobSummary, AdminRecruiterStatus, AdminUserDetail, AdminUserSummary, AuthConfig, BillingEvent, BillingInfo, Bootstrap, EmployerKind, InterviewKit, InterviewPrep, Job, JobDraft, JobImportResult, JobMatch, Message, Note, Payment, PaymentMethod, PipelineStep, Person, ProfileVariant, RecommendationRequest, Referral, Report, ReportCategory, ResumeMeta, Review, Role, ScheduledCall, ScreeningAnswer, SessionUser, SupportRequest, WeightedSkill } from './types';
 
 export const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
@@ -118,11 +118,21 @@ export const api = {
   adminSuspendSubscription: (id: string, reason?: string) => request<unknown>(`/api/admin/billing/subscriptions/${id}/suspend`, { method: 'POST', body: JSON.stringify({ reason }) }),
   adminReactivateSubscription: (id: string) => request<unknown>(`/api/admin/billing/subscriptions/${id}/reactivate`, { method: 'POST' }),
   adminExtendTrial: (id: string, days: number, reason: string) => request<unknown>(`/api/admin/billing/subscriptions/${id}/extend-trial`, { method: 'POST', body: JSON.stringify({ days, reason }) }),
-  adminAnalyticsOverview: () => request<{
-    totalCandidates: number; newCandidates7d: number; newCandidates30d: number;
-    totalRecruiters: number; newRecruiters7d: number; newRecruiters30d: number;
-    totalJobs: number; activeJobs: number; totalMatches: number; newMatches7d: number; totalMessages: number;
-  }>('/api/admin/analytics/overview'),
+  adminAnalyticsOverview: () => request<AdminAnalyticsOverview>('/api/admin/analytics/overview'),
+
+  // --- Admin: job moderation ---
+  adminJobs: (params?: { status?: string; q?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set('status', params.status);
+    if (params?.q) qs.set('q', params.q);
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return request<{ jobs: AdminJobSummary[] }>(`/api/admin/jobs${suffix}`);
+  },
+  adminSuspendJob: (id: string, reason: string) => request<AdminJobSummary>(`/api/admin/jobs/${id}/suspend`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  adminRestoreJob: (id: string) => request<AdminJobSummary>(`/api/admin/jobs/${id}/restore`, { method: 'POST' }),
+
+  // --- Admin: unified action queue ---
+  adminActionQueue: () => request<{ items: ActionQueueItem[] }>('/api/admin/action-queue'),
 
   // --- Admin: account management ---
   adminUsers: (params?: { role?: 'candidate' | 'employer'; q?: string }) => {
