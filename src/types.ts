@@ -132,7 +132,11 @@ export interface Payment {
   recruiter?: { id: string; name: string; email?: string; company?: string } | null;
 }
 export interface PaymentInstructions { bankAccountName: string; bankName: string; bankAccountNumber: string; bankSwift: string; vietQrImageUrl: string; supportEmail: string }
-export interface BillingInfo { subscription: Subscription; effectiveStatus: SubscriptionStatus; canPublishJob?: boolean; credits: SubscriptionCredit[]; referralCode: string; instructions?: PaymentInstructions; vnpayEnabled?: boolean; vnpayAmountVnd?: number; stripeEnabled?: boolean; paypalEnabled?: boolean }
+export interface BillingInfo {
+  subscription: Subscription; effectiveStatus: SubscriptionStatus; canPublishJob?: boolean; credits: SubscriptionCredit[]; referralCode: string;
+  instructions?: PaymentInstructions; vnpayEnabled?: boolean; vnpayAmountVnd?: number; stripeEnabled?: boolean; paypalEnabled?: boolean;
+  googlePlayEnabled?: boolean; googlePlayProductId?: string; appleEnabled?: boolean; appleProductId?: string;
+}
 export interface Referral { id: string; referrerUserId: string; referredUserId: string; referralCode: string; status: string; suspicious?: boolean; qualifiedPaymentId: string | null; qualifiedAt: number | null; createdAt: number }
 export interface BillingEvent { id: string; userId: string | null; eventType: string; entityType: string; entityId: string; metadata: Record<string, unknown>; createdAt: number }
 export interface AdminRecruiterStatus { recruiter: { id: string; name: string; email?: string; company?: string }; subscription?: Subscription; effectiveStatus: SubscriptionStatus }

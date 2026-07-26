@@ -98,6 +98,8 @@ export const api = {
   startVnpayPayment: (userId: string) => request<{ payment: Payment; redirectUrl: string }>('/api/billing/payments/vnpay/create', { method: 'POST', body: JSON.stringify({ userId }) }),
   startStripeCheckout: (userId: string) => request<{ payment: Payment; redirectUrl: string }>('/api/billing/payments/stripe/create-checkout-session', { method: 'POST', body: JSON.stringify({ userId }) }),
   startPaypalSubscription: (userId: string) => request<{ payment: Payment; redirectUrl: string | null }>('/api/billing/payments/paypal/create-subscription', { method: 'POST', body: JSON.stringify({ userId }) }),
+  verifyGooglePlayPurchase: (userId: string, purchaseToken: string) => request<{ payment: Payment; alreadyConfirmed?: boolean }>('/api/billing/payments/google-play/verify', { method: 'POST', body: JSON.stringify({ userId, purchaseToken }) }),
+  verifyApplePurchase: (userId: string, transactionId: string) => request<{ payment: Payment; alreadyConfirmed?: boolean }>('/api/billing/payments/apple/verify', { method: 'POST', body: JSON.stringify({ userId, transactionId }) }),
   uploadPaymentProof: async (paymentId: string, file: File): Promise<Payment> => {
     const response = await fetch(`${apiBase}/api/billing/payments/${paymentId}/proof`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': file.type }, body: file });
     const body = await response.json().catch(() => ({}));

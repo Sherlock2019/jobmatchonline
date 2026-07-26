@@ -55,6 +55,16 @@ $SSH "set -e
   # all come from those providers' own dashboards and must be added by hand.
   # isStripeConfigured()/isPaypalConfigured() stay false (buttons hidden on
   # the billing page) until each provider's full set is present.
+  # Google Play / Apple IAP (recruiter subscription bought inside the mobile
+  # apps): also nothing auto-generated. GOOGLE_PLAY_SUBSCRIPTION_PRODUCT_ID,
+  # GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH (upload the service-account JSON
+  # file itself to the host and point this at its path), GOOGLE_PLAY_RTDN_SECRET
+  # (make one up, put the same value in the Pub/Sub push URL's ?token=
+  # query param), APPLE_BUNDLE_ID, APPLE_ASC_KEY_ID, APPLE_ASC_ISSUER_ID,
+  # APPLE_ASC_PRIVATE_KEY_PATH (upload the .p8 file, point this at its
+  # path), APPLE_ENVIRONMENT (Sandbox until you're ready for Production),
+  # APPLE_SUBSCRIPTION_PRODUCT_ID — see the deliverables summary for the
+  # full Play Console / App Store Connect setup checklist.
   sudo mkdir -p /var/lib/jobsmatchnow/uploads/resumes /var/lib/jobsmatchnow/uploads/payment-proofs
   sudo chown -R www-data:www-data /var/lib/jobsmatchnow/uploads
   echo 'postgres ready'"

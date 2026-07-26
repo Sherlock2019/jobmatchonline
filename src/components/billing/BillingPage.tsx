@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Check, Copy, Loader2 } from 'lucide-react';
 import { api } from '../../api';
 import { Field, TextInput } from '../profile/fields';
+import { isAndroidNative, isIosNative, purchaseAppleSubscription, purchaseGooglePlaySubscription } from '../../lib/nativeBilling';
 import type { Bootstrap, Payment, PaymentMethod } from '../../types';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -42,7 +43,7 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
     </div>;
   }
 
-  const { subscription, effectiveStatus, credits, referralCode, instructions, vnpayEnabled, vnpayAmountVnd, stripeEnabled, paypalEnabled } = data.billing;
+  const { subscription, effectiveStatus, credits, referralCode, instructions, vnpayEnabled, vnpayAmountVnd, stripeEnabled, paypalEnabled, googlePlayEnabled, googlePlayProductId, appleEnabled, appleProductId } = data.billing;
   const accessEndsAt = subscription.currentPeriodEndsAt || subscription.trialEndsAt;
   const referralLink = `${window.location.origin}/ref/${referralCode}`;
 
@@ -84,6 +85,30 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
     } catch (e) { setError(e instanceof Error ? e.message : 'Card payment is not available yet'); setCardRedirecting(false); }
   };
 
+  // Native purchase (Google Play / Apple In-App Purchase): the store's own
+  // purchase sheet handles the card, we only ever send the resulting
+  // token/transaction id to our server for verification afterward — see
+  // src/lib/nativeBilling.ts and server/billing/providers/{googleplay,applestore}.js.
+  const purchaseNative = async (platform: 'google_play' | 'apple_iap') => {
+    setCardRedirecting(true); setError('');
+    try {
+      if (platform === 'google_play') {
+        if (!googlePlayProductId) throw new Error('Google Play billing is not configured yet');
+        const purchaseToken = await purchaseGooglePlaySubscription(googlePlayProductId);
+        const result = await api.verifyGooglePlayPurchase(viewer.id, purchaseToken);
+        setPayments((prev) => [result.payment, ...prev]);
+      } else {
+        if (!appleProductId) throw new Error('App Store billing is not configured yet');
+        const transactionId = await purchaseAppleSubscription(appleProductId);
+        const result = await api.verifyApplePurchase(viewer.id, transactionId);
+        setPayments((prev) => [result.payment, ...prev]);
+      }
+      const billing = await api.billingSubscription(viewer.id);
+      setData({ ...data, billing });
+    } catch (e) { setError(e instanceof Error ? e.message : 'Purchase could not be completed'); }
+    finally { setCardRedirecting(false); }
+  };
+
   return <div className="page billing-page">
     <div className="page-title"><div><span className="overline">Recruiter plan</span><h1>Billing</h1><p>USD 20/month per seat — your first 30 days are free.</p></div></div>
 
@@ -115,6 +140,16 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
           <h3>Pay with PayPal — USD 20</h3>
           <p className="muted">Pay via your PayPal balance or a linked card.</p>
           <button type="button" className="primary-button" onClick={() => payVia('paypal')} disabled={cardRedirecting}>{cardRedirecting ? <Loader2 size={16} className="spin" /> : 'Pay with PayPal'}</button>
+        </div>}
+        {googlePlayEnabled && isAndroidNative() && <div className="billing-card-pay">
+          <h3>Subscribe via Google Play</h3>
+          <p className="muted">Billed through your Google Play account.</p>
+          <button type="button" className="primary-button" onClick={() => purchaseNative('google_play')} disabled={cardRedirecting}>{cardRedirecting ? <Loader2 size={16} className="spin" /> : 'Subscribe via Google Play'}</button>
+        </div>}
+        {appleEnabled && isIosNative() && <div className="billing-card-pay">
+          <h3>Subscribe via App Store</h3>
+          <p className="muted">Billed through your Apple account.</p>
+          <button type="button" className="primary-button" onClick={() => purchaseNative('apple_iap')} disabled={cardRedirecting}>{cardRedirecting ? <Loader2 size={16} className="spin" /> : 'Subscribe via App Store'}</button>
         </div>}
         <h3>{vnpayEnabled || stripeEnabled || paypalEnabled ? 'Or pay by bank transfer — USD 20' : 'Submit a payment — USD 20'}</h3>
         <Field label="Payment method">

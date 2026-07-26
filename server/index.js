@@ -30,6 +30,8 @@ import { generateInvoiceNumber, generateTransferReference, MANUAL_METHOD_IDS, pa
 import { buildPaymentUrl, isVnpayConfigured, isVnpaySuccess, VNPAY_AMOUNT_VND, verifySignature as verifyVnpaySignature } from './billing/providers/vnpay.js';
 import { createCheckoutSession, isStripeConfigured, verifyWebhookSignature as verifyStripeSignature } from './billing/providers/stripe.js';
 import { approveLink, createSubscription as createPaypalSubscription, isPaypalConfigured, verifyWebhookSignature as verifyPaypalSignature } from './billing/providers/paypal.js';
+import { googlePlaySubscriptionProductId, isGooglePlayConfigured, isValidRtdnSecret, parseRtdnMessage, verifySubscriptionPurchase } from './billing/providers/googleplay.js';
+import { decodeJws, getTransactionInfo, isAppleConfigured, subscriptionProductId as appleSubscriptionProductId, verifyJws } from './billing/providers/applestore.js';
 import { assertRecruiterAccess, requireAdminRole } from './billing/middleware.js';
 import { confirmPayment } from './billing/confirm.js';
 import { runDailyBilling } from './billing/daily.js';
@@ -1558,6 +1560,10 @@ app.get('/api/bootstrap', async (req, res, next) => {
         vnpayAmountVnd: VNPAY_AMOUNT_VND,
         stripeEnabled: isStripeConfigured(),
         paypalEnabled: isPaypalConfigured(),
+        googlePlayEnabled: isGooglePlayConfigured(),
+        googlePlayProductId: googlePlaySubscriptionProductId(),
+        appleEnabled: isAppleConfigured(),
+        appleProductId: appleSubscriptionProductId(),
       };
       // Bootstrap is a read, not a transaction — write a freshly-generated
       // code back once so it's stable on every future load.
@@ -1697,6 +1703,10 @@ function billingPayload(db, recruiter) {
     vnpayAmountVnd: VNPAY_AMOUNT_VND,
     stripeEnabled: isStripeConfigured(),
     paypalEnabled: isPaypalConfigured(),
+    googlePlayEnabled: isGooglePlayConfigured(),
+    googlePlayProductId: googlePlaySubscriptionProductId(),
+    appleEnabled: isAppleConfigured(),
+    appleProductId: appleSubscriptionProductId(),
   };
 }
 
@@ -2041,6 +2051,154 @@ app.post('/api/billing/payments/paypal/create-subscription', rateLimit({ windowM
     });
     res.status(201).json({ payment, redirectUrl: approveLink(subscription) });
   } catch (error) { next(error); }
+});
+
+// --- Google Play: recruiter subscription purchased inside the Android app -
+// The native PlayBillingPlugin (android/app/.../PlayBillingPlugin.java)
+// acknowledges the purchase locally (required by Google), but this route —
+// or the RTDN webhook below — is the only thing that ever confirms it,
+// after independently re-verifying the purchase token against Google's own
+// Android Publisher API.
+
+app.post('/api/billing/payments/google-play/verify', rateLimit({ windowMs: 3600000, max: 20, bucket: 'google-play-verify' }), async (req, res, next) => {
+  try {
+    if (!isGooglePlayConfigured()) { const error = new Error('Google Play billing is not configured yet'); error.status = 503; throw error; }
+    const recruiterId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const purchaseToken = reqString(req.body, 'purchaseToken', { max: 4000 });
+    const verified = await verifySubscriptionPurchase(purchaseToken);
+    if (!verified.isActive) { const error = new Error('This purchase is not in an active state'); error.status = 402; throw error; }
+    const result = await store.transaction((db) => {
+      const recruiter = db.users.find((user) => user.id === recruiterId);
+      if (!recruiter) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, recruiterId);
+      if (recruiter.role !== 'employer') { const error = new Error('Only recruiter accounts submit payments'); error.status = 400; throw error; }
+      const subscription = getOrCreateTrialSubscription(db, recruiterId);
+      const invoiceNumber = `google-play-${verified.latestOrderId || purchaseToken}`;
+      if (db.payments.some((entry) => entry.paymentMethod === 'google_play' && entry.invoiceNumber === invoiceNumber)) {
+        return { alreadyConfirmed: true };
+      }
+      const now = Date.now();
+      const payment = {
+        id: crypto.randomUUID(), recruiterUserId: recruiterId, subscriptionId: subscription.id,
+        amount: PRICE_AMOUNT, currency: PRICE_CURRENCY, paymentMethod: 'google_play', status: 'pending',
+        paymentReference: purchaseToken, invoiceNumber, payerName: null, bankName: null, transferDate: null,
+        proofFileUrl: null, adminNote: null, confirmedByAdminId: null, confirmedAt: null, createdAt: now, updatedAt: now,
+      };
+      db.payments.push(payment);
+      return confirmPayment(db, payment, { source: 'google_play' });
+    });
+    res.json(result);
+  } catch (error) { next(error); }
+});
+
+// Pub/Sub push subscription target for Real-time Developer Notifications.
+// Secured by a shared secret in the URL (?token=...) rather than verifying
+// Pub/Sub's own OIDC token, same idiom as the existing billing-cron
+// endpoint. Always returns 200 (even on a no-op) so Pub/Sub doesn't retry
+// forever — the notification is only ever a hint to re-verify, never
+// trusted on its own.
+app.post('/api/billing/google-play/rtdn', async (req, res) => {
+  try {
+    if (!isValidRtdnSecret(req.query.token)) return res.status(403).json({ error: 'Invalid token' });
+    const parsed = parseRtdnMessage(req.body);
+    if (!parsed?.purchaseToken) return res.json({ ok: true, skipped: true });
+    const verified = await verifySubscriptionPurchase(parsed.purchaseToken).catch(() => null);
+    if (!verified?.isActive) return res.json({ ok: true, skipped: true });
+    const result = await store.transaction((db) => {
+      const payment = db.payments.find((entry) => entry.paymentMethod === 'google_play' && entry.paymentReference === parsed.purchaseToken);
+      if (!payment) return { skipped: true };
+      const invoiceNumber = `google-play-${verified.latestOrderId || parsed.purchaseToken}`;
+      if (payment.invoiceNumber !== invoiceNumber) payment.invoiceNumber = invoiceNumber;
+      return confirmPayment(db, payment, { source: 'google_play' });
+    });
+    if (result?.payment && !result.alreadyConfirmed && result.recruiterEmail) {
+      await sendMail({ to: result.recruiterEmail, subject: 'Payment confirmed — JobsMatchNow', text: `Hi ${result.recruiterName || ''},\n\nYour Google Play payment has been confirmed. Your recruiter access is active through ${new Date(result.subscription.currentPeriodEndsAt).toDateString()}.\n\n— JobsMatchNow` }).catch(() => undefined);
+    }
+    res.json({ ok: true });
+  } catch {
+    res.json({ ok: true, error: true });
+  }
+});
+
+// --- Apple: recruiter subscription purchased inside the iOS app ------------
+// The native AppleIAPPlugin (ios/App/App/AppleIAPPlugin.swift) finishes the
+// StoreKit transaction locally, but this route — or the Server Notification
+// V2 webhook below — is the only thing that ever confirms it, after
+// independently re-verifying against Apple's own App Store Server API.
+
+app.post('/api/billing/payments/apple/verify', rateLimit({ windowMs: 3600000, max: 20, bucket: 'apple-verify' }), async (req, res, next) => {
+  try {
+    if (!isAppleConfigured()) { const error = new Error('Apple App Store billing is not configured yet'); error.status = 503; throw error; }
+    const recruiterId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const transactionId = reqString(req.body, 'transactionId', { max: 200 });
+    const verified = await getTransactionInfo(transactionId);
+    if (!verified.isActive) { const error = new Error('This purchase is not in an active state'); error.status = 402; throw error; }
+    const result = await store.transaction((db) => {
+      const recruiter = db.users.find((user) => user.id === recruiterId);
+      if (!recruiter) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, recruiterId);
+      if (recruiter.role !== 'employer') { const error = new Error('Only recruiter accounts submit payments'); error.status = 400; throw error; }
+      const subscription = getOrCreateTrialSubscription(db, recruiterId);
+      const invoiceNumber = `apple-${verified.transactionId}`;
+      if (db.payments.some((entry) => entry.paymentMethod === 'apple_iap' && entry.invoiceNumber === invoiceNumber)) {
+        return { alreadyConfirmed: true };
+      }
+      const now = Date.now();
+      const payment = {
+        id: crypto.randomUUID(), recruiterUserId: recruiterId, subscriptionId: subscription.id,
+        amount: PRICE_AMOUNT, currency: PRICE_CURRENCY, paymentMethod: 'apple_iap', status: 'pending',
+        paymentReference: verified.originalTransactionId, invoiceNumber, payerName: null, bankName: null, transferDate: null,
+        proofFileUrl: null, adminNote: null, confirmedByAdminId: null, confirmedAt: null, createdAt: now, updatedAt: now,
+      };
+      db.payments.push(payment);
+      return confirmPayment(db, payment, { source: 'apple_iap' });
+    });
+    res.json(result);
+  } catch (error) { next(error); }
+});
+
+// Apple Server Notifications V2 target. Always returns 200 (even on a
+// no-op) so Apple doesn't keep retrying — the notification is only ever a
+// hint to re-verify, never trusted on its own beyond its JWS signature.
+app.post('/api/billing/apple/notifications', async (req, res) => {
+  try {
+    const outer = req.body?.signedPayload;
+    if (!outer || !(await verifyJws(outer))) return res.json({ ok: true, skipped: true });
+    const decoded = decodeJws(outer);
+    const signedTransactionInfo = decoded?.payload?.data?.signedTransactionInfo;
+    if (!signedTransactionInfo || !(await verifyJws(signedTransactionInfo))) return res.json({ ok: true, skipped: true });
+    const transactionInfo = decodeJws(signedTransactionInfo).payload;
+    const isActive = !transactionInfo.revocationDate && (!transactionInfo.expiresDate || transactionInfo.expiresDate > Date.now());
+    if (!isActive) return res.json({ ok: true, skipped: true });
+    const result = await store.transaction((db) => {
+      // originalTransactionId is constant for the life of the subscription,
+      // but transactionId is unique PER RENEWAL — so dedup/lookup on the
+      // invoice number (transactionId), never reuse the first payment's row
+      // for a later renewal, or renewals 2+ would silently never extend
+      // anything (confirmPayment would just see it's already confirmed).
+      const invoiceNumber = `apple-${transactionInfo.transactionId}`;
+      if (db.payments.some((entry) => entry.paymentMethod === 'apple_iap' && entry.invoiceNumber === invoiceNumber)) {
+        return { alreadyConfirmed: true };
+      }
+      const priorPayment = db.payments.find((entry) => entry.paymentMethod === 'apple_iap' && entry.paymentReference === transactionInfo.originalTransactionId);
+      if (!priorPayment) return { skipped: true }; // no local recruiter linked to this subscription yet
+      const now = Date.now();
+      const payment = {
+        id: crypto.randomUUID(), recruiterUserId: priorPayment.recruiterUserId, subscriptionId: priorPayment.subscriptionId,
+        amount: PRICE_AMOUNT, currency: PRICE_CURRENCY, paymentMethod: 'apple_iap', status: 'pending',
+        paymentReference: transactionInfo.originalTransactionId, invoiceNumber, payerName: null, bankName: null, transferDate: null,
+        proofFileUrl: null, adminNote: null, confirmedByAdminId: null, confirmedAt: null, createdAt: now, updatedAt: now,
+      };
+      db.payments.push(payment);
+      return confirmPayment(db, payment, { source: 'apple_iap' });
+    });
+    if (result?.payment && !result.alreadyConfirmed && result.recruiterEmail) {
+      await sendMail({ to: result.recruiterEmail, subject: 'Payment confirmed — JobsMatchNow', text: `Hi ${result.recruiterName || ''},\n\nYour App Store payment has been confirmed. Your recruiter access is active through ${new Date(result.subscription.currentPeriodEndsAt).toDateString()}.\n\n— JobsMatchNow` }).catch(() => undefined);
+    }
+    res.json({ ok: true });
+  } catch {
+    res.json({ ok: true, error: true });
+  }
 });
 
 // --- Admin billing dashboard & actions (real per-user admin role) ----------

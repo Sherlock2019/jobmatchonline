@@ -11,6 +11,8 @@ import { logBillingEvent } from './billing/audit.js';
 import { buildPaymentUrl, isVnpayConfigured, isVnpaySuccess, verifySignature } from './billing/providers/vnpay.js';
 import { isStripeConfigured, verifyWebhookSignature as verifyStripeSignature } from './billing/providers/stripe.js';
 import { approveLink, isPaypalConfigured } from './billing/providers/paypal.js';
+import { isActiveSubscriptionState, isGooglePlayConfigured, isValidRtdnSecret, parseRtdnMessage } from './billing/providers/googleplay.js';
+import { decodeJws, isAppleConfigured } from './billing/providers/applestore.js';
 import { confirmPayment } from './billing/confirm.js';
 import crypto from 'node:crypto';
 
@@ -432,4 +434,71 @@ test('approveLink extracts the approve rel from a PayPal subscription response',
   assert.equal(approveLink(subscription), 'https://paypal.com/approve/x');
   assert.equal(approveLink({ links: [] }), null);
   assert.equal(approveLink({}), null);
+});
+
+// --- Google Play: recruiter subscription purchased inside the Android app ---
+
+// L. Unconfigured by default.
+test('Google Play billing is unconfigured by default', () => {
+  delete process.env.GOOGLE_PLAY_SUBSCRIPTION_PRODUCT_ID;
+  delete process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH;
+  assert.equal(isGooglePlayConfigured(), false);
+});
+
+// M. Active vs. grace vs. every other subscription state.
+test('isActiveSubscriptionState treats ACTIVE and IN_GRACE_PERIOD as active, everything else as not', () => {
+  assert.equal(isActiveSubscriptionState('SUBSCRIPTION_STATE_ACTIVE'), true);
+  assert.equal(isActiveSubscriptionState('SUBSCRIPTION_STATE_IN_GRACE_PERIOD'), true);
+  assert.equal(isActiveSubscriptionState('SUBSCRIPTION_STATE_CANCELED'), false);
+  assert.equal(isActiveSubscriptionState('SUBSCRIPTION_STATE_EXPIRED'), false);
+  assert.equal(isActiveSubscriptionState(undefined), false);
+});
+
+// N. RTDN Pub/Sub envelope decoding (pure — no network call).
+test('parseRtdnMessage decodes the base64 Pub/Sub envelope', () => {
+  const notification = { subscriptionNotification: { purchaseToken: 'tok123', subscriptionId: 'recruiter_monthly', notificationType: 4 } };
+  const envelope = { message: { data: Buffer.from(JSON.stringify(notification)).toString('base64') } };
+  assert.deepEqual(parseRtdnMessage(envelope), { purchaseToken: 'tok123', subscriptionId: 'recruiter_monthly', notificationType: 4 });
+  assert.equal(parseRtdnMessage({}), null);
+  assert.equal(parseRtdnMessage({ message: {} }), null);
+});
+
+// O. RTDN webhook secret check.
+test('isValidRtdnSecret requires an exact match and is unconfigured by default', () => {
+  delete process.env.GOOGLE_PLAY_RTDN_SECRET;
+  assert.equal(isValidRtdnSecret('anything'), false);
+  process.env.GOOGLE_PLAY_RTDN_SECRET = 'topsecret';
+  try {
+    assert.equal(isValidRtdnSecret('topsecret'), true);
+    assert.equal(isValidRtdnSecret('wrong'), false);
+    assert.equal(isValidRtdnSecret(undefined), false);
+  } finally {
+    delete process.env.GOOGLE_PLAY_RTDN_SECRET;
+  }
+});
+
+// --- Apple: recruiter subscription purchased inside the iOS app ---
+
+// P. Unconfigured by default.
+test('Apple App Store billing is unconfigured by default', () => {
+  delete process.env.APPLE_ASC_KEY_ID;
+  delete process.env.APPLE_ASC_ISSUER_ID;
+  delete process.env.APPLE_ASC_PRIVATE_KEY_PATH;
+  assert.equal(isAppleConfigured(), false);
+});
+
+// Q. JWS decoding (pure — the header/payload split and base64url JSON
+// decode, independent of signature verification which needs Apple's real
+// certificate chain and can't be exercised without live sandbox credentials).
+test('decodeJws splits and decodes a JWS compact serialization', () => {
+  const header = Buffer.from(JSON.stringify({ alg: 'ES256', x5c: ['a', 'b'] })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ transactionId: 't1', originalTransactionId: 'o1' })).toString('base64url');
+  const signedPayload = `${header}.${payload}.fakesignature`;
+  const decoded = decodeJws(signedPayload);
+  assert.equal(decoded.header.alg, 'ES256');
+  assert.deepEqual(decoded.header.x5c, ['a', 'b']);
+  assert.equal(decoded.payload.transactionId, 't1');
+  assert.equal(decoded.payload.originalTransactionId, 'o1');
+  assert.equal(decoded.signingInput, `${header}.${payload}`);
+  assert.equal(decodeJws('not-a-jws'), null);
 });
