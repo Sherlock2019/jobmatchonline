@@ -69,9 +69,12 @@ button { cursor:pointer; }
 .hero-image-art-bottom { border-radius:24px; box-shadow:0 20px 50px rgba(16,27,56,.12); }
 .hero-image .proof-row { width:100%; background:#fff; padding:14px 0; margin:0; }
 .hero-image .hero-actions,.hero-image .proof-row { justify-content:center; }
-.hero-image-subnav { max-width:1200px; margin:52px auto 0; padding:16px 24px; justify-content:center; flex-wrap:wrap; gap:26px; background:var(--ink); border:1px solid var(--ink); border-radius:14px; box-shadow:0 10px 28px rgba(16,27,56,.18); }
-.hero-image-subnav a { color:#fff; }
-.hero-image-subnav a:hover { color:#ff6d9c; }
+.landing-subnav.hero-image-subnav { width:calc(100% - 40px); max-width:1136px; margin:42px auto 0; padding:7px; justify-content:center; flex-wrap:nowrap; gap:3px; overflow-x:auto; scrollbar-width:none; background:rgba(255,255,255,.72); border:1px solid rgba(255,255,255,.92); border-radius:22px; box-shadow:0 12px 34px rgba(82,52,76,.12),inset 0 1px 0 rgba(255,255,255,.85); backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%); }
+.landing-subnav.hero-image-subnav::-webkit-scrollbar { display:none; }
+.landing-subnav.hero-image-subnav a { flex:0 0 auto; min-height:38px; padding:0 15px; display:inline-flex; align-items:center; justify-content:center; color:#536070; border-radius:16px; font-size:12px; font-weight:650; letter-spacing:-.01em; transition:background .18s ease,color .18s ease,transform .18s ease,box-shadow .18s ease; }
+.landing-subnav.hero-image-subnav a:hover { color:#111827; background:rgba(255,255,255,.9); box-shadow:0 4px 12px rgba(42,31,50,.08); }
+.landing-subnav.hero-image-subnav a:active { transform:scale(.96); background:rgba(253,38,122,.09); color:#d91863; }
+.landing-subnav.hero-image-subnav a:focus-visible { outline:3px solid rgba(10,132,255,.28); outline-offset:1px; }
 .hero-visual:before { content:""; position:absolute; width:530px; height:530px; border-radius:50%; background:radial-gradient(circle at 38% 30%,#d8edff,#f7c5da 46%,#ff8667 68%,transparent 69%); opacity:.76; }
 .preview-card { z-index:2; width:390px; min-height:510px; border-radius:31px; background:white; border:1px solid rgba(253,38,122,.1); box-shadow:0 30px 80px rgba(125,28,70,.2); padding:27px; display:flex; flex-direction:column; justify-content:space-between; animation:card-float 5s ease-in-out infinite; }
 .preview-card.back-card { position:absolute; transform:rotate(7deg) translate(34px,6px); background:linear-gradient(145deg,#eaf5ff,#fff1f6); z-index:1; animation:none; }
