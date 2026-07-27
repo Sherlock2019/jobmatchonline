@@ -15,6 +15,16 @@ export const api = {
   authConfig: () => request<AuthConfig>('/api/auth/config'),
   showcase: () => request<{ jobs: Job[]; candidates: Person[] }>('/api/showcase'),
   reviews: () => request<{ reviews: Review[] }>('/api/feedback'),
+  siteSettings: () => request<{ activeLandingBanner: 'default' | 'alt' | 'image'; bannerImage: { url: string; updatedAt: number | null } | null }>('/api/site-settings'),
+  adminSetSiteSettings: (activeLandingBanner: 'default' | 'alt' | 'image') => request<{ activeLandingBanner: 'default' | 'alt' | 'image' }>('/api/admin/site-settings', { method: 'POST', body: JSON.stringify({ activeLandingBanner }) }),
+  adminBankInstructions: () => request<{ bankAccountName: string; bankName: string; bankAccountNumber: string; bankSwift: string; vietQrImageUrl: string; supportEmail: string }>('/api/admin/bank-instructions'),
+  adminSetBankInstructions: (payload: { bankAccountName: string; bankName: string; bankAccountNumber: string; bankSwift: string; vietQrImageUrl: string; supportEmail: string }) => request<typeof payload>('/api/admin/bank-instructions', { method: 'POST', body: JSON.stringify(payload) }),
+  adminUploadBannerImage: async (file: File): Promise<{ bannerImage: { url: string; updatedAt: number } }> => {
+    const response = await fetch(`${apiBase}/api/admin/site-settings/banner-image`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': file.type || 'image/png' }, body: file });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || 'Banner image upload failed');
+    return body;
+  },
   submitFeedback: (payload: { type: 'review' | 'suggestion'; message: string; name?: string; role?: string; rating?: number }) => request<{ ok: boolean; pending?: boolean }>('/api/feedback', { method: 'POST', body: JSON.stringify(payload) }),
   authProfiles: () => request<{ profiles: SessionUser[] }>('/api/auth/profiles'),
   login: (userId: string) => request<{ user: SessionUser }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ userId }) }),
@@ -87,7 +97,6 @@ export const api = {
   requestRecommendation: (payload: { userId: string; contact: string }) => request<{ request: RecommendationRequest; mailer: boolean }>('/api/recommendation-requests', { method: 'POST', body: JSON.stringify(payload) }),
   cancelRecommendationRequest: (id: string, userId: string) => request<{ ok: boolean }>(`/api/recommendation-requests/${id}?userId=${encodeURIComponent(userId)}`, { method: 'DELETE' }),
   deleteJob: (id: string) => request<{ ok: boolean }>(`/api/jobs/${id}`, { method: 'DELETE' }),
-  sendInvite: (userId: string) => request<{ invitesSent: number }>(`/api/users/${encodeURIComponent(userId)}/invite`, { method: 'POST' }),
 
   // --- Recruiter billing (candidates never call any of this) ---
   billingSubscription: (userId: string) => request<BillingInfo>(`/api/billing/subscription?userId=${encodeURIComponent(userId)}`),

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, Copy, Loader2 } from 'lucide-react';
+import { Check, Copy, Loader2, Mail } from 'lucide-react';
 import { api } from '../../api';
 import { Field, TextInput } from '../profile/fields';
 import { isAndroidNative, isIosNative, purchaseAppleSubscription, purchaseGooglePlaySubscription } from '../../lib/nativeBilling';
@@ -38,7 +38,7 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
   };
 
   if (!data.billing) {
-    return <div className="page"><div className="page-title"><div><span className="overline">Recruiter plan</span><h1>Billing</h1></div></div>
+    return <div className="page"><div className="page-title"><div><span className="overline">Recruiter plan</span><h1>Subscription</h1></div></div>
       <div className="billing-empty"><p>No subscription yet.</p><button className="primary-button" onClick={startTrial}>Start free 30-day trial</button></div>
     </div>;
   }
@@ -51,6 +51,12 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
     await navigator.clipboard.writeText(referralLink).catch(() => undefined);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
+  };
+
+  const inviteViaEmail = () => {
+    const subject = 'Thought you might like JobsMatchNow';
+    const body = `Hi,\n\nI've been using JobsMatchNow to hire faster — thought you might want to try it too.\n\nSign up here and we're both connected as referrals:\n${referralLink}\n\nCheers`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
   const submit = async () => {
@@ -110,7 +116,7 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
   };
 
   return <div className="page billing-page">
-    <div className="page-title"><div><span className="overline">Recruiter plan</span><h1>Billing</h1><p>USD 20/month per seat — your first 30 days are free.</p></div></div>
+    <div className="page-title"><div><span className="overline">Recruiter plan</span><h1>Subscription</h1><p>USD 20/month per seat — your first 30 days are free.</p></div></div>
 
     {paymentResult && <div className={`billing-result-banner billing-result-${paymentResult}`}>
       {paymentResult === 'success' ? 'Payment confirmed — thanks!' : 'The card payment did not go through. You can try again or use bank transfer / VietQR below.'}
@@ -176,6 +182,11 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
       </div>
 
       <div className="billing-referral-card">
+        <div className="billing-referral-banner">
+          <h2>Win 1 Free Month Subscription</h2>
+          <p>Invite a friend to join us and win 1 month subscription using this referral link.</p>
+          <button type="button" className="primary-button billing-referral-cta" onClick={inviteViaEmail}><Mail size={18} /> Send Invitation Email</button>
+        </div>
         <h3>Your referral link</h3>
         <p>Earn one free month every time a recruiter you refer completes their first paid month.</p>
         <div className="billing-referral-link"><input readOnly value={referralLink} /><button type="button" onClick={copyLink}>{copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copied' : 'Copy'}</button></div>

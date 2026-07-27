@@ -26,7 +26,7 @@ import {
   findSubscription, getOrCreateTrialSubscription, isBillingExempt, PRICE_AMOUNT, PRICE_CURRENCY,
 } from './billing/subscriptions.js';
 import { attachReferralOnRegister, findReferrerByCode, getOrCreateReferralCode, revokeReferralCreditForPayment } from './billing/referrals.js';
-import { generateInvoiceNumber, generateTransferReference, MANUAL_METHOD_IDS, paymentInstructions } from './billing/providers/manual.js';
+import { BANK_INSTRUCTION_FIELDS, generateInvoiceNumber, generateTransferReference, MANUAL_METHOD_IDS, paymentInstructions } from './billing/providers/manual.js';
 import { buildPaymentUrl, isVnpayConfigured, isVnpaySuccess, VNPAY_AMOUNT_VND, verifySignature as verifyVnpaySignature } from './billing/providers/vnpay.js';
 import { createCheckoutSession, isStripeConfigured, verifyWebhookSignature as verifyStripeSignature } from './billing/providers/stripe.js';
 import { approveLink, createSubscription as createPaypalSubscription, isPaypalConfigured, verifyWebhookSignature as verifyPaypalSignature } from './billing/providers/paypal.js';
@@ -322,6 +322,30 @@ app.get('/api/feedback', async (_req, res, next) => {
   try {
     const db = await store.read();
     res.json({ reviews: (db.feedback || []).filter((f) => f.type === 'review' && f.approved).slice(-8).reverse().map(publicReview) });
+  } catch (error) { next(error); }
+});
+
+// Public: which landing-page hero banner to render. Read before login, so no auth.
+app.get('/api/site-settings', async (_req, res, next) => {
+  try {
+    const db = await store.read();
+    const settings = db.siteSettings || {};
+    const activeLandingBanner = ['default', 'alt', 'image'].includes(settings.activeLandingBanner) ? settings.activeLandingBanner : 'default';
+    res.json({
+      activeLandingBanner,
+      bannerImage: settings.bannerImageExt ? { url: `/api/site-settings/banner-image?v=${settings.bannerImageUpdatedAt || 0}`, updatedAt: settings.bannerImageUpdatedAt || null } : null,
+    });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/site-settings/banner-image', async (req, res, next) => {
+  try {
+    const db = await store.read();
+    const ext = db.siteSettings?.bannerImageExt;
+    if (!ext) { const error = new Error('No banner image on file'); error.status = 404; throw error; }
+    res.setHeader('Content-Type', `image/${ext === 'jpg' ? 'jpeg' : ext}`);
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(path.join(SITE_DIR, `banner.${ext}`));
   } catch (error) { next(error); }
 });
 
@@ -779,9 +803,11 @@ app.post('/api/users/:id/invite', async (req, res, next) => {
 const UPLOADS_ROOT = process.env.UPLOADS_DIR || path.join(dirname, 'uploads');
 const RESUME_DIR = path.join(UPLOADS_ROOT, 'resumes');
 const PHOTOS_DIR = path.join(UPLOADS_ROOT, 'photos');
+const SITE_DIR = path.join(UPLOADS_ROOT, 'site');
 const mirror = (localPath) => mirrorToS3(localPath, UPLOADS_ROOT); // durable copy to S3 when configured
 await fs.promises.mkdir(RESUME_DIR, { recursive: true });
 await fs.promises.mkdir(PHOTOS_DIR, { recursive: true });
+await fs.promises.mkdir(SITE_DIR, { recursive: true });
 // Restore any previously-uploaded files from S3 (survives instance replacement).
 if (s3Enabled()) { await restoreFromS3(UPLOADS_ROOT); await backupToS3(UPLOADS_ROOT); console.log(`uploads: S3 mirror enabled (${process.env.S3_BUCKET})`); }
 const RESUME_TYPES = {
@@ -1698,7 +1724,7 @@ function billingPayload(db, recruiter) {
     effectiveStatus: computeEffectiveStatus(subscription),
     credits: availableCredits(db, recruiter.id),
     referralCode: getOrCreateReferralCode(db, recruiter),
-    instructions: paymentInstructions(),
+    instructions: paymentInstructions(db),
     vnpayEnabled: isVnpayConfigured(),
     vnpayAmountVnd: VNPAY_AMOUNT_VND,
     stripeEnabled: isStripeConfigured(),
@@ -2425,6 +2451,63 @@ app.post('/api/admin/jobs/:id/restore', async (req, res, next) => {
       return item;
     });
     res.json(job);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/site-settings', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const activeLandingBanner = oneOf(req.body, 'activeLandingBanner', ['default', 'alt', 'image']);
+    await store.transaction((db) => {
+      db.siteSettings = { ...db.siteSettings, activeLandingBanner };
+      logBillingEvent(db, session.sub, 'site_settings_updated', 'site_settings', 'landing_banner', { activeLandingBanner });
+    });
+    res.json({ activeLandingBanner });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/admin/bank-instructions', async (req, res, next) => {
+  try {
+    requireAdminRole(authSession(req));
+    const db = await store.read();
+    res.json(paymentInstructions(db));
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/bank-instructions', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const bankInstructions = {};
+    for (const field of BANK_INSTRUCTION_FIELDS) bankInstructions[field] = optString(req.body, field, { max: 500 }) || '';
+    await store.transaction((db) => {
+      db.siteSettings = { ...db.siteSettings, bankInstructions };
+      logBillingEvent(db, session.sub, 'bank_instructions_updated', 'site_settings', 'bank_instructions', {});
+    });
+    res.json(bankInstructions);
+  } catch (error) { next(error); }
+});
+
+const SITE_IMAGE_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+
+// Admin uploads a full hero-banner image (shown as-is on the landing page
+// when activeLandingBanner is 'image') — one current file, overwritten in place.
+app.post('/api/admin/site-settings/banner-image', uploadLimiter, express.raw({ type: () => true, limit: '8mb' }), async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const ext = SITE_IMAGE_TYPES[req.headers['content-type']];
+    if (!ext) { const error = new Error('Only PNG, JPEG, or WEBP images are accepted'); error.status = 415; throw error; }
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) throw new ValidationError('file', 'Empty upload');
+    for (const otherExt of new Set(Object.values(SITE_IMAGE_TYPES))) {
+      if (otherExt !== ext) await fs.promises.unlink(path.join(SITE_DIR, `banner.${otherExt}`)).catch(() => {});
+    }
+    await fs.promises.writeFile(path.join(SITE_DIR, `banner.${ext}`), req.body);
+    await mirror(path.join(SITE_DIR, `banner.${ext}`));
+    const updatedAt = Date.now();
+    await store.transaction((db) => {
+      db.siteSettings = { ...db.siteSettings, bannerImageExt: ext, bannerImageUpdatedAt: updatedAt };
+      logBillingEvent(db, session.sub, 'site_banner_image_uploaded', 'site_settings', 'landing_banner_image', { ext });
+    });
+    res.status(201).json({ bannerImage: { url: `/api/site-settings/banner-image?v=${updatedAt}`, updatedAt } });
   } catch (error) { next(error); }
 });
 

@@ -1,12 +1,10 @@
 import { Fragment, Suspense, lazy, useEffect, useMemo, useState } from 'react';
-import { PhoneMockup } from './components/PhoneMockup';
 import { DemoBadge } from './components/DemoBadge';
-import { InviteFriendModal } from './components/InviteFriendModal';
 import { SupportModal } from './components/SupportModal';
 import { ReportModal } from './components/ReportModal';
 import { ConductModal } from './components/ConductModal';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
-import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, CreditCard, Download, ExternalLink, Eye, FileText, Filter, Flag, Gift, Handshake, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, Map as MapIcon, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, CreditCard, Download, ExternalLink, Eye, FileText, Filter, Flag, Handshake, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, Map as MapIcon, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
 import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
@@ -14,6 +12,7 @@ import { Browser } from '@capacitor/browser';
 import { App as NativeApp } from '@capacitor/app';
 import { LoginModal, RegisterModal, ResetPasswordModal, SettingsModal } from './components/AuthModals';
 import { FeaturesTable, FeedbackSection, JourneyPipeline, LatestShowcase } from './components/LandingSections';
+import { HeroAlt, HeroDefault, HeroImage } from './components/landing/HeroBanners';
 import { CandidateWizard } from './components/profile/CandidateWizard';
 import { CandidateProfilePage } from './components/profile/CandidateProfilePage';
 import { RecruiterWizard } from './components/profile/RecruiterWizard';
@@ -66,7 +65,7 @@ const employerNav: NavItem[] = [
   { label: 'Conversations', short: 'Chat', icon: MessageCircle, view: 'messages' },
   { label: 'Meetings', icon: Calendar, view: 'meetings' },
   { label: 'Coffee Invitations', short: 'Coffee', icon: Coffee, view: 'coffee' },
-  { label: 'Billing', icon: CreditCard, view: 'billing' },
+  { label: 'Subscription', icon: CreditCard, view: 'billing' },
   { label: 'Reports', icon: BarChart3, view: 'analytics' },
 ];
 
@@ -127,6 +126,8 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const openLogin = () => setAuthModal('login');
   const openRegister = () => setAuthModal('register');
   const complete = (user: SessionUser) => { setAuthModal(null); onLogin(user); };
+  const [banner, setBanner] = useState<'default' | 'alt' | 'image'>('default');
+  useEffect(() => { api.siteSettings().then((res) => setBanner(res.activeLandingBanner)).catch(() => undefined); }, []);
   const trustPipeline = [
     { label: 'Steps to hire', classic: 9, jobsmatch: 6, unit: ' steps', color: '#FF3B30', feature: 'Mutual Matching + Automated Resume and Job Analysis', note: 'JobsMatchNow combines application, application receipt, resume screening, job-description comparison, and mutual-interest confirmation into one connected step.' },
     { label: 'Time to hire', classic: 32, jobsmatch: 25, unit: ' days', color: '#FF9500', feature: 'Instant Mutual Matching + Faster First Contact', note: 'Relevant candidates and recruiters connect immediately, then move directly to a recruiter screening call or local meetup without waiting through separate application-processing and screening queues.' },
@@ -164,27 +165,25 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   // stacked for phone width (no separate mobile layout).
   return <main className="landing">
     <header className="landing-header">
-      <nav className="landing-nav"><Brand /></nav>
-      <nav className="landing-subnav"><a href="#how">How it works</a><a href="#compare">Why JobsMatchNow</a><a href="#trust">Trust &amp; fairness</a></nav>
+      {banner !== 'image' && <nav className="landing-nav"><Brand /></nav>}
+      {banner !== 'image' && <nav className="landing-subnav"><a href="#how">How it works</a><a href="#compare">Why JobsMatchNow</a><a href="#trust">More, Better and Faster</a></nav>}
     </header>
     {linkedinState && <div className="integration-notice">{linkedinState === 'connected' ? 'LinkedIn connected. Your professional identity is ready to use.' : 'Add LinkedIn app credentials to enable live account connection. The demo remains available.'}<button onClick={() => history.replaceState({}, '', '/')}>×</button></div>}
-    <section className="hero">
-      <div className="hero-copy">
-        <div className="eyebrow"><Sparkles size={14} /> Find jobs you’ll love — and the people who’ll love the role and your company.</div>
-        <h1>Stop chasing jobs and candidates.<br /><span>Let the perfect match chase you.</span></h1>
-        <p>Job seekers, let the perfect role find you. Hiring teams, let the right candidates come to you. A connection opens only when both sides choose. Your next dream job — or dream candidate — might be just a few clicks away.</p>
-        <div className="location-pitch-app"><MapPin size={18} /><span><small>Geolocation of Opportunities</small><strong>Match nearby. Meet for a cup of coffee in your city.</strong></span></div>
-        <div className="hero-actions"><button className="primary-button" onClick={openRegister}>Register free <ArrowRight size={18} /></button><button className="secondary-button" onClick={openLogin}>Log in</button><button className="secondary-button demo-test-button" onClick={openLogin}><Sparkles size={18} /> Test demo matching</button></div>
-        <div className="proof-row"><span><Check size={14} /> Explainable fit</span><span><Check size={14} /> Private distance range</span><span><Check size={14} /> Salary up front</span></div>
-      </div>
-      <div className="hero-visual carousel-side" aria-label="JobsMatchNow product preview">
-        <div className="floating-love love-one"><Heart size={16} fill="currentColor" /></div><div className="floating-love love-two"><Sparkles size={14} /></div>
-        <PhoneMockup />
-      </div>
-    </section>
-    <section className="logo-strip"><span>Built for the way modern teams hire</span><div><b>northstar</b><b>CANVAS</b><b>relay</b><b>ORBIT</b><b>stride</b></div></section>
+    {banner === 'alt' ? <HeroAlt onRegister={openRegister} onLogin={openLogin} />
+      : banner === 'image' ? <HeroImage onRegister={openRegister} onLogin={openLogin} />
+      : <HeroDefault onRegister={openRegister} onLogin={openLogin} />}
+    {banner === 'image' && <nav className="landing-subnav hero-image-subnav">
+      <a href="#compare">Why JobsMatchNow</a>
+      <a href="#features">Features</a>
+      <a href="#journey">The journey</a>
+      <a href="#how">How it works</a>
+      <a href="#trust">More, Better and Faster</a>
+      <a href="#latest">Live now</a>
+      <a href="#feedback">Reviews</a>
+      <a href="#pricing">Pricing</a>
+    </nav>}
     <section className="comparison-section" id="compare">
-      <div className="comparison-intro"><div><h2>The Hiring Game Changer</h2></div><div className="comparison-copy"><p>Traditional hiring creates hurdles: endless searching, slow applications, repeated screenings, multiple exchanges, long delays — and too often, silence, no feedback. No sign of due respect.</p><p>JobsMatchNow removes the friction and creates Respect, Mutual Alignment, and a Clear, Fast Decision Cycle with Feedback.</p><p>Everything candidates and hiring teams need — from first discovery and mutual interest to a qualified conversation — is brought together in one simple, respectful, and intelligent experience.</p><p className="comparison-tagline">Less chasing. Fewer hurdles. Faster, better hires with feedback — more personalized, respectful hires with a human touch.</p></div></div>
+      <div className="comparison-intro"><div><h2>A Better, Faster, Easier, Friendlier Way of Hiring</h2></div><div className="comparison-copy"><p>Traditional hiring creates hurdles: endless searching, slow applications, repeated screenings, multiple exchanges, long delays — and too often, silence, no feedback. No sign of due respect.</p><p>JobsMatchNow removes the friction and creates Respect, Mutual Alignment, and a Clear, Fast Decision Cycle with Feedback.</p><p>Everything candidates and hiring teams need — from first discovery and mutual interest to a qualified conversation — is brought together in one simple, respectful, and intelligent experience.</p><p className="comparison-tagline">Less chasing. Fewer hurdles. Faster, better hires with feedback — more personalized, respectful hires with a human touch.</p></div></div>
       <div className="comparison-table-wrap">
         <table className="comparison-table">
           <thead><tr><th>Experience</th><th><span className="old-dot" />Traditional hiring</th><th><span className="new-dot" />JobsMatchNow</th><th>What changes</th></tr></thead>
@@ -250,9 +249,12 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
         </div>
         <div className="pricing-card featured">
           <span className="pricing-kicker">Recruiters</span>
-          <h3>USD 20<small> / month</small></h3>
+          <div className="pricing-actions">
+            <button type="button" className="primary-button" onClick={openRegister}>Start free 30-day trial</button>
+            <button type="button" className="secondary-button" onClick={openLogin}>View subscription</button>
+          </div>
+          <h3 className="pricing-price-small">USD 20<small> / month</small></h3>
           <ul>
-            <li>First 30 days free</li>
             <li>Unlimited legitimate job postings</li>
             <li>One recruiter seat</li>
             <li>Matching and messaging</li>
@@ -260,10 +262,6 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
             <li>Cancel anytime</li>
             <li>One free month for every referred recruiter who completes their first paid month</li>
           </ul>
-          <div className="pricing-actions">
-            <button type="button" className="primary-button" onClick={openRegister}>Start free 30-day trial</button>
-            <button type="button" className="secondary-button" onClick={openLogin}>View billing</button>
-          </div>
         </div>
       </div>
     </section>
@@ -296,25 +294,31 @@ function Gauge({ pct, classicPct, value, classicValue, label, classicNum, newNum
  * account), just the billing moderation dashboard and a way to log out. */
 function AdminWorkspace({ session, onExit }: { session: SessionUser; onExit: () => void }) {
   const [tab, setTab] = useState<'queue' | 'analytics' | 'users' | 'jobs' | 'billing' | 'safety'>('queue');
-  return <div className="admin-shell">
-    <header className="admin-topbar">
-      <Brand />
-      <nav className="admin-tabs">
-        <button type="button" className={tab === 'queue' ? 'active' : ''} onClick={() => setTab('queue')}>Action Queue</button>
-        <button type="button" className={tab === 'analytics' ? 'active' : ''} onClick={() => setTab('analytics')}>Analytics</button>
-        <button type="button" className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Candidates &amp; Recruiters</button>
-        <button type="button" className={tab === 'jobs' ? 'active' : ''} onClick={() => setTab('jobs')}>Jobs</button>
-        <button type="button" className={tab === 'billing' ? 'active' : ''} onClick={() => setTab('billing')}>Billing &amp; Subscriptions</button>
-        <button type="button" className={tab === 'safety' ? 'active' : ''} onClick={() => setTab('safety')}>Safety &amp; Support</button>
-      </nav>
-      <span>Admin — {session.name}</span><button className="secondary-button" onClick={onExit}><LogOut size={15} /> Log out</button>
-    </header>
+  const adminNav: { id: typeof tab; label: string; icon: typeof Inbox }[] = [
+    { id: 'queue', label: 'Action Queue', icon: Inbox },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'users', label: 'Candidates & Recruiters', icon: Users },
+    { id: 'jobs', label: 'Jobs', icon: BriefcaseBusiness },
+    { id: 'billing', label: 'Billing & Subscriptions', icon: CreditCard },
+    { id: 'safety', label: 'Safety & Support', icon: ShieldCheck },
+  ];
+  return <div className="admin-shell app-shell">
+    <aside className="sidebar">
+      <div className="sidebar-head"><Brand /></div>
+      <nav className="sidebar-nav">{adminNav.map((item) => { const Icon = item.icon; return <button key={item.id} type="button" className={tab === item.id ? 'active' : ''} onClick={() => setTab(item.id)}><Icon size={19} /><span>{item.label}</span></button>; })}</nav>
+      <div className="sidebar-bottom">
+        <span className="admin-sidebar-name">Admin — {session.name}</span>
+        <button onClick={onExit}><LogOut size={18} />Log out</button>
+      </div>
+    </aside>
+    <div className="app-main admin-main">
     {tab === 'queue' && <AdminActionQueuePage />}
     {tab === 'analytics' && <AdminAnalyticsPage />}
     {tab === 'users' && <AdminUsersPage />}
     {tab === 'jobs' && <AdminJobsPage />}
     {tab === 'billing' && <AdminBillingPage />}
     {tab === 'safety' && <AdminSafetyPage />}
+    </div>
   </div>;
 }
 
@@ -329,7 +333,6 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   const [profileSaved, setProfileSaved] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [inviteOpen, setInviteOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [conductOpen, setConductOpen] = useState(false);
   const [jobImportOpen, setJobImportOpen] = useState(false);
@@ -397,10 +400,8 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
     <aside className={mobileNav ? 'sidebar open' : 'sidebar'}><div className="sidebar-head"><Brand /><button className="mobile-close" onClick={() => setMobileNav(false)} aria-label="Close menu"><X /></button></div>
       <div className="workspace-switch"><span>Profile</span><button onClick={() => { setView('profile'); setMobileNav(false); }}>{data?.viewer.photo ? <img className="avatar-mini" src={data.viewer.photo} alt="" /> : <div className="avatar-mini">{initials}</div>}<div><strong>{data?.viewer.name || session.name}</strong><small>{role === 'candidate' ? 'Candidate' : 'Recruiter'}</small></div><ArrowRight size={15} /></button></div>
       <nav className="sidebar-nav">{nav.map((item) => { const Icon = item.icon; return <button key={item.label} className={navActive(item) ? 'active' : ''} onClick={() => gotoNav(item)}><Icon size={19} /><span>{item.label}</span>{item.view === 'messages' && notifications.length > 0 && <em>{Math.min(notifications.length, 9)}</em>}</button>; })}</nav>
-      <button className="sidebar-invite-btn" onClick={() => setInviteOpen(true)}><Gift size={17} /> Invite a Friend to Join Us — Bonus!</button>
       <div className="sidebar-bottom"><button onClick={() => setConductOpen(true)}><ShieldCheck size={18} />Code of Conduct</button><button onClick={() => setSupportOpen(true)}><CircleHelp size={18} />Help center</button><button onClick={() => setSettingsOpen(true)}><Settings size={18} />Settings</button><button className="logout-button" onClick={onExit}><LogOut size={18} />Log out</button></div>
     </aside>
-    {inviteOpen && data && <InviteFriendModal userId={data.viewer.id} onClose={() => setInviteOpen(false)} />}
     <AnimatePresence>{supportOpen && <SupportModal viewer={data?.viewer} onClose={() => setSupportOpen(false)} />}</AnimatePresence>
     <AnimatePresence>{conductOpen && <ConductModal onClose={() => setConductOpen(false)} />}</AnimatePresence>
     {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}

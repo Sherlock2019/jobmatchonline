@@ -8,18 +8,22 @@ import crypto from 'node:crypto';
 
 export const MANUAL_METHOD_IDS = ['vietqr', 'bank_transfer', 'international_bank_transfer'];
 
-/** Bank/VietQR instructions shown on the billing page — sourced from env vars
- * (or later, protected admin settings) rather than hardcoded, and never
- * storing more of the recruiter's own banking info than the reference fields
- * they type in themselves. */
-export function paymentInstructions() {
+export const BANK_INSTRUCTION_FIELDS = ['bankAccountName', 'bankName', 'bankAccountNumber', 'bankSwift', 'vietQrImageUrl', 'supportEmail'];
+
+/** Bank/VietQR instructions shown on the billing page — admin-editable
+ * (db.siteSettings.bankInstructions, set from the admin dashboard) with env
+ * vars as a fallback default for whichever fields haven't been set there yet.
+ * Never stores more of the recruiter's own banking info than the reference
+ * fields they type in themselves. */
+export function paymentInstructions(db) {
+  const stored = db?.siteSettings?.bankInstructions || {};
   return {
-    bankAccountName: process.env.BILLING_BANK_ACCOUNT_NAME || '',
-    bankName: process.env.BILLING_BANK_NAME || '',
-    bankAccountNumber: process.env.BILLING_BANK_ACCOUNT_NUMBER || '',
-    bankSwift: process.env.BILLING_BANK_SWIFT || '',
-    vietQrImageUrl: process.env.BILLING_VIETQR_IMAGE_URL || '',
-    supportEmail: process.env.BILLING_SUPPORT_EMAIL || '',
+    bankAccountName: stored.bankAccountName || process.env.BILLING_BANK_ACCOUNT_NAME || '',
+    bankName: stored.bankName || process.env.BILLING_BANK_NAME || '',
+    bankAccountNumber: stored.bankAccountNumber || process.env.BILLING_BANK_ACCOUNT_NUMBER || '',
+    bankSwift: stored.bankSwift || process.env.BILLING_BANK_SWIFT || '',
+    vietQrImageUrl: stored.vietQrImageUrl || process.env.BILLING_VIETQR_IMAGE_URL || '',
+    supportEmail: stored.supportEmail || process.env.BILLING_SUPPORT_EMAIL || '',
   };
 }
 
