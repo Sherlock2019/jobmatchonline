@@ -1,6 +1,6 @@
 import { ArrowRight, BarChart3, Check, CreditCard, Heart, MapPin, Sparkles, Users } from 'lucide-react';
 import { PhoneMockup } from '../PhoneMockup';
-import HERO_BANNER_TOP from '../../assets/hero-banner-top-messaging-clean.png';
+import HERO_BANNER_TOP from '../../assets/hero-banner-top-talking-heads.png';
 import HERO_BANNER_BOTTOM from '../../assets/hero-banner-bottom.png';
 
 function Brand() { return <div className="brand"><span className="brand-heart-mark" aria-hidden="true" /><span className="brand-wordmark"><b>Jobs</b><b>Match</b><b>Now</b></span></div>; }
