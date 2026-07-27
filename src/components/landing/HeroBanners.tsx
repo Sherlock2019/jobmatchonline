@@ -1,7 +1,7 @@
 import { ArrowRight, BarChart3, Check, CreditCard, Heart, MapPin, Sparkles, Users } from 'lucide-react';
 import { PhoneMockup } from '../PhoneMockup';
-import HERO_BANNER_TOP from '../../assets/hero-banner-top-five-step-white-frame.png';
-import HERO_BANNER_BOTTOM from '../../assets/hero-banner-bottom.png';
+
+const FIVE_STEPS_TEMPLATE = '/5stepstemplate.png';
 
 function Brand() { return <div className="brand"><span className="brand-heart-mark" aria-hidden="true" /><span className="brand-wordmark"><b>Jobs</b><b>Match</b><b>Now</b></span></div>; }
 
@@ -25,13 +25,11 @@ export function HeroDefault({ onRegister, onLogin }: HeroProps) {
   </section>;
 }
 
-/** Custom-image hero banner — split into a top half (icon/tagline/phone) and
- * bottom half (the 6 feature screenshots) so the proof-row can sit as real,
- * accessible HTML between them instead of being baked into a flat image. */
+/** Custom-image hero banner with the complete five-step journey and product
+ * screenshots composed as one responsive marketing template. */
 export function HeroImage({ onRegister, onLogin }: HeroProps) {
   return <section className="hero hero-image">
-    <img className="hero-image-art hero-image-art-top" src={HERO_BANNER_TOP} alt="JobsMatchNow" />
-    <img className="hero-image-art hero-image-art-bottom" src={HERO_BANNER_BOTTOM} alt="" />
+    <img className="hero-image-art hero-image-art-top" src={FIVE_STEPS_TEMPLATE} alt="JobsMatchNow five-step recruiting journey" />
     <div className="hero-actions"><button className="primary-button" onClick={onRegister}>Register free <ArrowRight size={18} /></button><button className="secondary-button" onClick={onLogin}>Log in</button><button className="secondary-button demo-test-button" onClick={onLogin}><Sparkles size={18} /> Test demo matching</button></div>
   </section>;
 }
