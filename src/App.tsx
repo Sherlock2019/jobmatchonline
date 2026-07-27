@@ -227,28 +227,28 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
           </table>
         </div>
         <div className="time-legend"><span><i style={{ background: '#34C759' }} /> Same day–1 day</span><span><i style={{ background: '#32ADE6' }} /> Up to 2 days</span><span><i style={{ background: '#FF9500' }} /> 3–7 days</span><span><i style={{ background: '#FF3B30' }} /> 7–21 days</span></div>
-        <div className="trust-detail-block">
-          <strong>Steps simplified or skipped with JobsMatchNow</strong>
-          <p>Traditional steps 1–4 are combined into one intelligent matching step:</p>
-          <ul><li>Candidate application submission</li><li>Manual receipt and processing of applications</li><li>Separate resume screening</li><li>Manual comparison of the resume with the job description</li></ul>
-          <p>Instead, JobsMatchNow analyzes the job description, resume, profile, preferences, and mutual interest together before the conversation begins.</p>
-        </div>
-        <div className="trust-detail-block">
-          <strong>Benefits of the new process</strong>
-          <ul>
-            <li><b>5–13 days less administrative delay:</b> base processing falls from 8–21 days to 3–8 days.</li>
-            <li><b>Full journey:</b> approximately 18–49 days for traditional hiring versus 13–36 days with JobsMatchNow.</li>
-            <li><b>Case-dependent stages:</b> interviews and offer negotiation account for 10–28 days and vary by role, employer, candidate availability, approvals, and complexity.</li>
-            <li><b>Less manual screening:</b> recruiters spend less time reviewing unsuitable applications.</li>
-            <li><b>Mutual interest first:</b> both sides confirm interest before investing time in calls and interviews.</li>
-            <li><b>Better-aligned candidates:</b> skills, experience, expectations, and job requirements are compared earlier.</li>
-            <li><b>Fewer unnecessary exchanges:</b> less chasing, follow-up, and repeated information gathering.</li>
-            <li><b>Faster human connection:</b> candidates can move directly to a recruiter screening call or local meetup.</li>
-            <li><b>Same hiring standards:</b> interviews, assessments, references, background checks, and offer stages remain in place.</li>
-            <li><b>Better candidate experience:</b> greater transparency, faster responses, and less uncertainty.</li>
-          </ul>
-        </div>
-        <p className="trust-detail-core"><b>Core message:</b> JobsMatchNow does not remove essential hiring checks. It removes the friction required to reach them.</p>
+        <section className="time-saving-summary">
+          <div className="time-saving-heading">
+            <span>Time-Saving Insight</span>
+            <h4>Save 5–13 days without removing essential hiring checks.</h4>
+            <p>JobsMatchNow reduces administrative delay. Interview and negotiation time remains case-dependent.</p>
+          </div>
+          <div className="time-saving-table-wrap">
+            <table className="time-saving-table">
+              <thead><tr><th>Process</th><th>Base processing time</th><th>Interviews and negotiation</th><th>Full estimated journey</th></tr></thead>
+              <tbody>
+                <tr><th>Traditional Hiring</th><td>8–21 days</td><td>10–28 days</td><td>18–49 days</td></tr>
+                <tr className="jobsmatch-row"><th>JobsMatchNow</th><td>3–8 days</td><td>10–28 days</td><td>13–36 days</td></tr>
+                <tr className="saving-row"><th>Potential time saved</th><td>5–13 days</td><td>Depends on each employer and role</td><td>5–13 days</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="time-saving-cards">
+            <article><span>Traditional Hiring</span><strong>9 steps</strong><p>Base: <b>8–21 days</b></p><p>Full journey: <b>18–49 days</b></p></article>
+            <article className="jobsmatch"><span>JobsMatchNow</span><strong>6 internal steps</strong><p>Presented as 5 simple candidate steps</p><p>Base: <b>3–8 days</b> · Full journey: <b>13–36 days</b></p></article>
+          </div>
+          <div className="time-saving-callout"><Clock3 size={22} /><p><strong>Approximately 5–13 days saved</strong><span>by removing administrative friction before and around the human decision stages.</span></p></div>
+        </section>
       </div>
     </div></section>
     <LatestShowcase onRegister={openRegister} onLogin={openLogin} />
