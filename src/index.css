@@ -148,6 +148,8 @@ button { cursor:pointer; }
 .trust-section h2 { margin-bottom:24px; }
 .trust-copy>p { color:#c7cbd6; font-size:17px; line-height:1.65; max-width:530px; }
 .trust-copy button { margin-top:24px; }
+.trust-copy .trust-try-button { min-height:54px; padding:0 30px; font-size:15px; font-weight:800; letter-spacing:.06em; box-shadow:0 12px 32px rgba(253,38,122,.4),0 0 0 1px rgba(255,255,255,.12) inset; }
+.trust-copy .trust-try-button:hover { transform:translateY(-2px) scale(1.02); box-shadow:0 17px 38px rgba(253,38,122,.52),0 0 0 1px rgba(255,255,255,.18) inset; }
 .gauge-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px 10px; }
 .gauge-tile { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:17px; padding:18px 12px; display:flex; flex-direction:column; align-items:center; text-align:center; }
 .gauge-ring { width:88px; height:88px; border-radius:50%; display:grid; place-items:center; margin-bottom:12px; }
