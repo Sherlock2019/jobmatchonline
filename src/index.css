@@ -259,6 +259,7 @@ button { cursor:pointer; }
 .journey-node { position:relative; width:66px; height:66px; border-radius:20px; display:grid; place-items:center; color:white; background:linear-gradient(150deg, var(--hue), color-mix(in srgb, var(--hue) 62%, #ff8a5c)); box-shadow:0 12px 26px color-mix(in srgb, var(--hue) 40%, transparent); margin-bottom:14px; animation:journey-pop .5s ease backwards; }
 .journey-num { position:absolute; top:-7px; right:-7px; width:22px; height:22px; border-radius:50%; background:white; color:var(--ink); font:800 10px 'Manrope'; display:grid; place-items:center; box-shadow:0 3px 8px rgba(0,0,0,.14); }
 .journey-step strong { font:800 13px 'Manrope'; }
+.journey-step small { margin-top:5px; color:var(--hue); font-size:10px; font-weight:800; }
 .journey-step p { margin:5px 0 0; color:var(--muted); font-size:10px; line-height:1.45; }
 .journey-arrow { position:absolute; top:24px; right:-13px; color:#d8b9c8; z-index:1; }
 @keyframes journey-pop { from { opacity:0; transform:translateY(10px) scale(.85); } }

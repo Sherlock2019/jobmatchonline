@@ -128,34 +128,44 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const complete = (user: SessionUser) => { setAuthModal(null); onLogin(user); };
   const [banner, setBanner] = useState<'default' | 'alt' | 'image'>('default');
   useEffect(() => { api.siteSettings().then((res) => setBanner(res.activeLandingBanner)).catch(() => undefined); }, []);
-  const trustPipeline = [
+  type TrustPipelineRow = {
+    label: string; classic: number; jobsmatch: number; unit: string; color: string;
+    feature: string; note: string; classicDisplay?: string; jobsmatchDisplay?: string; deltaText?: string;
+  };
+  const trustPipeline: TrustPipelineRow[] = [
     { label: 'Steps to hire', classic: 9, jobsmatch: 6, unit: ' steps', color: '#FF3B30', feature: 'Mutual Matching + Automated Resume and Job Analysis', note: 'JobsMatchNow combines application, application receipt, resume screening, job-description comparison, and mutual-interest confirmation into one connected step.' },
-    { label: 'Time to hire', classic: 32, jobsmatch: 25, unit: ' days', color: '#FF9500', feature: 'Instant Mutual Matching + Faster First Contact', note: 'Relevant candidates and recruiters connect immediately, then move directly to a recruiter screening call or local meetup without waiting through separate application-processing and screening queues.' },
+    { label: 'Base processing time', classic: 14.5, jobsmatch: 5.5, unit: ' days', classicDisplay: '8–21 days', jobsmatchDisplay: '3–8 days', deltaText: '5–13 days saved', color: '#FF9500', feature: 'Instant Mutual Matching + Faster First Contact', note: 'JobsMatchNow removes approximately 5–13 days of administrative delay before and around the human decision stages.' },
+    { label: 'Interviews + negotiation', classic: 19, jobsmatch: 19, unit: ' days', classicDisplay: '10–28 days', jobsmatchDisplay: '10–28 days', deltaText: 'Varies by role', color: '#AF52DE', feature: 'Same Essential Hiring Standards', note: 'Interview rounds and offer negotiation depend on the role, employer, candidate availability, approvals, and negotiation complexity.' },
+    { label: 'Full hiring journey', classic: 33.5, jobsmatch: 24.5, unit: ' days', classicDisplay: '18–49 days', jobsmatchDisplay: '13–36 days', deltaText: '5–13 days saved', color: '#FF9500', feature: 'A Faster Base Process', note: 'The full range includes interviews, assessments, checks, 3–7 days of offer negotiation, acceptance, and hire.' },
     { label: 'Match-to-interview rate', classic: 18, jobsmatch: 61, unit: '%', color: '#34C759', feature: 'Explainable Match Score', note: 'Skills, experience, salary expectations, location, preferences, resume content, and job requirements are analyzed before both sides connect, helping better-aligned candidates reach interviews.' },
     { label: 'Feedback ratio', classic: 22, jobsmatch: 89, unit: '%', color: '#32ADE6', feature: 'Built-In Feedback Exchange', note: 'Candidates and recruiters can share structured feedback after conversations and interview stages, reducing silence, uncertainty, and ghosting.' },
     { label: 'Candidate satisfaction', classic: 58, jobsmatch: 96, unit: '%', color: '#AF52DE', feature: 'Salary Transparency + Mutual Choice + Recruiter Feedback', note: 'Candidates understand the role, salary range, match reasoning, and what recruiters can see before deciding whether to connect.' },
     { label: 'Recruiter success rate', classic: 34, jobsmatch: 78, unit: '%', color: '#FF2D55', feature: 'Qualified Mutual Matches + Hiring Insights + Candidate Feedback', note: 'Recruiters spend their time on candidates who already match the role and have actively confirmed their interest, supported by clear compatibility and pipeline data.' },
   ];
   const traditionalSteps = [
-    ['Candidate sends a job application', 'Same day'],
-    ['Recruiter receives and processes applications', '1 day'],
-    ['Resume screening', '3 days'],
-    ['Resume compared with the job description', '1 day'],
-    ['Recruiter screening call', '3 days'],
-    ['Interview and assessment rounds', '14 days'],
-    ['Reference and background checks', '7 days'],
-    ['Offer negotiation', '2 days'],
-    ['Offer acceptance and hire', '1 day'],
+    ['Candidate sends a job application', 'Same day–1 day'],
+    ['Recruiter receives and processes applications', '1–3 days'],
+    ['Resume screening', '2–5 days'],
+    ['Resume compared with the job description', '1–2 days'],
+    ['Recruiter screening call and scheduling', '2–5 days'],
+    ['Interview and assessment rounds', '7–21 days'],
+    ['Reference and background checks', '1–3 days'],
+    ['Offer negotiation', '3–7 days'],
+    ['Offer acceptance and hire', '1–2 days'],
   ];
   const jobsmatchNowSteps = [
-    ['Application, receipt, resume screening, job-description analysis, and mutual matching combined', 'Same day'],
-    ['Recruiter screening call or direct local meetup', '1 day'],
-    ['Interview and assessment rounds', '14 days'],
-    ['Reference and background checks', '7 days'],
-    ['Offer negotiation', '2 days'],
-    ['Offer acceptance and hire', '1 day'],
+    ['Application receipt, profile/resume screening, job-description analysis, and mutual matching combined', 'Same day–1 day'],
+    ['Recruiter screening call or direct local meetup', '1–2 days'],
+    ['Interview and assessment rounds', '7–21 days'],
+    ['Reference and background checks', '1–3 days'],
+    ['Offer negotiation', '3–7 days'],
+    ['Offer acceptance and hire', '1–2 days'],
   ];
-  const timeColor = (t: string) => (/same day/i.test(t) ? '#34C759' : /^1 day/.test(t) ? '#32ADE6' : /^[23] days/.test(t) ? '#FF9500' : '#FF3B30');
+  const timeColor = (t: string) => {
+    if (/same day/i.test(t)) return '#34C759';
+    const maxDays = Math.max(...(t.match(/\d+/g) || ['0']).map(Number));
+    return maxDays <= 2 ? '#32ADE6' : maxDays <= 7 ? '#FF9500' : '#FF3B30';
+  };
   const modals = <AnimatePresence>
     {authModal === 'login' && <LoginModal onClose={() => setAuthModal(null)} onComplete={complete} />}
     {authModal === 'register' && <RegisterModal onClose={() => setAuthModal(null)} onComplete={complete} />}
@@ -196,24 +206,27 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     <JourneyPipeline />
     <section className="value-section" id="how"><div className="section-heading centered"><span className="eyebrow"><Sparkles size={14} /> A better signal</span><h2>Hiring works better when<br />both sides choose.</h2></div><div className="value-grid"><Feature icon={BarChart3} title="Fit, explained" text="Go beyond keywords with transparent skill, experience, and preference signals." /><Feature icon={Handshake} title="Intent, confirmed" text="A conversation opens only after both sides express interest. No cold outreach." /><Feature icon={MapIcon} title="Geolocation of Opportunities" text="Choose a city and private distance range, then meet for coffee only when both sides agree." /><Feature icon={ShieldCheck} title="People, respected" text="Salary and work style are clear up front. Candidate controls stay at the center." /></div></section>
     <section className="trust-section" id="trust"><div className="trust-copy"><span className="section-kicker light">Better Results</span><h2>More, better, faster hiring — with human mutual job matching.</h2><p>Every recommendation carries its reason. Every connection starts with consent. Every candidate gets control over what employers can see.</p><button className="primary-button trust-try-button" onClick={openLogin}>LET ME TRY NOW!</button></div><div className="gauge-grid">
-      <Gauge pct={22} classicPct={8} value="25 days" classicValue="32 days" label="Time to hire" classicNum={32} newNum={25} lowerIsBetter />
-      <Gauge pct={43} classicPct={16} value="25–35 days" classicValue="45–60 days" label="Time to find a role" classicNum={52.5} newNum={30} lowerIsBetter />
+      <Gauge pct={100} classicPct={73} value="13–36 days" classicValue="18–49 days" label="Full hiring journey" classicNum={33.5} newNum={24.5} lowerIsBetter badgeText="5–13 days saved" />
+      <Gauge pct={100} classicPct={38} value="3–8 days" classicValue="8–21 days" label="Base processing time" classicNum={14.5} newNum={5.5} lowerIsBetter badgeText="5–13 days saved" />
       <Gauge pct={46} classicPct={18} value="46%" classicValue="18%" label="Match-to-hire conversion" classicNum={18} newNum={46} />
       <Gauge pct={94} classicPct={58} value="94%" classicValue="58%" label="Candidate satisfaction rate" classicNum={58} newNum={94} />
       <Gauge pct={89} classicPct={34} value="89%" classicValue="34%" label="Recruiter satisfaction rate" classicNum={34} newNum={89} />
       <Gauge pct={92} classicPct={41} value="92%" classicValue="41%" label="Would recommend JobsMatchNow" classicNum={41} newNum={92} />
       <small>Illustrative product targets for the demo experience.</small>
-    </div><div className="trust-pipeline"><h3>Classic Hiring vs. New JobsMatchNow Process</h3><p>How the hiring pipeline itself compares, step for step.</p><div className="pipeline-rows">{trustPipeline.map((row) => { const max = Math.max(row.classic, row.jobsmatch) || 1; const deltaPct = row.classic ? Math.round(Math.abs(row.jobsmatch - row.classic) / row.classic * 100) : 0; return <Fragment key={row.label}><div className="pipeline-row"><span className="pipeline-row-label">{row.label}</span><div className="pipeline-bar-track classic"><i style={{ width: `${(row.classic / max) * 100}%` }} /><b>{row.classic}{row.unit}</b></div><div className="pipeline-bar-track jobsmatch"><i style={{ width: `${(row.jobsmatch / max) * 100}%`, background: row.color }} /><b>{row.jobsmatch}{row.unit}</b></div><span className="pipeline-delta" style={{ color: row.color }}>{deltaPct}% better</span></div><p className="pipeline-feature-note">Powered by <b>{row.feature}</b> — {row.note}</p></Fragment>; })}<div className="pipeline-legend"><span><i className="classic" /> Classic hiring</span><span><i className="jobsmatch" /> JobsMatchNow</span></div><div className="pipeline-popularity"><Star size={16} fill="currentColor" /><div><strong>4.8/5 popularity</strong><span>Average candidate rating from verified reviews, powered by our built-in recommendation &amp; review feature.</span></div></div></div>
+    </div><div className="trust-pipeline"><h3>Classic Hiring vs. New JobsMatchNow Process</h3><p>Base processing time is shown separately from interviews and negotiation because those stages vary by employer, role, and candidate.</p><div className="pipeline-rows">{trustPipeline.map((row) => { const max = Math.max(row.classic, row.jobsmatch) || 1; const deltaPct = row.classic ? Math.round(Math.abs(row.jobsmatch - row.classic) / row.classic * 100) : 0; return <Fragment key={row.label}><div className="pipeline-row"><span className="pipeline-row-label">{row.label}</span><div className="pipeline-bar-track classic"><i style={{ width: `${(row.classic / max) * 100}%` }} /><b>{row.classicDisplay || `${row.classic}${row.unit}`}</b></div><div className="pipeline-bar-track jobsmatch"><i style={{ width: `${(row.jobsmatch / max) * 100}%`, background: row.color }} /><b>{row.jobsmatchDisplay || `${row.jobsmatch}${row.unit}`}</b></div><span className="pipeline-delta" style={{ color: row.color }}>{row.deltaText || `${deltaPct}% better`}</span></div><p className="pipeline-feature-note">Powered by <b>{row.feature}</b> — {row.note}</p></Fragment>; })}<div className="pipeline-legend"><span><i className="classic" /> Classic hiring</span><span><i className="jobsmatch" /> JobsMatchNow</span></div><div className="pipeline-popularity"><Star size={16} fill="currentColor" /><div><strong>4.8/5 popularity</strong><span>Average candidate rating from verified reviews, powered by our built-in recommendation &amp; review feature.</span></div></div></div>
       <div className="trust-detail">
         <h4>Traditional Hiring vs. JobsMatchNow Steps</h4>
         <div className="trust-detail-table-wrap">
           <table className="trust-detail-table colorful">
             <thead><tr><th colSpan={2} className="trad-head">Traditional Hiring</th><th colSpan={2} className="new-head">JobsMatchNow</th></tr></thead>
             <tbody>{traditionalSteps.map((row, i) => { const jm = jobsmatchNowSteps[i]; return <tr key={row[0]} className={i === 0 ? 'combined-row' : undefined}><td className="step-cell"><span className="step-num trad">{i + 1}</span>{row[0]}</td><td><span className="time-pill" style={{ background: timeColor(row[1]) }}>{row[1]}</span></td><td className="step-cell">{jm && <><span className="step-num new">{i + 1}</span>{jm[0]}{i === 0 && <b className="combo-badge">4-in-1 ⚡</b>}</>}</td><td>{jm && <span className="time-pill" style={{ background: timeColor(jm[1]) }}>{jm[1]}</span>}</td></tr>; })}</tbody>
-            <tfoot><tr><td><b>Estimated total</b></td><td><b className="total-pill trad">32 days</b></td><td><b>Estimated total</b></td><td><b className="total-pill new">25 days</b></td></tr></tfoot>
+            <tfoot>
+              <tr><td><b>Full journey — all steps</b></td><td><b className="total-pill trad">18–49 days</b></td><td><b>Full journey — all steps</b></td><td><b className="total-pill new">13–36 days</b></td></tr>
+              <tr><td><b>Base process — excluding interviews and negotiation</b></td><td><b className="total-pill trad">8–21 days</b></td><td><b>Base process — excluding interviews and negotiation</b></td><td><b className="total-pill new">3–8 days</b></td></tr>
+            </tfoot>
           </table>
         </div>
-        <div className="time-legend"><span><i style={{ background: '#34C759' }} /> Same day</span><span><i style={{ background: '#32ADE6' }} /> 1 day</span><span><i style={{ background: '#FF9500' }} /> 2–3 days</span><span><i style={{ background: '#FF3B30' }} /> 7+ days</span></div>
+        <div className="time-legend"><span><i style={{ background: '#34C759' }} /> Same day–1 day</span><span><i style={{ background: '#32ADE6' }} /> Up to 2 days</span><span><i style={{ background: '#FF9500' }} /> 3–7 days</span><span><i style={{ background: '#FF3B30' }} /> 7–21 days</span></div>
         <div className="trust-detail-block">
           <strong>Steps simplified or skipped with JobsMatchNow</strong>
           <p>Traditional steps 1–4 are combined into one intelligent matching step:</p>
@@ -223,7 +236,9 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
         <div className="trust-detail-block">
           <strong>Benefits of the new process</strong>
           <ul>
-            <li><b>7 days faster:</b> estimated hiring time is reduced from 32 to 25 days.</li>
+            <li><b>5–13 days less administrative delay:</b> base processing falls from 8–21 days to 3–8 days.</li>
+            <li><b>Full journey:</b> approximately 18–49 days for traditional hiring versus 13–36 days with JobsMatchNow.</li>
+            <li><b>Case-dependent stages:</b> interviews and offer negotiation account for 10–28 days and vary by role, employer, candidate availability, approvals, and complexity.</li>
             <li><b>Less manual screening:</b> recruiters spend less time reviewing unsuitable applications.</li>
             <li><b>Mutual interest first:</b> both sides confirm interest before investing time in calls and interviews.</li>
             <li><b>Better-aligned candidates:</b> skills, experience, expectations, and job requirements are compared earlier.</li>
@@ -275,7 +290,7 @@ function Feature({ icon: Icon, title, text }: { icon: typeof Target; title: stri
   return <article><div className="feature-icon"><Icon size={32} /></div><h3>{title}</h3><p>{text}</p></article>;
 }
 
-function Gauge({ pct, classicPct, value, classicValue, label, classicNum, newNum, lowerIsBetter }: { pct: number; classicPct: number; value: string; classicValue: string; label: string; classicNum: number; newNum: number; lowerIsBetter?: boolean }) {
+function Gauge({ pct, classicPct, value, classicValue, label, classicNum, newNum, lowerIsBetter, badgeText }: { pct: number; classicPct: number; value: string; classicValue: string; label: string; classicNum: number; newNum: number; lowerIsBetter?: boolean; badgeText?: string }) {
   const deg = Math.max(0, Math.min(100, pct)) * 3.6;
   const classicDeg = Math.min(Math.max(0, Math.min(100, classicPct)) * 3.6, deg);
   const multiplier = lowerIsBetter ? classicNum / newNum : newNum / classicNum;
@@ -285,7 +300,7 @@ function Gauge({ pct, classicPct, value, classicValue, label, classicNum, newNum
     </div>
     <span>{label}</span>
     <div className="gauge-compare"><em className="gauge-classic">Classic: {classicValue}</em><em className="gauge-new-line">New: {value}</em></div>
-    <b className="gauge-multiplier">{multiplier.toFixed(1)}× {lowerIsBetter ? 'faster' : 'increase'}</b>
+    <b className="gauge-multiplier">{badgeText || `${multiplier.toFixed(1)}× ${lowerIsBetter ? 'faster' : 'increase'}`}</b>
   </div>;
 }
 
@@ -1205,11 +1220,12 @@ function Analytics({ role, data }: { role: Role; data: Bootstrap }) {
   // Illustrative comparison vs. a classic recruitment pipeline — response
   // rate blends in this viewer's own real number so it's not pure fiction.
   const pipelineCompare = [
-    { label: 'Steps to hire', classic: 8, jobsmatch: 3, unit: ' steps', color: '#FF3B30' },
-    { label: 'Time to hire', classic: 32, jobsmatch: 9, unit: ' days', color: '#FF9500' },
-    { label: copy.responseLabel, classic: 18, jobsmatch: Math.max(responseRate, 61), unit: '%', color: '#34C759', higherIsBetter: true },
+    { label: 'Steps to hire', classic: 9, jobsmatch: 6, classicLabel: '9 steps', jobsmatchLabel: '6 steps', color: '#FF3B30', deltaText: '3 steps simplified' },
+    { label: 'Base processing time', classic: 14.5, jobsmatch: 5.5, classicLabel: '8–21 days', jobsmatchLabel: '3–8 days', color: '#FF9500', deltaText: '5–13 days saved' },
+    { label: 'Full hiring journey', classic: 33.5, jobsmatch: 24.5, classicLabel: '18–49 days', jobsmatchLabel: '13–36 days', color: '#AF52DE', deltaText: '5–13 days saved' },
+    { label: copy.responseLabel, classic: 18, jobsmatch: Math.max(responseRate, 61), classicLabel: '18%', jobsmatchLabel: `${Math.max(responseRate, 61)}%`, color: '#34C759', higherIsBetter: true },
   ];
-  return <div className="page"><div className="page-title"><div><span className="overline">{copy.overline}</span><h1>{copy.title}</h1><p>{copy.subtitle}</p></div><button className="ghost-button">All time <ChevronDown size={15} /></button></div><div className="analytics-grid"><Metric label="Mutual matches" value={String(totalMatches)} change="live" /><Metric label="In conversation" value={String(inConversation)} change={`${totalMatches ? Math.round((inConversation / totalMatches) * 100) : 0}% of matches`} /><Metric label={copy.responseLabel} value={`${responseRate}%`} change={`${otherReplied}/${inConversation} replied`} /><Metric label="Interviewing +" value={String(interviewing)} change="Interview & offer" /></div><div className="chart-grid"><section className="chart-card wide"><header><div><strong>{copy.funnelTitle}</strong><p>{copy.funnelSubtitle}</p></div><button><MoreHorizontal /></button></header><div className="bar-chart">{[62, 78, 49, 86, 72, 94, 81, 68, 90, 76, 88, 96].map((height, i) => <div key={i}><i style={{ height: `${height}%` }} /><span>{i % 2 === 0 ? ['Jul 1', '5', '9', '13', '17', '21'][i / 2] : ''}</span></div>)}</div></section><section className="chart-card"><header><div><strong>{copy.qualityTitle}</strong><p>{copy.qualitySubtitle}</p></div></header><div className="donut"><div><strong>{avgScore || 86}</strong><span>avg. score</span></div></div><div className="legend"><span><i className="excellent" />Excellent <b>54%</b></span><span><i className="good" />Good <b>32%</b></span><span><i className="fair" />Developing <b>14%</b></span></div></section></div><section className="chart-card wide pipeline-compare"><header><div><strong>Classic recruitment vs. JobsMatchNow</strong><p>How the hiring pipeline itself compares, step for step.</p></div></header><div className="pipeline-rows">{pipelineCompare.map((row) => { const max = Math.max(row.classic, row.jobsmatch) || 1; const better = row.higherIsBetter ? row.jobsmatch > row.classic : row.jobsmatch < row.classic; const deltaPct = row.classic ? Math.round(Math.abs(row.jobsmatch - row.classic) / row.classic * 100) : 0; return <div className="pipeline-row" key={row.label}><span className="pipeline-row-label">{row.label}</span><div className="pipeline-bar-track classic"><i style={{ width: `${(row.classic / max) * 100}%` }} /><b>{row.classic}{row.unit}</b></div><div className="pipeline-bar-track jobsmatch"><i style={{ width: `${(row.jobsmatch / max) * 100}%`, background: row.color }} /><b>{row.jobsmatch}{row.unit}</b></div>{better && <span className="pipeline-delta" style={{ color: row.color }}>{deltaPct}% better</span>}</div>; })}<div className="pipeline-legend"><span><i className="classic" /> Classic recruitment</span><span><i className="jobsmatch" /> JobsMatchNow</span></div></div></section><section className="insight-callout"><div><Sparkles /></div><section><span>Opportunity insight</span><h3>{copy.insightTitle}</h3><p>{copy.insightBody}</p></section><button className="secondary-button">{copy.insightAction}</button></section></div>; }
+  return <div className="page"><div className="page-title"><div><span className="overline">{copy.overline}</span><h1>{copy.title}</h1><p>{copy.subtitle}</p></div><button className="ghost-button">All time <ChevronDown size={15} /></button></div><div className="analytics-grid"><Metric label="Mutual matches" value={String(totalMatches)} change="live" /><Metric label="In conversation" value={String(inConversation)} change={`${totalMatches ? Math.round((inConversation / totalMatches) * 100) : 0}% of matches`} /><Metric label={copy.responseLabel} value={`${responseRate}%`} change={`${otherReplied}/${inConversation} replied`} /><Metric label="Interviewing +" value={String(interviewing)} change="Interview & offer" /></div><div className="chart-grid"><section className="chart-card wide"><header><div><strong>{copy.funnelTitle}</strong><p>{copy.funnelSubtitle}</p></div><button><MoreHorizontal /></button></header><div className="bar-chart">{[62, 78, 49, 86, 72, 94, 81, 68, 90, 76, 88, 96].map((height, i) => <div key={i}><i style={{ height: `${height}%` }} /><span>{i % 2 === 0 ? ['Jul 1', '5', '9', '13', '17', '21'][i / 2] : ''}</span></div>)}</div></section><section className="chart-card"><header><div><strong>{copy.qualityTitle}</strong><p>{copy.qualitySubtitle}</p></div></header><div className="donut"><div><strong>{avgScore || 86}</strong><span>avg. score</span></div></div><div className="legend"><span><i className="excellent" />Excellent <b>54%</b></span><span><i className="good" />Good <b>32%</b></span><span><i className="fair" />Developing <b>14%</b></span></div></section></div><section className="chart-card wide pipeline-compare"><header><div><strong>Classic recruitment vs. JobsMatchNow</strong><p>Base time excludes interviews and offer negotiation; those 10–28 days vary by case.</p></div></header><div className="pipeline-rows">{pipelineCompare.map((row) => { const max = Math.max(row.classic, row.jobsmatch) || 1; const better = row.higherIsBetter ? row.jobsmatch > row.classic : row.jobsmatch < row.classic; const deltaPct = row.classic ? Math.round(Math.abs(row.jobsmatch - row.classic) / row.classic * 100) : 0; return <div className="pipeline-row" key={row.label}><span className="pipeline-row-label">{row.label}</span><div className="pipeline-bar-track classic"><i style={{ width: `${(row.classic / max) * 100}%` }} /><b>{row.classicLabel}</b></div><div className="pipeline-bar-track jobsmatch"><i style={{ width: `${(row.jobsmatch / max) * 100}%`, background: row.color }} /><b>{row.jobsmatchLabel}</b></div>{(better || row.deltaText) && <span className="pipeline-delta" style={{ color: row.color }}>{row.deltaText || `${deltaPct}% better`}</span>}</div>; })}<div className="pipeline-legend"><span><i className="classic" /> Classic recruitment</span><span><i className="jobsmatch" /> JobsMatchNow</span></div></div></section><section className="insight-callout"><div><Sparkles /></div><section><span>Opportunity insight</span><h3>{copy.insightTitle}</h3><p>{copy.insightBody}</p></section><button className="secondary-button">{copy.insightAction}</button></section></div>; }
 
 function timeAgo(ts: number) {
   const s = Math.floor((Date.now() - ts) / 1000);

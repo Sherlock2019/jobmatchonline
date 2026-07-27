@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowRight, BarChart3, Bell, BriefcaseBusiness, Check, Coffee, Eye, FileText, Heart, Layers3, Loader2, LogIn, MapPin, MessageCircle, PenLine, Send, ShieldCheck, Sparkles, Star, Target, UserPlus, X } from 'lucide-react';
+import { ArrowRight, BarChart3, Bell, BriefcaseBusiness, Check, Coffee, Eye, FileText, Heart, Layers3, Loader2, LogIn, MapPin, MessageCircle, PenLine, Send, ShieldCheck, Sparkles, Star, Target, X } from 'lucide-react';
 import { api } from '../api';
 import { appleColor } from '../lib/colors';
 import type { Job, Person, Review } from '../types';
@@ -8,19 +8,16 @@ import { JobHeaderBadge } from './jobs/JobHeaderBadge';
 
 // Apple iOS system colors, one per step.
 const JOURNEY = [
-  { icon: UserPlus, title: 'Register free', text: 'One click with Google, LinkedIn, or email.', hue: '#FF3B30' },
-  { icon: FileText, title: 'Build your profile', text: 'Upload a resume and we auto-fill it.', hue: '#FF9500' },
-  { icon: Sparkles, title: 'Get matched', text: 'A ranked deck with explainable fit scores.', hue: '#FF2D55' },
-  { icon: Heart, title: 'Mutual interest', text: 'A connection opens only when both swipe.', hue: '#34C759' },
-  { icon: MessageCircle, title: 'Start chatting', text: 'Salaries revealed, contact shared, ice broken.', hue: '#00C7BE' },
-  { icon: BriefcaseBusiness, title: 'Interview', text: 'Prep tools and interview kits, built in.', hue: '#32ADE6' },
-  { icon: Star, title: 'Offer', text: 'Move through the pipeline to an offer.', hue: '#007AFF' },
-  { icon: Check, title: 'Sign the contract', text: 'From first hello to signed — one place.', hue: '#AF52DE' },
+  { icon: Sparkles, title: 'Swipe', duration: 'Same day', text: 'Review a role or candidate and express interest.', hue: '#007AFF' },
+  { icon: Heart, title: 'Match', duration: 'Same day–1 day', text: 'Mutual interest confirms the match.', hue: '#FF2D55' },
+  { icon: MessageCircle, title: 'Connect', duration: '1–2 days', text: 'Start messaging, take a screening call, or meet locally.', hue: '#AF52DE' },
+  { icon: BriefcaseBusiness, title: 'Interview', duration: '7–21 days', text: 'Complete interview and assessment rounds.', hue: '#5856D6' },
+  { icon: Check, title: 'Get Hired', duration: '5–12 days', text: 'Checks, 3–7-day negotiation, acceptance, and hire.', hue: '#FF9500' },
 ];
 
 export function JourneyPipeline() {
   return <section className="section journey-section" id="journey">
-    <div className="section-heading centered"><span className="eyebrow"><Sparkles size={14} /> The whole journey</span><h2>From register to signed — one lively flow.</h2><p>Every step from your first swipe to a signed contract lives in a single, respectful experience.</p></div>
+    <div className="section-heading centered"><span className="eyebrow"><Sparkles size={14} /> Five simple candidate steps</span><h2>From swipe to hired — approximately 13–36 days.</h2><p>The 3–8-day base process is separated from interview and negotiation time because those stages vary by case.</p></div>
     <div className="journey-track">
       {JOURNEY.map((step, index) => <div className="journey-step" key={step.title}>
         <div className="journey-node" style={{ ['--hue' as string]: step.hue }}>
@@ -28,6 +25,7 @@ export function JourneyPipeline() {
           <step.icon size={22} />
         </div>
         <strong>{step.title}</strong>
+        <small>{step.duration}</small>
         <p>{step.text}</p>
         {index < JOURNEY.length - 1 && <ArrowRight className="journey-arrow" size={18} />}
       </div>)}
