@@ -562,6 +562,97 @@ button { cursor:pointer; }
 .plan-footnote { margin:18px 0 26px; font-size:12.5px; line-height:1.7; color:var(--muted); }
 @media(max-width:980px){ .plan-grid { grid-template-columns:repeat(2,1fr); } }
 @media(max-width:560px){ .plan-grid,.plan-more .plan-grid { grid-template-columns:1fr; } }
+
+/* ── iOS treatment for the pricing section ──────────────────────────────────
+   Apple's visual language, scoped to #pricing so the rest of the site keeps its
+   own identity. Four things do most of the work:
+
+     1. SF Pro via the system stack. It is the single strongest "this is iOS"
+        signal, and it falls back cleanly to Segoe UI / system-ui elsewhere.
+     2. Weight 600, not 800. iOS headings are semibold; 800 reads as Android.
+     3. Translucency + blur instead of solid fills and hard borders. Hairline
+        separators at .5px, which is what iOS actually uses on 2x screens.
+     4. Continuous-looking corners — large radii on containers, slightly smaller
+        on the cards inside them, never the same value at both levels.
+   Colours move to Apple system values (blue #007AFF) on the candidate side; the
+   recruiter side keeps the brand pink so the two-audience split still reads. */
+
+#pricing, #pricing button, #pricing input, #pricing select {
+  font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+}
+#pricing .section-heading .eyebrow { letter-spacing:.06em; font-weight:600; }
+#pricing .section-heading h2 { font-weight:600; letter-spacing:-.022em; }
+
+#pricing .pricing-side {
+  border-radius:30px; padding:38px 34px; border:.5px solid rgba(0,0,0,.07);
+  backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%);
+  box-shadow:0 1px 2px rgba(0,0,0,.03), 0 12px 34px rgba(0,0,0,.05);
+}
+#pricing .pricing-side-tag { font-weight:600; letter-spacing:-.01em; font-size:clamp(27px,3.4vw,36px); }
+#pricing .pricing-side-tag::after { height:3px; width:52px; margin-top:14px; opacity:.9; }
+#pricing .pricing-side > header h3 { font-weight:600; letter-spacing:-.021em; }
+#pricing .pricing-side > header p { color:rgba(60,60,67,.68); font-size:15px; line-height:1.55; }
+
+/* Apple system blue for the candidate half. */
+#pricing .pricing-candidates { background:linear-gradient(165deg,rgba(0,122,255,.07),rgba(0,122,255,.03)); border-color:rgba(0,122,255,.14); }
+#pricing .pricing-candidates .pricing-side-tag,
+#pricing .pricing-candidates .pricing-side-perks li svg { color:#007aff; }
+#pricing .pricing-candidates .pricing-side-tag::after { background:#007aff; }
+#pricing .pricing-side-perks li { font-weight:500; font-size:15px; color:#1c1c1e; letter-spacing:-.012em; }
+#pricing .pricing-side-cta {
+  background:#007aff; font-weight:600; font-size:15.5px; letter-spacing:-.012em;
+  padding:14px 26px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,.10);
+  transition:transform .12s ease, filter .12s ease;
+}
+#pricing .pricing-side-cta:hover { background:#007aff; filter:brightness(1.06); }
+#pricing .pricing-side-cta:active { transform:scale(.97); }
+
+#pricing .pricing-recruiters { background:linear-gradient(165deg,rgba(253,38,122,.06),rgba(253,38,122,.025)); border-color:rgba(253,38,122,.14); }
+
+/* Cards sit on the tinted panel as solid white, iOS grouped-list style: no
+   border at all, separated by shadow and radius rather than a line. */
+#pricing .plan-card, #pricing .plan-alt-row article {
+  border:none; border-radius:20px; background:#fff;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 6px 18px rgba(0,0,0,.05);
+}
+#pricing .plan-card.popular { box-shadow:0 0 0 2px #fd267a, 0 10px 28px rgba(253,38,122,.18); }
+#pricing .plan-name { font-weight:600; letter-spacing:.02em; color:rgba(60,60,67,.6); }
+#pricing .plan-price { font-weight:600; letter-spacing:-.03em; }
+#pricing .plan-price small, #pricing .plan-vnd { color:rgba(60,60,67,.6); font-weight:400; }
+#pricing .plan-tagline { color:rgba(60,60,67,.7); font-size:13.5px; letter-spacing:-.01em; }
+#pricing .plan-perks li { font-size:13.5px; color:#1c1c1e; font-weight:500; letter-spacing:-.01em; }
+#pricing .plan-badge { font-weight:600; letter-spacing:.04em; }
+
+/* iOS buttons: 14px radius, semibold, and a real press state. */
+#pricing .plan-card button, #pricing .plan-more > summary {
+  font-weight:600; letter-spacing:-.012em;
+}
+#pricing .plan-card button {
+  border-radius:14px; padding:13px 18px; font-size:15px;
+  transition:transform .12s ease, filter .12s ease;
+}
+#pricing .plan-card button:active { transform:scale(.97); }
+#pricing .plan-card .secondary-button { background:rgba(120,120,128,.10); border:none; color:#1c1c1e; }
+#pricing .plan-card .secondary-button:hover { background:rgba(120,120,128,.16); }
+#pricing .plan-card .primary-button { background:#fd267a; box-shadow:0 1px 3px rgba(0,0,0,.10); }
+
+#pricing .plan-more > summary { color:#007aff; font-size:15px; }
+#pricing .plan-footnote, #pricing .plan-addon-note { color:rgba(60,60,67,.6); font-size:13px; line-height:1.6; letter-spacing:-.005em; }
+#pricing .plan-addon-note a { color:#007aff; text-decoration:none; font-weight:500; }
+#pricing .plan-addon-note a:hover { text-decoration:underline; }
+
+/* Launch offers, matched to the same language. */
+#pricing .launch-offers { border-radius:26px; border:.5px solid rgba(0,0,0,.07); backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%); }
+#pricing .launch-offer { border:none; border-radius:18px; box-shadow:0 1px 2px rgba(0,0,0,.04), 0 6px 16px rgba(0,0,0,.045); }
+#pricing .launch-offer strong { font-weight:600; letter-spacing:-.018em; }
+#pricing .launch-offers-cta { border-radius:14px; font-weight:600; }
+
+@media (prefers-color-scheme: dark) {
+  /* The page is light-only today; this keeps the blur from muddying the panels
+     if a dark theme is ever added, rather than silently inverting nothing. */
+  #pricing .pricing-side { box-shadow:0 1px 2px rgba(0,0,0,.2), 0 12px 34px rgba(0,0,0,.25); }
+}
 .feedback-layout { display:grid; grid-template-columns:1.15fr .85fr; gap:34px; align-items:start; }
 .review-wall { columns:2; column-gap:14px; }
 .review-card { break-inside:avoid; margin-bottom:14px; border:1px solid var(--line); border-radius:16px; padding:18px; background:white; box-shadow:0 8px 24px rgba(29,53,37,.05); }
