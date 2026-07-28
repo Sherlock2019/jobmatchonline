@@ -588,17 +588,30 @@ button { cursor:pointer; }
   border-radius:30px; padding:38px 34px; border:.5px solid rgba(0,0,0,.07);
   backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%);
   box-shadow:0 1px 2px rgba(0,0,0,.03), 0 12px 34px rgba(0,0,0,.05);
+  overflow:hidden; /* so the colour band's corners clip to the panel radius */
 }
-#pricing .pricing-side-tag { font-weight:600; letter-spacing:-.01em; font-size:clamp(27px,3.4vw,36px); }
-#pricing .pricing-side-tag::after { height:3px; width:52px; margin-top:14px; opacity:.9; }
+
+/* The audience heading is a full-bleed colour band across the top of its panel.
+   Negative margins cancel the panel's own padding so it reaches the edges; they
+   have to be kept in step with that padding at every breakpoint below. */
+#pricing .pricing-side-tag {
+  margin:-38px -34px 26px; padding:26px 34px 24px;
+  font-weight:600; letter-spacing:.01em; font-size:clamp(26px,3.3vw,35px);
+  color:#fff;
+  /* The recruiter label previously used background-clip:text to paint a gradient
+     into the glyphs. Both the standard and -webkit properties have to be reset
+     here, or the solid band would be clipped to the text instead of filling. */
+  background-clip:border-box; -webkit-background-clip:border-box; -webkit-text-fill-color:#fff;
+}
+/* The small underline rule was standing in for exactly this; the band replaces it. */
+#pricing .pricing-side-tag::after { display:none; }
 #pricing .pricing-side > header h3 { font-weight:600; letter-spacing:-.021em; }
 #pricing .pricing-side > header p { color:rgba(60,60,67,.68); font-size:15px; line-height:1.55; }
 
 /* Apple system blue for the candidate half. */
 #pricing .pricing-candidates { background:linear-gradient(165deg,rgba(0,122,255,.07),rgba(0,122,255,.03)); border-color:rgba(0,122,255,.14); }
-#pricing .pricing-candidates .pricing-side-tag,
+#pricing .pricing-candidates .pricing-side-tag { background:#007aff; }
 #pricing .pricing-candidates .pricing-side-perks li svg { color:#007aff; }
-#pricing .pricing-candidates .pricing-side-tag::after { background:#007aff; }
 #pricing .pricing-side-perks li { font-weight:500; font-size:15px; color:#1c1c1e; letter-spacing:-.012em; }
 #pricing .pricing-side-cta {
   background:#007aff; font-weight:600; font-size:15.5px; letter-spacing:-.012em;
@@ -608,7 +621,10 @@ button { cursor:pointer; }
 #pricing .pricing-side-cta:hover { background:#007aff; filter:brightness(1.06); }
 #pricing .pricing-side-cta:active { transform:scale(.97); }
 
-#pricing .pricing-recruiters { background:linear-gradient(165deg,rgba(253,38,122,.06),rgba(253,38,122,.025)); border-color:rgba(253,38,122,.14); }
+/* Red for the recruiter half — the brand's own red rather than iOS system red,
+   so it sits with the pink "Most popular" badge below it instead of fighting it. */
+#pricing .pricing-recruiters { background:linear-gradient(165deg,rgba(255,68,88,.07),rgba(255,68,88,.03)); border-color:rgba(255,68,88,.16); }
+#pricing .pricing-recruiters .pricing-side-tag { background:var(--accent); }
 
 /* Cards sit on the tinted panel as solid white, iOS grouped-list style: no
    border at all, separated by shadow and radius rather than a line. */
@@ -647,6 +663,13 @@ button { cursor:pointer; }
 #pricing .launch-offer { border:none; border-radius:18px; box-shadow:0 1px 2px rgba(0,0,0,.04), 0 6px 16px rgba(0,0,0,.045); }
 #pricing .launch-offer strong { font-weight:600; letter-spacing:-.018em; }
 #pricing .launch-offers-cta { border-radius:14px; font-weight:600; }
+
+/* The band's negative margins must track the panel padding at every breakpoint,
+   or it stops reaching the edges and reads as a misaligned block. */
+@media(max-width:560px){
+  #pricing .pricing-side { padding:28px 22px; }
+  #pricing .pricing-side-tag { margin:-28px -22px 22px; padding:22px 22px 20px; }
+}
 
 @media (prefers-color-scheme: dark) {
   /* The page is light-only today; this keeps the blur from muddying the panels
