@@ -236,7 +236,6 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
           <p className="muted">
             They need a recruiter account first. Over the seat limit they still join — read-only — so nobody is ever locked out;
             they get their seat back the moment you add one.
-            {team.canBuyExtraSeats && team.extraSeatPrice !== null && ` Extra seats are ${money(team.extraSeatPrice, plan.currency)} / month each.`}
           </p>
         </>}
       </div>}

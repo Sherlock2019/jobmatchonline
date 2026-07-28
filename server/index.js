@@ -32,7 +32,7 @@ import {
 } from './billing/entitlements.js';
 import { boostedIds, boostPrice, BOOST_HOURS, BOOST_KINDS, expireBoosts, isBoosted, startBoost } from './billing/boosts.js';
 import { activeMembers, addMember, findTeam, getOrCreateTeam, reconcileSeats, seatsAllowed } from './billing/seats.js';
-import { addonPrice, currencyForCountry, EXTRA_SEAT_ADDON, PAY_PER_HIRE_FEE_PERCENT, PLANS, planPrice, seatPlanKey, SINGLE_POSTING, singlePostingPrice } from './billing/plans.js';
+import { currencyForCountry, PAY_PER_HIRE_FEE_PERCENT, PLANS, planPrice, seatPlanKey, SINGLE_POSTING, singlePostingPrice } from './billing/plans.js';
 import { assertNeverZeroLiveJobs, downgradeToFree, applyLiveJobLimit } from './billing/downgrade.js';
 import { clearSlotLocks, confirmHire, hasVerifiedHire, HIRE_OUTCOMES, POSTING_TERM_DAYS, recordHire, renewPosting, startPostingTerm } from './billing/postings.js';
 import { extendForHireInFlight, TRIAL_DAYS } from './billing/trial.js';
@@ -2042,17 +2042,12 @@ function planSummary(db, recruiter) {
 function teamPayload(db, recruiter) {
   const planCode = resolvePlanCode(findSubscription(db, recruiter.id));
   const team = findTeam(db, recruiter.id);
-  const extraSeats = team?.extraSeats || 0;
-  const allowed = seatsAllowed(planCode, extraSeats);
   const nameOf = (id) => db.users.find((user) => user.id === id)?.name || id;
   return {
     teamId: team?.id || null,
     isOwner: team ? team.ownerUserId === recruiter.id : true,
-    seatsAllowed: allowed,
+    seatsAllowed: seatsAllowed(planCode),
     seatsUsed: team ? activeMembers(team).length : 1,
-    extraSeats,
-    extraSeatPrice: addonPrice(currencyForCountry(recruiter.country)),
-    canBuyExtraSeats: EXTRA_SEAT_ADDON.availableOn.includes(seatPlanKey(planCode)),
     members: team
       ? team.members.map((member) => ({ ...member, name: nameOf(member.userId) }))
       : [{ userId: recruiter.id, role: 'owner', status: 'active', joinedAt: recruiter.createdAt || null, name: recruiter.name }],
@@ -2719,11 +2714,6 @@ app.get('/api/admin/billing/plans', async (req, res, next) => {
           usd: planPrice(plan.key, 'USD'), vnd: planPrice(plan.key, 'VND'),
           hireFeePercent: plan.hireFeePercent ?? null,
         })).sort((a, b) => a.order - b.order),
-        extraSeat: {
-          seats: EXTRA_SEAT_ADDON.seats, liveJobSlots: EXTRA_SEAT_ADDON.liveJobSlots,
-          usd: EXTRA_SEAT_ADDON.prices.USD.monthly, vnd: EXTRA_SEAT_ADDON.prices.VND.monthly,
-          availableOn: EXTRA_SEAT_ADDON.availableOn,
-        },
         boost: { hours: BOOST_HOURS, usd: boostPrice('USD'), vnd: boostPrice('VND'), kinds: BOOST_KINDS },
         singlePosting: { termDays: SINGLE_POSTING.termDays, usd: singlePostingPrice('USD'), vnd: singlePostingPrice('VND') },
         payPerHireFeePercent: PAY_PER_HIRE_FEE_PERCENT,
@@ -2734,8 +2724,7 @@ app.get('/api/admin/billing/plans', async (req, res, next) => {
         id: team.id,
         owner: nameById.get(team.ownerUserId) || team.ownerUserId,
         planCode: subsByRecruiter.get(team.ownerUserId)?.planCode || 'free',
-        extraSeats: team.extraSeats || 0,
-        seatsAllowed: seatsAllowed(subsByRecruiter.get(team.ownerUserId)?.planCode || 'starter', team.extraSeats),
+        seatsAllowed: seatsAllowed(subsByRecruiter.get(team.ownerUserId)?.planCode || 'starter'),
         active: activeMembers(team).length,
         total: team.members.length,
       })),

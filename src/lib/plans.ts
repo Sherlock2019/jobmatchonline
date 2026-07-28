@@ -5,7 +5,7 @@
  * without an API round-trip for six static numbers. `plans.sync.test.js` fails
  * the build if the two ever disagree, so this is a mirror, not a second truth. */
 
-export type PlanKey = 'starter' | 'solo' | 'duo' | 'trio' | 'team' | 'agency';
+export type PlanKey = 'starter' | 'solo' | 'duo' | 'trio' | 'team';
 
 export type PlanCard = {
   key: PlanKey;
@@ -43,24 +43,15 @@ export const PLAN_CARDS: PlanCard[] = [
   {
     key: 'team', display: 'Team', seats: 5, liveJobSlots: 25, usd: 75, vnd: 1790000,
     tagline: 'In-house teams hiring across roles.',
-    perks: ['25 live jobs', '5 recruiter seats', 'Hiring analytics', 'Everything in Trio'],
-  },
-  {
-    key: 'agency', display: 'Agency', seats: 10, liveJobSlots: 50, usd: 130, vnd: 3190000,
-    tagline: 'Agencies and high-volume hiring.',
-    perks: ['50 live jobs', '10 recruiter seats', 'ATS export', 'Promoted placement', 'Add extra seats any time'],
+    perks: ['25 live jobs', '5 recruiter seats', 'Hiring analytics', 'ATS export', 'Everything in Trio'],
   },
 ];
 
-/* Rendered on the public pricing page. Agency is deliberately NOT listed here:
- * it is still a real, buyable plan in the Subscription page, but a 10-seat tier
- * on a public page mostly serves to anchor everyone else's price upward. Anyone
- * who needs it is a conversation, not a self-serve checkout. */
+/* The ladder tops out at Team. Anyone needing more seats than that is a
+ * conversation, not a self-serve checkout. */
 export const HEADLINE_PLANS: PlanKey[] = ['starter', 'solo', 'duo', 'trio'];
 export const MORE_SEAT_PLANS: PlanKey[] = ['team'];
 export const POPULAR_PLAN: PlanKey = 'solo';
-
-export const EXTRA_SEAT = { seats: 1, liveJobSlots: 5, usd: 12, vnd: 290000, availableOn: 'Agency' };
 
 /** Annual bills 10 months — two free. */
 export const ANNUAL_MONTHS_CHARGED = 10;

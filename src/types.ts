@@ -148,8 +148,7 @@ export interface BillingInfo {
 /** What the next payment will be, in the recruiter's own currency. */
 export interface ChargeInfo {
   planKey: string; planDisplay: string; interval: 'monthly' | 'annual'; currency: string;
-  baseAmount: number; extraSeats: number; addonAmount: number; amount: number;
-  seats: number; liveJobSlots: number; monthsCovered: number;
+  amount: number; seats: number; liveJobSlots: number; monthsCovered: number;
 }
 export interface SelectablePlan {
   key: string; display: string; seats: number; liveJobSlots: number;
@@ -194,7 +193,6 @@ export interface CatalogPlan {
 }
 export interface PlanCatalog {
   plans: CatalogPlan[];
-  extraSeat: { seats: number; liveJobSlots: number; usd: number; vnd: number; availableOn: string[] };
   boost: { hours: number; usd: number; vnd: number; kinds: string[] };
   singlePosting: { termDays: number; usd: number; vnd: number };
   payPerHireFeePercent: number;
@@ -202,7 +200,7 @@ export interface PlanCatalog {
   trialDays: number;
 }
 export interface AdminTeamRow {
-  id: string; owner: string; planCode: string; extraSeats: number;
+  id: string; owner: string; planCode: string;
   seatsAllowed: number; active: number; total: number;
 }
 export interface BoostRecord {
@@ -225,7 +223,6 @@ export interface AdminPlansOverview {
 /** Seats on the recruiter's own Subscription page. */
 export interface TeamInfo {
   teamId: string | null; isOwner: boolean; seatsAllowed: number; seatsUsed: number;
-  extraSeats: number; extraSeatPrice: number | null; canBuyExtraSeats: boolean;
   members: { userId: string; name: string; role: 'owner' | 'member'; status: 'active' | 'readonly'; joinedAt: number | null }[];
 }
 export interface PlanSummary {

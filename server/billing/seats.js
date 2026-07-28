@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { EXTRA_SEAT_ADDON, PLANS, seatPlanKey } from './plans.js';
+import { PLANS, seatPlanKey } from './plans.js';
 
 /* Seats, kept deliberately small.
  *
@@ -24,7 +24,6 @@ export function getOrCreateTeam(db, ownerUserId) {
     id: crypto.randomUUID(),
     ownerUserId,
     members: [{ userId: ownerUserId, role: 'owner', status: 'active', joinedAt: now }],
-    extraSeats: 0,
     createdAt: now,
     updatedAt: now,
   };
@@ -32,11 +31,10 @@ export function getOrCreateTeam(db, ownerUserId) {
   return team;
 }
 
-/** Seats a plan grants, including any purchased add-on seats. Accepts old plan
- *  codes as well as catalogue keys — see `seatPlanKey`. */
-export function seatsAllowed(planCode, extraSeats = 0) {
-  const plan = PLANS[seatPlanKey(planCode)];
-  return plan.seats + (extraSeats || 0) * EXTRA_SEAT_ADDON.seats;
+/** Seats a plan grants. Accepts old plan codes as well as catalogue keys — see
+ *  `seatPlanKey`. There are no add-on seats: the ladder tops out at Team. */
+export function seatsAllowed(planCode) {
+  return PLANS[seatPlanKey(planCode)].seats;
 }
 
 export function activeMembers(team) {
@@ -50,7 +48,7 @@ export function activeMembers(team) {
  */
 export function addMember(db, team, userId, planKey) {
   if (team.members.some((m) => m.userId === userId)) return { outcome: 'already_member' };
-  const allowed = seatsAllowed(planKey, team.extraSeats);
+  const allowed = seatsAllowed(planKey);
   const status = activeMembers(team).length < allowed ? 'active' : 'readonly';
   team.members.push({ userId, role: 'member', status, joinedAt: Date.now() });
   team.updatedAt = Date.now();
@@ -65,7 +63,7 @@ export function addMember(db, team, userId, planKey) {
  */
 export function reconcileSeats(team, planKey) {
   if (!team) return;
-  const allowed = seatsAllowed(planKey, team.extraSeats);
+  const allowed = seatsAllowed(planKey);
   const ordered = [...team.members].sort((a, b) => {
     if (a.role === 'owner') return -1;
     if (b.role === 'owner') return 1;

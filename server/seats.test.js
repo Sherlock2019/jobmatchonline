@@ -1,16 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  bundleCost, bundleSeats, cheapestStackCost, EXTRA_SEAT_ADDON, PLANS, SEAT_LADDER, planPrice,
-} from './billing/plans.js';
+import { cheapestStackCost, PLANS, SEAT_LADDER, planPrice } from './billing/plans.js';
 import { activeMembers, addMember, getOrCreateTeam, reconcileSeats, seatsAllowed } from './billing/seats.js';
 
 const CURRENCIES = ['USD', 'VND'];
 
 /* ── The seat pricing invariant ──────────────────────────────────────────────
  *
- * Two conditions, both of which must hold for every rung of the ladder and for
- * Agency with any number of add-on seats:
+ * Two conditions, both of which must hold for every rung of the ladder:
  *
  *   1. Per-seat price never increases as you move up. Buying a bigger plan is
  *      never worse value per seat than the plan below it.
@@ -46,29 +43,28 @@ test('seat pricing invariant: a bundle never costs more than stacking smaller pl
   }
 });
 
-test('seat pricing invariant holds for agency plus up to 20 add-on seats', () => {
+/* The invariant has to keep holding above the top of the ladder too. With no
+ * add-on seats to buy, the only way to assemble more than Team's five seats is
+ * to stack plans — so check that stacking stays sanely priced all the way out
+ * to 40 seats rather than producing some cheaper-per-seat anomaly. */
+test('stacking past the top of the ladder never beats the ladder itself', () => {
   for (const currency of CURRENCIES) {
-    let previousPerSeat = planPrice('agency', currency) / PLANS.agency.seats;
-    for (let extra = 1; extra <= 20; extra += 1) {
-      const seats = bundleSeats('agency', extra);
-      const cost = bundleCost('agency', extra, currency);
-      const perSeat = cost / seats;
-
-      // Condition 1 — each add-on seat keeps per-seat price flat or lowers it.
-      assert.ok(perSeat <= previousPerSeat + 1e-9,
-        `${currency}: agency + ${extra} seats costs ${perSeat}/seat, more than the step below at ${previousPerSeat}`);
-      previousPerSeat = perSeat;
-
-      // Condition 2 — still cheaper than assembling those seats from the ladder.
+    const topPlan = SEAT_LADDER[SEAT_LADDER.length - 1];
+    const bestPerSeat = planPrice(topPlan, currency) / PLANS[topPlan].seats;
+    for (let seats = 1; seats <= 40; seats += 1) {
       const stacked = cheapestStackCost(seats, currency);
-      assert.ok(cost <= stacked,
-        `${currency}: agency + ${extra} seats costs ${cost} but ${seats} seats can be stacked for ${stacked}`);
+      assert.ok(Number.isFinite(stacked), `${currency}: ${seats} seats must be assemblable`);
+      // Nobody can ever get seats cheaper than the best per-seat rate offered.
+      assert.ok(stacked >= seats * bestPerSeat - 1e-9,
+        `${currency}: ${seats} seats for ${stacked} undercuts the best rate of ${bestPerSeat}/seat`);
     }
   }
 });
 
-test('add-on seats are sold on agency only', () => {
-  assert.deepEqual(EXTRA_SEAT_ADDON.availableOn, ['agency']);
+test('the ladder tops out at Team — Agency and add-on seats are gone', () => {
+  assert.deepEqual(SEAT_LADDER, ['solo', 'duo', 'trio', 'team']);
+  assert.equal(PLANS.agency, undefined);
+  assert.equal(PLANS[SEAT_LADDER[SEAT_LADDER.length - 1]].seats, 5);
 });
 
 /* ── Seat allocation ─────────────────────────────────────────────────────── */
@@ -124,14 +120,19 @@ test('the owner keeps an active seat no matter when they were added', () => {
   assert.deepEqual(activeMembers(team).map((m) => m.userId), ['owner-1']);
 });
 
-test('add-on seats widen the limit', () => {
-  assert.equal(seatsAllowed('agency', 0), 10);
-  assert.equal(seatsAllowed('agency', 5), 15);
+test('each plan grants exactly the seats it advertises', () => {
+  for (const key of SEAT_LADDER) assert.equal(seatsAllowed(key), PLANS[key].seats);
+  assert.equal(seatsAllowed('starter'), 1);
+  // A retired plan code resolves rather than falling through to zero seats.
+  assert.equal(seatsAllowed('agency'), PLANS.solo.seats);
+});
+
+test('Team is the largest self-serve team, and extras join read-only', () => {
   const db = { teams: [] };
   const team = getOrCreateTeam(db, 'owner-1');
-  team.extraSeats = 2;
-  for (let i = 0; i < 12; i += 1) addMember(db, team, `mate-${i}`, 'agency');
-  assert.equal(activeMembers(team).length, 12); // 10 + 2 add-on seats
+  for (let i = 0; i < 8; i += 1) addMember(db, team, `mate-${i}`, 'team');
+  assert.equal(activeMembers(team).length, 5, 'Team seats five');
+  assert.equal(team.members.length, 9, 'and nobody was refused');
 });
 
 test('adding the same person twice is a no-op', () => {

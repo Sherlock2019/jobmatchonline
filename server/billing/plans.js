@@ -42,17 +42,12 @@ export const PLANS = {
     outboundMessaging: true, analytics: true, atsExport: false, priorityPlacement: false,
     prices: { USD: { monthly: 49 }, VND: { monthly: 1190000 } },
   },
+  // Top of the ladder. Anything larger is a conversation, not a checkout.
   team: {
     key: 'team', display: 'Team', order: 4,
     seats: 5, liveJobSlots: 25, monthlyMatchCap: UNLIMITED,
-    outboundMessaging: true, analytics: true, atsExport: false, priorityPlacement: false,
+    outboundMessaging: true, analytics: true, atsExport: true, priorityPlacement: false,
     prices: { USD: { monthly: 75 }, VND: { monthly: 1790000 } },
-  },
-  agency: {
-    key: 'agency', display: 'Agency', order: 5,
-    seats: 10, liveJobSlots: 50, monthlyMatchCap: UNLIMITED,
-    outboundMessaging: true, analytics: true, atsExport: true, priorityPlacement: true,
-    prices: { USD: { monthly: 130 }, VND: { monthly: 3190000 } },
   },
   pay_per_hire: {
     key: 'pay_per_hire', display: 'Pay per hire', order: 6,
@@ -81,13 +76,11 @@ export function seatPlanKey(planCode) {
   return LEGACY_PLAN_CODES[planCode] || 'starter';
 }
 
-/** Agency-only add-on. Each unit grants +1 seat and +5 job slots. */
-export const EXTRA_SEAT_ADDON = {
-  key: 'extra_seat', display: 'Additional seat',
-  availableOn: ['agency'],
-  seats: 1, liveJobSlots: 5,
-  prices: { USD: { monthly: 12 }, VND: { monthly: 290000 } },
-};
+/* The per-seat add-on existed only on Agency and was removed with it. There is
+ * deliberately no replacement: the ladder tops out at Team, and anyone who
+ * needs more seats than that gets a conversation rather than a self-serve
+ * upsell. Keeping a purchasable add-on with no tier to attach it to would have
+ * been a second pricing concept earning nothing. */
 
 /* A single 60-day posting, for someone with exactly one role who will not take
  * a subscription. Priced ABOVE Solo on purpose: at USD 25 for one job versus
@@ -120,39 +113,20 @@ export function planPrice(planKey, currency = 'USD', interval = 'monthly') {
   return interval === 'annual' ? monthly * ANNUAL_MONTHS_CHARGED : monthly;
 }
 
-export function addonPrice(currency = 'USD', interval = 'monthly') {
-  const monthly = EXTRA_SEAT_ADDON.prices[currency]?.monthly;
-  if (monthly === undefined) return null;
-  return interval === 'annual' ? monthly * ANNUAL_MONTHS_CHARGED : monthly;
-}
-
 /** VN accounts are billed in VND; everyone else in USD. Never inferred client-side. */
 export function currencyForCountry(country) {
   return String(country || '').trim().toLowerCase() === 'vietnam' ? 'VND' : 'USD';
 }
 
 /** Paid, recurring tiers in ascending seat order — the ladder the invariant guards. */
-export const SEAT_LADDER = ['solo', 'duo', 'trio', 'team', 'agency'];
-
-/** Total monthly cost of a plan plus N add-on seats (add-on only valid on agency). */
-export function bundleCost(planKey, extraSeats = 0, currency = 'USD') {
-  const base = planPrice(planKey, currency, 'monthly');
-  if (base === null) return null;
-  return base + extraSeats * (EXTRA_SEAT_ADDON.prices[currency]?.monthly ?? 0);
-}
-
-export function bundleSeats(planKey, extraSeats = 0) {
-  const plan = PLANS[planKey];
-  if (!plan) return null;
-  return plan.seats + extraSeats * EXTRA_SEAT_ADDON.seats;
-}
+export const SEAT_LADDER = ['solo', 'duo', 'trio', 'team'];
 
 /**
  * Cheapest total cost to assemble at least `targetSeats` by stacking any
- * combination of paid tiers (no add-ons — add-ons are agency-only, and the
- * point of this is to prove a bundle is never beaten by buying smaller plans).
- * Exhaustive over the ladder via dynamic programming, so it cannot miss a
- * combination the way hand-picked comparisons do.
+ * combination of paid tiers — the point being to prove a bundle is never beaten
+ * by buying several smaller plans instead. Exhaustive over the ladder via
+ * dynamic programming, so it cannot miss a combination the way hand-picked
+ * comparisons do.
  */
 export function cheapestStackCost(targetSeats, currency = 'USD') {
   if (targetSeats <= 0) return 0;

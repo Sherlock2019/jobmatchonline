@@ -13,7 +13,7 @@ function money(amount: number, currency: string) { return amount === 0 ? 'Free' 
 
 const PLAN_LABEL: Record<string, string> = {
   trial: 'Trial', free: 'Free', pro: 'Pro',
-  starter: 'Starter', solo: 'Solo', duo: 'Duo', trio: 'Trio', team: 'Team', agency: 'Agency', pay_per_hire: 'Pay per hire',
+  starter: 'Starter', solo: 'Solo', duo: 'Duo', trio: 'Trio', team: 'Team', pay_per_hire: 'Pay per hire',
 };
 
 export function AdminBillingPage() {
@@ -114,9 +114,6 @@ export function AdminBillingPage() {
               </tr>)}</tbody>
             </table>
             <p className="muted" style={{ marginTop: 16 }}>
-              <b>Extra seat</b> (on {plans.catalog.extraSeat.availableOn.map((key) => PLAN_LABEL[key] || key).join(', ')} only):{' '}
-              {money(plans.catalog.extraSeat.usd, 'USD')} / {money(plans.catalog.extraSeat.vnd, 'VND')} per month —
-              adds {plans.catalog.extraSeat.seats} seat and {plans.catalog.extraSeat.liveJobSlots} live jobs.<br />
               <b>Single posting</b>: {money(plans.catalog.singlePosting.usd, 'USD')} / {money(plans.catalog.singlePosting.vnd, 'VND')} once,
               live {plans.catalog.singlePosting.termDays} days. Priced above Solo on purpose — it sells the subscription.<br />
               <b>Pay per hire</b>: nothing up front, {plans.catalog.payPerHireFeePercent}% of first-year salary on a completed hire.<br />
@@ -143,12 +140,11 @@ export function AdminBillingPage() {
           {!plans ? <Loader2 className="spin" size={18} /> : plans.teams.length === 0
             ? <p className="muted">No recruiter has invited a teammate yet. Solo recruiters have no team record at all — they behave exactly as before the seat model existed.</p>
             : <table className="admin-table">
-              <thead><tr><th>Owner</th><th>Plan</th><th>Seats used</th><th>Add-on seats</th><th>Members</th></tr></thead>
+              <thead><tr><th>Owner</th><th>Plan</th><th>Seats used</th><th>Members</th></tr></thead>
               <tbody>{plans.teams.map((team) => <tr key={team.id}>
                 <td>{team.owner}</td>
                 <td><span className="billing-status-pill">{PLAN_LABEL[team.planCode] || team.planCode}</span></td>
                 <td>{team.active} / {team.seatsAllowed}</td>
-                <td>{team.extraSeats}</td>
                 <td>{team.total}{team.total > team.active && <small className="muted"> ({team.total - team.active} read-only)</small>}</td>
               </tr>)}</tbody>
             </table>}

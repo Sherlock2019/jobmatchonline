@@ -1,7 +1,6 @@
 import { logBillingEvent } from './audit.js';
 import {
-  ANNUAL_MONTHS_CHARGED, BILLING_INTERVALS, currencyForCountry, EXTRA_SEAT_ADDON,
-  PLANS, planPrice, SEAT_LADDER, seatPlanKey,
+  BILLING_INTERVALS, currencyForCountry, PLANS, planPrice, SEAT_LADDER, seatPlanKey,
 } from './plans.js';
 
 /* What to actually charge a recruiter.
@@ -42,25 +41,16 @@ export function chargeFor(db, recruiter, subscription, overrides = {}) {
   const interval = BILLING_INTERVALS.includes(overrides.interval) ? overrides.interval : billingInterval(subscription);
   const currency = overrides.currency || currencyForCountry(recruiter?.country);
   const plan = PLANS[planKey];
+  const amount = planPrice(planKey, currency, interval) ?? 0;
 
-  // Add-on seats are Agency-only and priced per seat, per interval.
-  const team = (db.teams || []).find((entry) => entry.ownerUserId === recruiter?.id);
-  const extraSeats = EXTRA_SEAT_ADDON.availableOn.includes(planKey) ? (team?.extraSeats || 0) : 0;
-  const addonMonthly = EXTRA_SEAT_ADDON.prices[currency]?.monthly ?? 0;
-  const addonTotal = extraSeats * addonMonthly * (interval === 'annual' ? ANNUAL_MONTHS_CHARGED : 1);
-
-  const base = planPrice(planKey, currency, interval) ?? 0;
   return {
     planKey,
     planDisplay: plan.display,
     interval,
     currency,
-    baseAmount: base,
-    extraSeats,
-    addonAmount: addonTotal,
-    amount: base + addonTotal,
-    seats: plan.seats + extraSeats * EXTRA_SEAT_ADDON.seats,
-    liveJobSlots: plan.liveJobSlots + extraSeats * EXTRA_SEAT_ADDON.liveJobSlots,
+    amount,
+    seats: plan.seats,
+    liveJobSlots: plan.liveJobSlots,
     // Annual bills ANNUAL_MONTHS_CHARGED months, so two are free.
     monthsCovered: interval === 'annual' ? 12 : 1,
   };

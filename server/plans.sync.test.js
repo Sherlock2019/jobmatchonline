@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { EXTRA_SEAT_ADDON, ANNUAL_MONTHS_CHARGED, PAY_PER_HIRE_FEE_PERCENT, PLANS, SINGLE_POSTING } from './billing/plans.js';
+import { ANNUAL_MONTHS_CHARGED, PAY_PER_HIRE_FEE_PERCENT, PLANS, SINGLE_POSTING } from './billing/plans.js';
 import { BOOST_HOURS, BOOST_PRICE_USD, BOOST_PRICE_VND } from './billing/boosts.js';
 import { POSTING_TERM_DAYS } from './billing/postings.js';
 import { TRIAL_DAYS } from './billing/trial.js';
@@ -29,7 +29,7 @@ function displayCard(key) {
   return { seats: num('seats'), liveJobSlots: num('liveJobSlots'), usd: num('usd'), vnd: num('vnd') };
 }
 
-for (const key of ['starter', 'solo', 'duo', 'trio', 'team', 'agency']) {
+for (const key of ['starter', 'solo', 'duo', 'trio', 'team']) {
   test(`pricing page shows the same ${key} plan the server enforces`, () => {
     const shown = displayCard(key);
     const real = PLANS[key];
@@ -40,13 +40,10 @@ for (const key of ['starter', 'solo', 'duo', 'trio', 'team', 'agency']) {
   });
 }
 
-test('pricing page shows the same extra-seat add-on the server sells', () => {
-  const body = source.slice(source.indexOf('export const EXTRA_SEAT ='));
-  const num = (field) => Number(body.match(new RegExp(`${field}: (\\d+)`))[1]);
-  assert.equal(num('seats'), EXTRA_SEAT_ADDON.seats);
-  assert.equal(num('liveJobSlots'), EXTRA_SEAT_ADDON.liveJobSlots);
-  assert.equal(num('usd'), EXTRA_SEAT_ADDON.prices.USD.monthly);
-  assert.equal(num('vnd'), EXTRA_SEAT_ADDON.prices.VND.monthly);
+test('the pricing page never lists a plan the server does not sell', () => {
+  const shown = [...source.matchAll(/key: '(\w+)', display:/g)].map((m) => m[1]);
+  for (const key of shown) assert.ok(PLANS[key], `pricing page advertises "${key}", which is not in the catalogue`);
+  assert.equal(shown.includes('agency'), false, 'Agency was removed and must not reappear on the page');
 });
 
 test('pricing page shows the same boost and annual terms the server uses', () => {
