@@ -11,7 +11,7 @@ import { ArrowRight, BadgeCheck, Gift, Rocket, Sparkles } from 'lucide-react';
 export type LaunchOffer = { icon: typeof Rocket; badge: string; title: string; body: string };
 
 export const RECRUITER_OFFERS: LaunchOffer[] = [
-  { icon: Rocket, badge: 'Free trial', title: '3 months free', body: 'Post jobs, match with candidates, and message them for a full 90 days — long enough to actually close a hire.' },
+  { icon: Rocket, badge: 'Free trial', title: '60 days free', body: 'Run up to 3 live roles, match with candidates and message them for a full 60 days — long enough to see whether it works for you.' },
   // Says "stays live", not "is kept". A stored job is worth nothing to a
   // candidate who can't see it, so this promises visibility, not storage.
   { icon: BadgeCheck, badge: 'After the trial', title: 'One job stays live free forever', body: 'When the trial ends one of your jobs stays visible to candidates at no cost. The rest pause — nothing is ever closed or deleted.' },

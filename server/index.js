@@ -28,7 +28,7 @@ import {
 import {
   buildEntitlementIndex, checkEditAllowed, checkPublishAllowed, consumeFreeJobAllowance,
   consumeReferralJobCredit, entitlementsEnforced, getRecruiterEntitlements,
-  lockMatchFieldsOnPublish, resolvePlanCode, revokeJobCredit,
+  lockMatchFieldsOnPublish, resolvePlanCode, revokeJobCredit, TRIAL_ACTIVE_JOB_LIMIT,
 } from './billing/entitlements.js';
 import { boostedIds, boostPrice, BOOST_HOURS, BOOST_KINDS, expireBoosts, isBoosted, startBoost } from './billing/boosts.js';
 import { activeMembers, addMember, findTeam, getOrCreateTeam, reconcileSeats, seatsAllowed } from './billing/seats.js';
@@ -2719,6 +2719,7 @@ app.get('/api/admin/billing/plans', async (req, res, next) => {
         payPerHireFeePercent: PAY_PER_HIRE_FEE_PERCENT,
         postingTermDays: POSTING_TERM_DAYS,
         trialDays: TRIAL_DAYS,
+        trialLiveJobs: TRIAL_ACTIVE_JOB_LIMIT,
       },
       teams: (db.teams || []).map((team) => ({
         id: team.id,

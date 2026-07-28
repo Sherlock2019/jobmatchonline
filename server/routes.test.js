@@ -63,7 +63,10 @@ test('recruiter subscription payload carries plan, seats and entitlements', asyn
   assert.ok(body.team.seatsAllowed >= body.team.seatsUsed, 'seats used never exceed seats allowed');
   assert.ok(body.entitlements, 'entitlements are still returned');
   assert.equal(body.founding, undefined, 'the founding cohort is gone, not half-removed');
-  assert.equal(body.trial.days, 90, 'one trial length, the same for everybody');
+  // Read from the constant rather than a literal, so changing the trial length
+  // in one place does not leave this test asserting the old number.
+  const { TRIAL_DAYS } = await import('./billing/trial.js');
+  assert.equal(body.trial.days, TRIAL_DAYS, 'one trial length, the same for everybody');
 });
 
 test('a solo recruiter sees themselves as the only seat holder', async () => {

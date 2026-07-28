@@ -6,7 +6,8 @@ import {
   pauseElapsedPostings, POSTING_TERM_DAYS, recordHire, releaseElapsedSlotLocks, renewPosting, startPostingTerm,
 } from './billing/postings.js';
 import { isCompanyEmail, isLinkedinCompanyPage, recruiterVerification } from './billing/verification.js';
-import { dueCheckpoints, extendForHireInFlight, markCheckpointSent, pausedMsBetween, trialEndsAt, TRIAL_DAYS, HIRE_IN_FLIGHT_EXTENSION_DAYS } from './billing/trial.js';
+import { dueCheckpoints, extendForHireInFlight, markCheckpointSent, pausedMsBetween, trialEndsAt, TRIAL_CHECKPOINTS, TRIAL_DAYS, HIRE_IN_FLIGHT_EXTENSION_DAYS } from './billing/trial.js';
+import { FREE_ACTIVE_JOB_LIMIT, TRIAL_ACTIVE_JOB_LIMIT } from './billing/entitlements.js';
 import { referralCreditsInLastYear, REFERRAL_CREDITS_PER_YEAR } from './billing/referrals.js';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -180,8 +181,20 @@ test('an admin override verifies an account a regex would refuse', () => {
 
 /* ── Trial terms ─────────────────────────────────────────────────────────── */
 
-test('there is one trial length, 90 days, for everybody', () => {
-  assert.equal(TRIAL_DAYS, 90);
+test('there is one trial length, 60 days, for everybody', () => {
+  assert.equal(TRIAL_DAYS, 60);
+});
+
+test('every trial checkpoint fires inside the trial, never after it ends', () => {
+  for (const checkpoint of TRIAL_CHECKPOINTS) {
+    assert.ok(checkpoint.day < TRIAL_DAYS,
+      `checkpoint ${checkpoint.key} fires on day ${checkpoint.day}, past the ${TRIAL_DAYS}-day trial`);
+  }
+});
+
+test('the trial allows three live jobs — a real test, not a single-job demo', () => {
+  assert.equal(TRIAL_ACTIVE_JOB_LIMIT, 3);
+  assert.ok(TRIAL_ACTIVE_JOB_LIMIT > FREE_ACTIVE_JOB_LIMIT, 'the trial must be worth more than the free tier');
 });
 
 test('no holiday pause is configured by default — dates are never guessed', () => {

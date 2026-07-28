@@ -311,8 +311,8 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
       <section className="pricing-side pricing-recruiters">
         <header>
           <h2 className="pricing-side-tag">For recruiters</h2>
-          <h3>From USD 20 a month</h3>
-          <p>Start with {TRIAL.days} days free. Pick the number of seats and live roles you actually need — every plan below costs less per seat than the one before it.</p>
+          <h3>Start with a {TRIAL.days}-day trial — {TRIAL.liveJobs} live jobs per recruiter</h3>
+          <p>See if it works for you. Then pick the plan that matches what you actually need — every plan below costs less per seat than the one before it.</p>
         </header>
         <div className="plan-grid">
           {HEADLINE_PLANS.map((key) => <PlanCardView key={key} plan={planCard(key)} onRegister={openRegister} />)}

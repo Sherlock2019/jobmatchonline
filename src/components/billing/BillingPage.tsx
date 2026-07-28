@@ -57,7 +57,7 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
     </div>;
   }
 
-  const { subscription, effectiveStatus, credits, referralCode, instructions, vnpayEnabled, vnpayAmountVnd, stripeEnabled, paypalEnabled, googlePlayEnabled, googlePlayProductId, appleEnabled, appleProductId, plan, charge, selectablePlans, trial } = data.billing;
+  const { subscription, effectiveStatus, credits, referralCode, instructions, vnpayEnabled, vnpayAmountVnd, stripeEnabled, paypalEnabled, googlePlayEnabled, googlePlayProductId, appleEnabled, appleProductId, plan, charge, selectablePlans, trial, entitlements } = data.billing;
   const team = teamOverride ?? data.billing.team;
   const accessEndsAt = subscription.currentPeriodEndsAt || subscription.trialEndsAt;
   const referralLink = `${window.location.origin}/ref/${referralCode}`;
@@ -163,6 +163,10 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
     <section className={`billing-status-card status-${effectiveStatus}`}>
       <span className="billing-status-badge">{STATUS_LABEL[effectiveStatus] || effectiveStatus}</span>
       {accessEndsAt && <p>{effectiveStatus === 'trialing' ? 'Trial ends' : 'Access through'} {new Date(accessEndsAt).toLocaleDateString()} · {daysLeft(accessEndsAt)} days left</p>}
+      {effectiveStatus === 'trialing' && trial?.days && entitlements && <p>
+        Your {trial.days}-day trial runs up to {entitlements.activeJobLimit} live jobs. Pick a plan before it ends to keep them all —
+        one job stays live free forever either way.
+      </p>}
       {effectiveStatus === 'grace_period' && <p className="billing-grace-warning">You're in a 7-day grace period — you can still view existing jobs and messages, but can't publish new jobs or contact new candidates until you renew.</p>}
       {credits.length > 0 && <p className="billing-credit-note">{credits.length} referral credit{credits.length > 1 ? 's' : ''} available — applied automatically before you're asked to pay again.</p>}
     </section>
@@ -208,7 +212,10 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
             {plan.annual ? ` · ${money(plan.annual, plan.currency)} / year (two months free)` : ''}</p>
         </div>
         <ul className="billing-plan-facts">
-          <li><b>{plan.liveJobSlots}</b> live jobs</li>
+          {/* The server's own limit, not the plan catalogue's. While trialing
+              these differ — a trial allows 3 live jobs where Solo allows 5 —
+              and showing the catalogue number would be a lie on screen. */}
+          <li><b>{entitlements ? `${entitlements.activeJobCount} / ${entitlements.activeJobLimit}` : plan.liveJobSlots}</b> live jobs</li>
           <li><b>{team ? team.seatsAllowed : plan.seats}</b> recruiter seat{(team ? team.seatsAllowed : plan.seats) > 1 ? 's' : ''}</li>
           {plan.analytics && <li>Hiring analytics</li>}
           {plan.atsExport && <li>ATS export</li>}

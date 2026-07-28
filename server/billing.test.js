@@ -36,12 +36,12 @@ test('candidate remains free and never receives recruiter billing restrictions',
   assert.equal(canPublishJob(candidate, undefined), true);
 });
 
-// 2. Every recruiter gets the same 90-day trial — no cohorts, no second tier.
-test('every recruiter receives the same 90-day trial', () => {
+// 2. Every recruiter gets the same 60-day trial — no cohorts, no second tier.
+test('every recruiter receives the same 60-day trial', () => {
   const db = makeDb();
   const first = getOrCreateTrialSubscription(db, 'r1');
   const later = getOrCreateTrialSubscription(db, 'r2');
-  assert.equal(TRIAL_DAYS, 90);
+  assert.equal(TRIAL_DAYS, 60);
   assert.equal(first.trialEndsAt - first.trialStartedAt, TRIAL_DAYS * DAY_MS);
   assert.equal(later.trialEndsAt - later.trialStartedAt, TRIAL_DAYS * DAY_MS);
 });
@@ -335,7 +335,13 @@ test('a correctly signed VNPay redirect verifies, and tampering invalidates it',
     const query = Object.fromEntries(new URL(url).searchParams);
     assert.equal(verifySignature(query), true);
     assert.equal(verifySignature({ ...query, vnp_Amount: String(Number(query.vnp_Amount) + 100) }), false);
-    assert.equal(verifySignature({ ...query, vnp_SecureHash: `${query.vnp_SecureHash.slice(0, -1)}0` }), false);
+    // Flip the last character to one it definitely is not. Hardcoding '0' here
+    // silently passed a valid, untampered hash whenever the signature happened
+    // to end in '0' — a 1-in-16 flake on a hex digest.
+    const last = query.vnp_SecureHash.slice(-1);
+    const flipped = `${query.vnp_SecureHash.slice(0, -1)}${last === '0' ? '1' : '0'}`;
+    assert.notEqual(flipped, query.vnp_SecureHash, 'the tampered hash must actually differ');
+    assert.equal(verifySignature({ ...query, vnp_SecureHash: flipped }), false);
   } finally {
     delete process.env.VNPAY_TMN_CODE;
     delete process.env.VNPAY_HASH_SECRET;

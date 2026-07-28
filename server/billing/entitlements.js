@@ -29,7 +29,10 @@ const intFromEnv = (name, fallback) => {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 };
 
-export const TRIAL_ACTIVE_JOB_LIMIT = intFromEnv('TRIAL_ACTIVE_JOB_LIMIT', 10);
+/* Three live jobs during the trial. Enough to be a real test of the matching
+ * across several roles rather than a single-job demo, and small enough that the
+ * jump to a paid plan is a genuine step up rather than a formality. */
+export const TRIAL_ACTIVE_JOB_LIMIT = intFromEnv('TRIAL_ACTIVE_JOB_LIMIT', 3);
 export const FREE_ACTIVE_JOB_LIMIT = intFromEnv('RECRUITER_FREE_JOB_LIMIT', 1);
 export const FREE_JOB_PERIOD_DAYS = intFromEnv('RECRUITER_FREE_JOB_DAYS', 30);
 export const REFERRAL_JOB_CREDIT_MAX = intFromEnv('REFERRAL_JOB_CREDIT_MAX', 10);

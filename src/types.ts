@@ -198,6 +198,7 @@ export interface PlanCatalog {
   payPerHireFeePercent: number;
   postingTermDays: number;
   trialDays: number;
+  trialLiveJobs: number;
 }
 export interface AdminTeamRow {
   id: string; owner: string; planCode: string;

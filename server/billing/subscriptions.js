@@ -32,7 +32,7 @@ export function findSubscription(db, recruiterUserId) {
  * Idempotent: trialStartedAt is set only once per recruiter, ever. Safe to
  * call on every bootstrap load — a no-op after the first time.
  *
- * Every recruiter gets the same 90-day trial. Existing rows are never
+ * Every recruiter gets the same 60-day trial. Existing rows are never
  * rewritten, so trials already running keep whatever end date they have.
  */
 export function getOrCreateTrialSubscription(db, recruiterUserId) {

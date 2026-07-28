@@ -122,8 +122,8 @@ export function AdminBillingPage() {
               <b>Annual</b> billing charges 10 months — two are free.
             </p>
             <p className="muted">
-              <b>Trial</b>: {plans.catalog.trialDays} days, the same for every recruiter. No cohorts, no seat counts,
-              no second tier — one number.<br />
+              <b>Trial</b>: {plans.catalog.trialDays} days with {plans.catalog.trialLiveJobs} live jobs, the same for every
+              recruiter. No cohorts, no seat counts, no second tier — one number.<br />
               <b>Postings</b> run {plans.catalog.postingTermDays} days and then <i>pause</i> — never expire, never delete.
               Renewal is free, one click, unlimited.
             </p>

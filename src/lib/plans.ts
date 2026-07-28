@@ -68,7 +68,7 @@ export const SINGLE_POSTING = { termDays: 60, usd: 25, vnd: 590000 };
 export const PAY_PER_HIRE = { feePercent: 5 };
 
 /** One trial, one length, the same for everybody. */
-export const TRIAL = { days: 90 };
+export const TRIAL = { days: 60, liveJobs: 3 };
 
 export const planCard = (key: PlanKey) => PLAN_CARDS.find((plan) => plan.key === key)!;
 

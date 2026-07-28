@@ -8,10 +8,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /* Trial terms.
  *
- * One trial, one length, the same for everybody: 90 days. Long enough to cover
- * a real VN hire cycle including a 30-45 day notice period — a shorter trial
- * expires before the hire it produced can possibly land, which converts nobody
- * and teaches you nothing.
+ * One trial, one length, the same for everybody: 60 days with 3 live jobs. Long
+ * enough to run a real hiring round and see whether the matching actually works
+ * — three concurrent roles is a genuine trial of the product rather than a
+ * single-job demo, and sixty days covers posting, matching and first interviews.
  *
  * There is deliberately no cohort, no seat count and no second tier of trial.
  * Every branch of "which kind of trial is this" was a branch that could be got
@@ -22,7 +22,7 @@ const intFromEnv = (name, fallback) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-export const TRIAL_DAYS = intFromEnv('RECRUITER_TRIAL_DAYS', 90);
+export const TRIAL_DAYS = intFromEnv('RECRUITER_TRIAL_DAYS', 60);
 /** Granted once, when a hire is still in flight as the trial runs out. */
 export const HIRE_IN_FLIGHT_EXTENSION_DAYS = intFromEnv('HIRE_IN_FLIGHT_EXTENSION_DAYS', 30);
 
@@ -78,10 +78,10 @@ export function trialEndsAt(startedAt, days, windows = pauseWindows()) {
 export const TRIAL_CHECKPOINTS = [
   { day: 2, key: 'day_2', kind: 'trial_checkpoint_start', text: 'Post your first job to start seeing matched candidates — it takes about three minutes.', onlyIfNoJobs: true },
   { day: 7, key: 'day_7', kind: 'trial_checkpoint_week', text: 'One week in. Have a look at who matched your roles this week.' },
-  { day: 30, key: 'day_30', kind: 'trial_checkpoint_month', text: 'A month into your trial — a good moment to add your remaining open roles.' },
-  { day: 45, key: 'day_45', kind: 'trial_checkpoint_mid', text: 'Halfway through your trial. Anything not working the way you expected?' },
-  { day: 70, key: 'day_70', kind: 'trial_checkpoint_late', text: 'Twenty days of trial left. Subscribe any time to keep every job live.' },
-  { day: 85, key: 'day_85', kind: 'trial_checkpoint_final', text: 'Your trial ends in five days. One job stays live free forever — subscribe to keep them all.' },
+  { day: 21, key: 'day_21', kind: 'trial_checkpoint_month', text: 'Three weeks in — you can run up to three roles at once during the trial.' },
+  { day: 30, key: 'day_30', kind: 'trial_checkpoint_mid', text: 'Halfway through your trial. Anything not working the way you expected?' },
+  { day: 45, key: 'day_45', kind: 'trial_checkpoint_late', text: 'Fifteen days of trial left. Subscribe any time to keep every job live.' },
+  { day: 55, key: 'day_55', kind: 'trial_checkpoint_final', text: 'Your trial ends in five days. One job stays live free forever — subscribe to keep them all.' },
 ];
 
 /** Checkpoints due now and not already sent. `hasJobs` suppresses the day-2

@@ -7,6 +7,7 @@ import { ANNUAL_MONTHS_CHARGED, PAY_PER_HIRE_FEE_PERCENT, PLANS, SINGLE_POSTING 
 import { BOOST_HOURS, BOOST_PRICE_USD, BOOST_PRICE_VND } from './billing/boosts.js';
 import { POSTING_TERM_DAYS } from './billing/postings.js';
 import { TRIAL_DAYS } from './billing/trial.js';
+import { TRIAL_ACTIVE_JOB_LIMIT } from './billing/entitlements.js';
 
 /* The pricing page renders from src/lib/plans.ts so it doesn't need an API call
  * for six static numbers. That copy can silently drift from the plans the
@@ -73,4 +74,5 @@ test('pricing page shows the same posting term, trial lengths and hire fee', () 
   assert.equal(Number(fee.match(/feePercent: (\d+)/)[1]), PAY_PER_HIRE_FEE_PERCENT);
   const trial = source.slice(source.indexOf('export const TRIAL ='));
   assert.equal(Number(trial.match(/days: (\d+)/)[1]), TRIAL_DAYS);
+  assert.equal(Number(trial.match(/liveJobs: (\d+)/)[1]), TRIAL_ACTIVE_JOB_LIMIT);
 });
