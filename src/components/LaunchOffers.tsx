@@ -5,9 +5,8 @@ import { ArrowRight, BadgeCheck, Gift, Rocket, Sparkles } from 'lucide-react';
  * the offer can never drift between the three places a user might read it.
  *
  * Every claim here must match what the entitlement service actually grants
- * (server/billing/entitlements.js). No countdowns, no invented scarcity: the
- * founding seat number is passed in from the real server count, and is simply
- * omitted when it isn't known. */
+ * (server/billing/entitlements.js). No countdowns and no invented scarcity —
+ * every offer below is simply true for everyone, all the time. */
 
 export type LaunchOffer = { icon: typeof Rocket; badge: string; title: string; body: string };
 
@@ -24,22 +23,8 @@ export const CANDIDATE_OFFERS: LaunchOffer[] = [
   { icon: Sparkles, badge: 'Mutual only', title: 'You choose who reaches you', body: 'A conversation opens only when you and the company both say yes. No cold outreach, no salary guessing.' },
 ];
 
-/** Founding-cohort block. Rendered only when the caller has the real count —
- *  the seats-left figure is the live server count, never a fake countdown. */
-function FoundingLine({ remaining, limit }: { remaining?: number; limit?: number }) {
-  if (remaining === undefined) return null;
-  if (remaining <= 0) return <p className="launch-founding">The founding cohort is full — standard pricing now applies.</p>;
-  return <div className="launch-founding">
-    <strong>Founding cohort — {(limit ?? remaining).toLocaleString()} recruiters</strong>
-    <span>3 months free. Lock $20/month for life.</span>
-    <em>{remaining.toLocaleString()} seat{remaining === 1 ? '' : 's'} left.</em>
-  </div>;
-}
-
-export function LaunchOffers({ offers = RECRUITER_OFFERS, foundingRemaining, foundingLimit, onRegister, compact }: {
+export function LaunchOffers({ offers = RECRUITER_OFFERS, onRegister, compact }: {
   offers?: LaunchOffer[];
-  foundingRemaining?: number;
-  foundingLimit?: number;
   onRegister?: () => void;
   compact?: boolean;
 }) {
@@ -56,7 +41,6 @@ export function LaunchOffers({ offers = RECRUITER_OFFERS, foundingRemaining, fou
         <p>{offer.body}</p>
       </article>)}
     </div>
-    <FoundingLine remaining={foundingRemaining} limit={foundingLimit} />
     {onRegister && <button type="button" className="primary-button launch-offers-cta" onClick={onRegister}>Claim these offers <ArrowRight size={17} /></button>}
   </section>;
 }

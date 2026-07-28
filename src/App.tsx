@@ -154,14 +154,10 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const openRegister = () => setAuthModal('register');
   const complete = (user: SessionUser) => { setAuthModal(null); onLogin(user); };
   const [banner, setBanner] = useState<'default' | 'alt' | 'image'>('default');
-  const [foundingRemaining, setFoundingRemaining] = useState<number | undefined>(undefined);
-  const [foundingLimit, setFoundingLimit] = useState<number | undefined>(undefined);
   const [bannerImageUrl, setBannerImageUrl] = useState<string | undefined>(undefined);
   useEffect(() => {
     api.siteSettings().then((res) => {
       setBanner(res.activeLandingBanner);
-      setFoundingRemaining(res.founding?.remaining);
-      setFoundingLimit(res.founding?.limit);
       // The ?v= cache-buster is already on the URL, so a replaced image shows
       // immediately instead of serving the browser's copy of the old one.
       setBannerImageUrl(res.bannerImage ? `${apiBase}${res.bannerImage.url}` : undefined);
@@ -334,7 +330,7 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
         Boost any job to the top of the deck for {BOOST.hours} hours for {usd(BOOST.usd)}; boosted cards are labelled <b>Promoted</b> and
         keep the exact match score they earned.
       </p>
-      <LaunchOffers onRegister={openRegister} foundingRemaining={foundingRemaining} foundingLimit={foundingLimit} />
+      <LaunchOffers onRegister={openRegister} />
     </section>
     <LatestShowcase onRegister={openRegister} onLogin={openLogin} />
     <FeedbackSection />

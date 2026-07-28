@@ -17,11 +17,11 @@ import { confirmPayment } from './billing/confirm.js';
 import {
   availableJobCredits, buildEntitlementIndex, checkEditAllowed, checkPublishAllowed,
   consumeFreeJobAllowance, consumeReferralJobCredit, countActiveJobs, FREE_ACTIVE_JOB_LIMIT,
-  FREE_JOB_PERIOD_DAYS, foundingStatus, getRecruiterEntitlements, grantReferralJobCredit,
+  FREE_JOB_PERIOD_DAYS, getRecruiterEntitlements, grantReferralJobCredit,
   jobCreditBalance, lockMatchFieldsOnPublish, MATCH_RELEVANT_FIELDS, REFERRAL_JOB_CREDIT_MAX,
-  resolvePlanCode, revokeJobCredit, TRIAL_ACTIVE_JOB_LIMIT, foundingPriceFor,
+  resolvePlanCode, revokeJobCredit, TRIAL_ACTIVE_JOB_LIMIT,
 } from './billing/entitlements.js';
-import { FOUNDING_RECRUITER_LIMIT, FOUNDING_TRIAL_DAYS, PUBLIC_TRIAL_DAYS } from './billing/trial.js';
+import { PLANS, seatPlanKey } from './billing/plans.js';
 import crypto from 'node:crypto';
 
 function makeDb(overrides = {}) {
@@ -36,31 +36,14 @@ test('candidate remains free and never receives recruiter billing restrictions',
   assert.equal(canPublishJob(candidate, undefined), true);
 });
 
-// 2. Trial length follows the cohort: 90 founding days, 14 public.
-test('a founding-cohort recruiter receives the full 90-day trial', () => {
+// 2. Every recruiter gets the same 90-day trial — no cohorts, no second tier.
+test('every recruiter receives the same 90-day trial', () => {
   const db = makeDb();
-  const sub = getOrCreateTrialSubscription(db, 'r1');
-  assert.equal(sub.trialKind, 'founding', 'the cohort has seats free, so this recruiter is in it');
-  assert.equal(sub.trialEndsAt - sub.trialStartedAt, FOUNDING_TRIAL_DAYS * DAY_MS);
-});
-
-test('once the founding cohort is full, new recruiters get the public trial', () => {
-  const db = makeDb();
-  // Fill every founding seat.
-  for (let i = 0; i < FOUNDING_RECRUITER_LIMIT; i += 1) {
-    db.subscriptions.push({ id: `f${i}`, recruiterUserId: `founder${i}`, planCode: 'founding', status: 'active', cancelledAt: null });
-  }
-  const sub = getOrCreateTrialSubscription(db, 'late-arrival');
-  assert.equal(sub.trialKind, 'public');
-  assert.equal(sub.trialEndsAt - sub.trialStartedAt, PUBLIC_TRIAL_DAYS * DAY_MS);
-});
-
-test('the founding price is captured at signup, not looked up later', () => {
-  const db = makeDb();
-  const sub = getOrCreateTrialSubscription(db, 'r1');
-  sub.planCode = 'founding';
-  // Whatever the catalogue does later, this row still bills at what it was sold at.
-  assert.equal(foundingPriceFor(sub, 'USD'), sub.foundingPriceUsd);
+  const first = getOrCreateTrialSubscription(db, 'r1');
+  const later = getOrCreateTrialSubscription(db, 'r2');
+  assert.equal(TRIAL_DAYS, 90);
+  assert.equal(first.trialEndsAt - first.trialStartedAt, TRIAL_DAYS * DAY_MS);
+  assert.equal(later.trialEndsAt - later.trialStartedAt, TRIAL_DAYS * DAY_MS);
 });
 
 // 3. Trial cannot be restarted by creating another request.
@@ -547,7 +530,7 @@ test('decodeJws splits and decodes a JWS compact serialization', () => {
 
 // ---------------------------------------------------------------------------
 // Entitlements (Phase 1): plan resolution, active-job limits, the free-tier
-// rolling allowance, job-post credits, locked fields, and founding seats.
+// rolling allowance, job-post credits, and locked fields.
 // ---------------------------------------------------------------------------
 
 const recruiter = (id = 'r1') => ({ id, role: 'employer' });
@@ -765,16 +748,13 @@ test('billing-exempt accounts bypass entitlement checks', () => {
   assert.equal(verdict.postingSource, 'admin');
 });
 
-// E21. Founding seats count only genuinely activated, non-cancelled subs.
-test('founding seat count ignores cancelled and non-active subscriptions', () => {
-  const db = makeDb({ subscriptions: [
-    { planCode: 'founding', status: 'active' },
-    { planCode: 'founding', status: 'active', cancelledAt: Date.now() },
-    { planCode: 'founding', status: 'trialing' },
-    { planCode: 'recruiter-monthly', status: 'active' },
-  ] });
-  assert.equal(foundingStatus(db).sold, 1);
-  assert.equal(foundingStatus(db).soldOut, false);
+// E21. Any subscription row still carrying the retired `founding` plan code
+// keeps working — it resolves to the same single seat and five slots it was
+// sold as, so removing the offer never stranded anyone who had one.
+test('a leftover founding plan code still resolves to a working plan', () => {
+  assert.equal(seatPlanKey('founding'), 'solo');
+  assert.equal(PLANS[seatPlanKey('founding')].seats, 1);
+  assert.equal(PLANS[seatPlanKey('founding')].liveJobSlots, 5);
 });
 
 // E22. The bulk index produces the same numbers as the per-recruiter scans —

@@ -1,4 +1,4 @@
-import type { ActionQueueItem, AdminAnalyticsOverview, AdminJobSummary, AdminPlansOverview, AdminRecruiterStatus, AdminUserDetail, AdminUserSummary, AuthConfig, BillingEvent, BillingInfo, Bootstrap, BoostRecord, EmployerKind, FoundingStatus, InterviewKit, InterviewPrep, Job, JobDraft, JobImportResult, JobMatch, JobPostCredit, Message, Note, Payment, PaymentMethod, PipelineStep, Person, ProfileVariant, RecommendationRequest, Referral, Report, ReportCategory, ResumeMeta, Review, Role, ScheduledCall, ScreeningAnswer, SessionUser, SupportRequest, TeamInfo, WeightedSkill } from './types';
+import type { ActionQueueItem, AdminAnalyticsOverview, AdminJobSummary, AdminPlansOverview, AdminRecruiterStatus, AdminUserDetail, AdminUserSummary, AuthConfig, BillingEvent, BillingInfo, Bootstrap, BoostRecord, EmployerKind, InterviewKit, InterviewPrep, Job, JobDraft, JobImportResult, JobMatch, JobPostCredit, Message, Note, Payment, PaymentMethod, PipelineStep, Person, ProfileVariant, RecommendationRequest, Referral, Report, ReportCategory, ResumeMeta, Review, Role, ScheduledCall, ScreeningAnswer, SessionUser, SupportRequest, TeamInfo, WeightedSkill } from './types';
 
 export const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
@@ -15,7 +15,7 @@ export const api = {
   authConfig: () => request<AuthConfig>('/api/auth/config'),
   showcase: () => request<{ jobs: Job[]; candidates: Person[] }>('/api/showcase'),
   reviews: () => request<{ reviews: Review[] }>('/api/feedback'),
-  siteSettings: () => request<{ activeLandingBanner: 'default' | 'alt' | 'image'; bannerImage: { url: string; updatedAt: number | null } | null; founding?: FoundingStatus }>('/api/site-settings'),
+  siteSettings: () => request<{ activeLandingBanner: 'default' | 'alt' | 'image'; bannerImage: { url: string; updatedAt: number | null } | null; trialDays?: number }>('/api/site-settings'),
   adminSetSiteSettings: (activeLandingBanner: 'default' | 'alt' | 'image') => request<{ activeLandingBanner: 'default' | 'alt' | 'image' }>('/api/admin/site-settings', { method: 'POST', body: JSON.stringify({ activeLandingBanner }) }),
   adminBankInstructions: () => request<{ bankAccountName: string; bankName: string; bankAccountNumber: string; bankSwift: string; vietQrImageUrl: string; supportEmail: string }>('/api/admin/bank-instructions'),
   adminSetBankInstructions: (payload: { bankAccountName: string; bankName: string; bankAccountNumber: string; bankSwift: string; vietQrImageUrl: string; supportEmail: string }) => request<typeof payload>('/api/admin/bank-instructions', { method: 'POST', body: JSON.stringify(payload) }),

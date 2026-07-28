@@ -65,13 +65,14 @@ export const PLANS = {
 };
 
 /* Live subscription rows predate this catalogue and carry the older plan codes
- * `trial`/`free`/`founding`/`pro`. They are never rewritten — instead every
- * seat/slot lookup runs the code through here first, so existing accounts keep
- * working untouched and a migration script is never needed.
+ * `trial`/`free`/`pro`. They are never rewritten — instead every seat/slot
+ * lookup runs the code through here first, so existing accounts keep working
+ * untouched and a migration script is never needed.
  *
- * Founding and Pro both map to Solo: that is the USD 20 single seat they were
- * sold. Trial maps to Solo too — a trial should feel like the plan most people
- * end up on, not like a bigger one they will later be dropped from. */
+ * Pro maps to Solo: that is the USD 20 single seat it was sold as. Trial maps
+ * to Solo too — a trial should feel like the plan most people end up on, not
+ * like a bigger one they will later be dropped from. `founding` is kept only
+ * because a handful of rows may still carry it; the offer itself is gone. */
 const LEGACY_PLAN_CODES = { trial: 'solo', free: 'starter', founding: 'solo', pro: 'solo' };
 
 /** Catalogue key for any plan code, old or new. Unknown codes fall back to the free tier. */

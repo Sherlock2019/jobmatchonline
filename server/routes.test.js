@@ -62,7 +62,8 @@ test('recruiter subscription payload carries plan, seats and entitlements', asyn
   assert.equal(body.team.seatsUsed >= 1, true, 'the recruiter always holds at least their own seat');
   assert.ok(body.team.seatsAllowed >= body.team.seatsUsed, 'seats used never exceed seats allowed');
   assert.ok(body.entitlements, 'entitlements are still returned');
-  assert.ok(body.founding, 'founding status is still returned');
+  assert.equal(body.founding, undefined, 'the founding cohort is gone, not half-removed');
+  assert.equal(body.trial.days, 90, 'one trial length, the same for everybody');
 });
 
 test('a solo recruiter sees themselves as the only seat holder', async () => {

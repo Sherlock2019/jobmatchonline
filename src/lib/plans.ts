@@ -73,8 +73,8 @@ export const SINGLE_POSTING = { termDays: 60, usd: 25, vnd: 590000 };
 
 export const PAY_PER_HIRE = { feePercent: 5 };
 
-/** Founding cohort gets 90 days; everyone after it gets 14. */
-export const TRIAL = { foundingDays: 90, publicDays: 14 };
+/** One trial, one length, the same for everybody. */
+export const TRIAL = { days: 90 };
 
 export const planCard = (key: PlanKey) => PLAN_CARDS.find((plan) => plan.key === key)!;
 

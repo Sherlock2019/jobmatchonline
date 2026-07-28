@@ -6,7 +6,7 @@ import {
   pauseElapsedPostings, POSTING_TERM_DAYS, recordHire, releaseElapsedSlotLocks, renewPosting, startPostingTerm,
 } from './billing/postings.js';
 import { isCompanyEmail, isLinkedinCompanyPage, recruiterVerification } from './billing/verification.js';
-import { dueCheckpoints, extendForHireInFlight, markCheckpointSent, pausedMsBetween, trialEndsAt, trialDaysFor, FOUNDING_TRIAL_DAYS, PUBLIC_TRIAL_DAYS, HIRE_IN_FLIGHT_EXTENSION_DAYS } from './billing/trial.js';
+import { dueCheckpoints, extendForHireInFlight, markCheckpointSent, pausedMsBetween, trialEndsAt, TRIAL_DAYS, HIRE_IN_FLIGHT_EXTENSION_DAYS } from './billing/trial.js';
 import { referralCreditsInLastYear, REFERRAL_CREDITS_PER_YEAR } from './billing/referrals.js';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -180,11 +180,8 @@ test('an admin override verifies an account a regex would refuse', () => {
 
 /* ── Trial terms ─────────────────────────────────────────────────────────── */
 
-test('founding trials are 90 days and public trials 14', () => {
-  assert.equal(trialDaysFor('founding'), FOUNDING_TRIAL_DAYS);
-  assert.equal(trialDaysFor('public'), PUBLIC_TRIAL_DAYS);
-  assert.equal(FOUNDING_TRIAL_DAYS, 90);
-  assert.equal(PUBLIC_TRIAL_DAYS, 14);
+test('there is one trial length, 90 days, for everybody', () => {
+  assert.equal(TRIAL_DAYS, 90);
 });
 
 test('no holiday pause is configured by default — dates are never guessed', () => {

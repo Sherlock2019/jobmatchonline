@@ -1,11 +1,6 @@
 import crypto from 'node:crypto';
 import { logBillingEvent } from './audit.js';
 import { computeEffectiveStatus, DAY_MS, isBillingExempt } from './subscriptions.js';
-// Cohort size lives with the trial terms it belongs to; re-exported here so
-// every existing `from './entitlements.js'` import keeps working.
-import { FOUNDING_RECRUITER_LIMIT } from './trial.js';
-
-export { FOUNDING_RECRUITER_LIMIT };
 
 /* Recruiter entitlements: the single server-side authority for "may this
  * recruiter publish / edit this job right now". Every decision is derived live
@@ -14,7 +9,7 @@ export { FOUNDING_RECRUITER_LIMIT };
  *
  * Every mutating function here assumes it is called INSIDE a
  * `store.transaction()` callback, mutating the `db` document in place. That is
- * what makes credit consumption and founding-seat allocation atomic: the store
+ * what makes credit consumption atomic: the store
  * serialises all writes through a single queue, so a read-then-write inside one
  * transaction cannot interleave with another. Calling these outside a
  * transaction would silently lose the guarantee.
@@ -39,24 +34,6 @@ export const FREE_ACTIVE_JOB_LIMIT = intFromEnv('RECRUITER_FREE_JOB_LIMIT', 1);
 export const FREE_JOB_PERIOD_DAYS = intFromEnv('RECRUITER_FREE_JOB_DAYS', 30);
 export const REFERRAL_JOB_CREDIT_MAX = intFromEnv('REFERRAL_JOB_CREDIT_MAX', 10);
 
-/* The founding price, locked for life. Held here rather than read from the
- * subscription row so a future bulk price change cannot silently migrate people
- * who were promised this number forever — see `foundingPriceFor`. */
-export const FOUNDING_PRICE_USD = intFromEnv('FOUNDING_PRICE_USD', 20);
-export const FOUNDING_PRICE_VND = intFromEnv('FOUNDING_PRICE_VND', 490000);
-
-/**
- * What a founding subscriber pays, forever. Any repricing of the catalogue has
- * to go through here, and here it is ignored: a founding row always bills at
- * the price it was sold at. `subscriptions.test.js` asserts this survives a
- * catalogue price change.
- */
-export function foundingPriceFor(subscription, currency = 'USD') {
-  if (!subscription || subscription.planCode !== 'founding') return null;
-  const lockedAt = currency === 'VND' ? subscription.foundingPriceVnd : subscription.foundingPriceUsd;
-  if (Number.isFinite(lockedAt)) return lockedAt;
-  return currency === 'VND' ? FOUNDING_PRICE_VND : FOUNDING_PRICE_USD;
-}
 
 /* Job statuses that occupy an "active posting" slot. Deliberately narrower than
  * the fair-use counter in server/index.js, which also counts drafts — the two
@@ -127,11 +104,11 @@ export function resolvePlanCode(subscription, now = Date.now()) {
   if (!subscription) return 'free';
   const status = computeEffectiveStatus(subscription, now);
   if (status === 'trialing') return 'trial';
-  if (status === 'active') return subscription.planCode === 'founding' ? 'founding' : 'pro';
+  if (status === 'active') return 'pro';
   // grace_period keeps paid-tier limits (they still have data to manage) but
   // canPublishJob in subscriptions.js already blocks publishing during grace,
   // so this never grants a publish the subscription state would refuse.
-  if (status === 'grace_period') return subscription.planCode === 'founding' ? 'founding' : 'pro';
+  if (status === 'grace_period') return 'pro';
   return 'free';
 }
 
@@ -185,7 +162,7 @@ export function checkPublishAllowed(db, recruiter, subscription, now = Date.now(
   }
 
   if (planCode === 'trial') return allow('trial', { entitlements });
-  if (planCode === 'founding' || planCode === 'pro') return allow('paid', { entitlements });
+  if (planCode === 'pro') return allow('paid', { entitlements });
 
   // Free plan: rolling base allowance first, then referral credits.
   if (entitlements.freeJobAvailable) return allow('free_base', { entitlements });
@@ -299,23 +276,3 @@ export function revokeJobCredit(db, credit, actorUserId, reason, now = Date.now(
   return credit;
 }
 
-/** Founding seats genuinely sold — only activated, non-cancelled subscriptions
- * count, so a failed or refunded checkout never occupies a seat. Derived from
- * the array itself so the number can't drift from reality. */
-export function foundingSlotsSold(db) {
-  let sold = 0;
-  for (const entry of db.subscriptions || []) {
-    if (entry.planCode === 'founding' && entry.status === 'active' && !entry.cancelledAt) sold += 1;
-  }
-  return sold;
-}
-
-export function foundingStatus(db) {
-  const sold = foundingSlotsSold(db);
-  return {
-    sold,
-    remaining: Math.max(0, FOUNDING_RECRUITER_LIMIT - sold),
-    limit: FOUNDING_RECRUITER_LIMIT,
-    soldOut: sold >= FOUNDING_RECRUITER_LIMIT,
-  };
-}

@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { FOUNDING_RECRUITER_LIMIT, trialDaysFor, trialEndsAt } from './trial.js';
+import { TRIAL_DAYS, trialEndsAt } from './trial.js';
 import { logBillingEvent } from './audit.js';
 
 /* Recruiter subscription state machine. All entitlement decisions are derived
@@ -10,7 +10,9 @@ import { logBillingEvent } from './audit.js';
  * even on a day the cron hasn't run yet. */
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
-export const TRIAL_DAYS = Number(process.env.RECRUITER_TRIAL_DAYS || 30);
+// Defined in trial.js and re-exported so the many existing importers of
+// `TRIAL_DAYS` from here keep working. One definition, one place to change it.
+export { TRIAL_DAYS };
 export const GRACE_DAYS = Number(process.env.RECRUITER_GRACE_DAYS || 7);
 export const PRICE_AMOUNT = Number(process.env.RECRUITER_MONTHLY_PRICE || 20);
 export const PRICE_CURRENCY = process.env.RECRUITER_PRICE_CURRENCY || 'USD';
@@ -30,23 +32,14 @@ export function findSubscription(db, recruiterUserId) {
  * Idempotent: trialStartedAt is set only once per recruiter, ever. Safe to
  * call on every bootstrap load — a no-op after the first time.
  *
- * `kind` picks the trial length. Founding seats get 90 days (a full VN hire
- * cycle including a 30-45 day notice period — anything shorter expires before
- * the hire it produced can land); public signups get 14. Existing rows are
- * never rewritten, so live trials keep whatever end date they already have.
+ * Every recruiter gets the same 90-day trial. Existing rows are never
+ * rewritten, so trials already running keep whatever end date they have.
  */
-export function getOrCreateTrialSubscription(db, recruiterUserId, kind = null) {
+export function getOrCreateTrialSubscription(db, recruiterUserId) {
   if (!Array.isArray(db.subscriptions)) db.subscriptions = [];
   const existing = findSubscription(db, recruiterUserId);
   if (existing) return existing;
   const now = Date.now();
-
-  // Founding seats are allocated here, inside the caller's transaction, so the
-  // cohort cap is enforced by the same serialised write that creates the row.
-  const foundingSold = db.subscriptions.filter((entry) => entry.planCode === 'founding' && entry.status === 'active' && !entry.cancelledAt).length;
-  const foundingOpen = foundingSold < FOUNDING_RECRUITER_LIMIT;
-  const trialKind = kind || (foundingOpen ? 'founding' : 'public');
-  const days = trialDaysFor(trialKind);
 
   const subscription = {
     id: crypto.randomUUID(),
@@ -55,15 +48,10 @@ export function getOrCreateTrialSubscription(db, recruiterUserId, kind = null) {
     status: 'trialing',
     priceAmount: PRICE_AMOUNT,
     priceCurrency: PRICE_CURRENCY,
-    trialKind,
-    // Founding pricing is captured at signup, not looked up later, so a future
-    // catalogue reprice cannot migrate someone who was promised this for life.
-    foundingPriceUsd: trialKind === 'founding' ? PRICE_AMOUNT : null,
     trialStartedAt: now,
-    trialEndsAt: trialEndsAt(now, days),
-    trialDays: days,
+    trialEndsAt: trialEndsAt(now, TRIAL_DAYS),
+    trialDays: TRIAL_DAYS,
     sentCheckpoints: [],
-    completedObligations: [],
     currentPeriodStartedAt: null,
     currentPeriodEndsAt: null,
     gracePeriodEndsAt: null,
@@ -74,7 +62,7 @@ export function getOrCreateTrialSubscription(db, recruiterUserId, kind = null) {
   };
   db.subscriptions.push(subscription);
   logBillingEvent(db, recruiterUserId, 'trial_started', 'subscription', subscription.id,
-    { trialEndsAt: subscription.trialEndsAt, trialKind, days });
+    { trialEndsAt: subscription.trialEndsAt, days: TRIAL_DAYS });
   return subscription;
 }
 

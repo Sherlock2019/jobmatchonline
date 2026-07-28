@@ -6,13 +6,13 @@ import { Field, TextInput } from '../profile/fields';
 type Overview = Awaited<ReturnType<typeof api.adminBillingOverview>>;
 type BankInstructions = Awaited<ReturnType<typeof api.adminBankInstructions>>;
 type Plans = Awaited<ReturnType<typeof api.adminBillingPlans>>;
-type SectionId = 'bank' | 'catalog' | 'plans' | 'seats' | 'boosts' | 'credits' | 'founding' | 'pending' | 'confirmed' | 'rejected' | 'trials' | 'grace' | 'expired' | 'rewards' | 'flagged' | 'audit';
+type SectionId = 'bank' | 'catalog' | 'plans' | 'seats' | 'boosts' | 'credits' | 'pending' | 'confirmed' | 'rejected' | 'trials' | 'grace' | 'expired' | 'rewards' | 'flagged' | 'audit';
 
 function fmt(ts?: number | null) { return ts ? new Date(ts).toLocaleDateString() : '—'; }
 function money(amount: number, currency: string) { return amount === 0 ? 'Free' : currency === 'VND' ? `${amount.toLocaleString('en-US')} ₫` : `USD ${amount}`; }
 
 const PLAN_LABEL: Record<string, string> = {
-  trial: 'Trial', free: 'Free', founding: 'Founding', pro: 'Pro',
+  trial: 'Trial', free: 'Free', pro: 'Pro',
   starter: 'Starter', solo: 'Solo', duo: 'Duo', trio: 'Trio', team: 'Team', agency: 'Agency', pay_per_hire: 'Pay per hire',
 };
 
@@ -59,7 +59,6 @@ export function AdminBillingPage() {
     { id: 'seats', label: 'Seats & teams', count: plans?.teams.length },
     { id: 'boosts', label: 'Boosts', count: plans?.boosts.filter((b) => b.live).length },
     { id: 'credits', label: 'Job-post credits', count: plans?.creditLedger.length },
-    { id: 'founding', label: 'Founding seats', count: plans?.founding.sold },
     { id: 'bank', label: 'Bank transfer instructions' },
     { id: 'pending', label: 'Pending payments', count: overview.pendingPayments.length },
     { id: 'confirmed', label: 'Confirmed payments', count: overview.confirmedPayments.length },
@@ -126,18 +125,14 @@ export function AdminBillingPage() {
               <b>Annual</b> billing charges 10 months — two are free.
             </p>
             <p className="muted">
-              <b>Trials</b>: {plans.catalog.trial.foundingDays} days for the founding cohort
-              ({plans.founding.remaining} of {plans.founding.limit} seats left),
-              {' '}{plans.catalog.trial.publicDays} days for everyone after it. Founding seats lock USD 20/month for life —
-              that price is captured on the subscription row at signup, so a future catalogue reprice cannot migrate them.<br />
+              <b>Trial</b>: {plans.catalog.trialDays} days, the same for every recruiter. No cohorts, no seat counts,
+              no second tier — one number.<br />
               <b>Postings</b> run {plans.catalog.postingTermDays} days and then <i>pause</i> — never expire, never delete.
-              Renewal is free, one click, unlimited.<br />
-              <b>Founding obligations</b>: {plans.catalog.trial.obligations.join(', ')} — tracked, never enforced.
-              Missing one never removes access or data.
+              Renewal is free, one click, unlimited.
             </p>
             <p className="muted">
               Prices are set in <code>server/billing/plans.js</code> and change with a deploy, so a price is never edited by
-              accident from this screen. Live subscriptions on the older plan codes ({['trial', 'free', 'founding', 'pro'].join(', ')})
+              accident from this screen. Live subscriptions on the older plan codes ({['trial', 'free', 'pro'].join(', ')})
               keep their terms and are mapped onto this catalogue for seat and slot limits.
             </p>
           </>}
@@ -269,22 +264,6 @@ export function AdminBillingPage() {
               </td>
             </tr>)}</tbody>
           </table>}
-        </section>}
-
-        {section === 'founding' && <section className="admin-section">
-          <h3>Founding Recruiter seats</h3>
-          {!plans ? <Loader2 className="spin" size={18} /> : <>
-            <div className="admin-stat-row">
-              <div className="admin-stat"><strong>{plans.founding.sold}</strong><span>Seats taken</span></div>
-              <div className="admin-stat"><strong>{plans.founding.remaining}</strong><span>Seats remaining</span></div>
-              <div className="admin-stat"><strong>{plans.founding.limit}</strong><span>Total seats</span></div>
-            </div>
-            <p className="muted">
-              {plans.founding.soldOut
-                ? 'All founding seats are taken — new subscribers pay the standard price.'
-                : 'Counts only genuinely activated, non-cancelled founding subscriptions. This is the real number shown to recruiters — never a fabricated countdown.'}
-            </p>
-          </>}
         </section>}
 
         {section === 'bank' && <section className="admin-section">

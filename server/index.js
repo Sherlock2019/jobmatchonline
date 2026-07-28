@@ -27,7 +27,7 @@ import {
 } from './billing/subscriptions.js';
 import {
   buildEntitlementIndex, checkEditAllowed, checkPublishAllowed, consumeFreeJobAllowance,
-  consumeReferralJobCredit, entitlementsEnforced, foundingStatus, getRecruiterEntitlements,
+  consumeReferralJobCredit, entitlementsEnforced, getRecruiterEntitlements,
   lockMatchFieldsOnPublish, resolvePlanCode, revokeJobCredit,
 } from './billing/entitlements.js';
 import { boostedIds, boostPrice, BOOST_HOURS, BOOST_KINDS, expireBoosts, isBoosted, startBoost } from './billing/boosts.js';
@@ -35,7 +35,7 @@ import { activeMembers, addMember, findTeam, getOrCreateTeam, reconcileSeats, se
 import { addonPrice, currencyForCountry, EXTRA_SEAT_ADDON, PAY_PER_HIRE_FEE_PERCENT, PLANS, planPrice, seatPlanKey, SINGLE_POSTING, singlePostingPrice } from './billing/plans.js';
 import { assertNeverZeroLiveJobs, downgradeToFree, applyLiveJobLimit } from './billing/downgrade.js';
 import { clearSlotLocks, confirmHire, hasVerifiedHire, HIRE_OUTCOMES, POSTING_TERM_DAYS, recordHire, renewPosting, startPostingTerm } from './billing/postings.js';
-import { completeObligation, extendForHireInFlight, FOUNDING_OBLIGATIONS, obligationStatus, PUBLIC_TRIAL_DAYS, FOUNDING_TRIAL_DAYS } from './billing/trial.js';
+import { extendForHireInFlight, TRIAL_DAYS } from './billing/trial.js';
 import { recruiterVerification } from './billing/verification.js';
 import { attachReferralOnRegister, findReferrerByCode, getOrCreateReferralCode, revokeReferralCreditForPayment } from './billing/referrals.js';
 import { BANK_INSTRUCTION_FIELDS, generateInvoiceNumber, generateTransferReference, MANUAL_METHOD_IDS, paymentInstructions } from './billing/providers/manual.js';
@@ -368,9 +368,7 @@ app.get('/api/site-settings', async (_req, res, next) => {
     res.json({
       activeLandingBanner,
       bannerImage: settings.bannerImageExt ? { url: `/api/site-settings/banner-image?v=${settings.bannerImageUpdatedAt || 0}`, updatedAt: settings.bannerImageUpdatedAt || null } : null,
-      // Real remaining founding seats so the launch offer on the public page
-      // shows a true number (or nothing) — never an invented countdown.
-      founding: foundingStatus(db),
+      trialDays: TRIAL_DAYS,
     });
   } catch (error) { next(error); }
 });
@@ -1959,7 +1957,6 @@ function billingPayload(db, recruiter) {
     // Plan limits, usage, and remaining allowances — folded into the payload the
     // Subscription page already loads rather than a second round trip.
     entitlements: getRecruiterEntitlements(db, recruiter, subscription),
-    founding: foundingStatus(db),
     plan: planSummary(db, recruiter),
     team: teamPayload(db, recruiter),
     verification: recruiterVerification(recruiter),
@@ -1968,17 +1965,14 @@ function billingPayload(db, recruiter) {
   };
 }
 
-/** Trial terms as the recruiter sees them — length, kind, and what a founding
- *  seat asks for in return. */
+/** Trial terms as the recruiter sees them. */
 function trialPayload(subscription) {
   if (!subscription) return null;
   return {
-    kind: subscription.trialKind || 'public',
-    days: subscription.trialDays ?? null,
+    days: subscription.trialDays ?? TRIAL_DAYS,
     startedAt: subscription.trialStartedAt ?? null,
     endsAt: subscription.trialEndsAt ?? null,
     extendedForHire: Boolean(subscription.hireExtensionGrantedAt),
-    obligations: subscription.trialKind === 'founding' ? obligationStatus(subscription) : [],
   };
 }
 
@@ -2611,10 +2605,10 @@ app.get('/api/admin/billing/overview', async (req, res, next) => {
 });
 
 /**
- * Plans, per-recruiter usage against their limits, the job-post credit ledger,
- * and founding-seat availability — everything the pricing model exposes, in one
- * read. Uses the bulk entitlement index so this stays a single pass over jobs
- * and credits no matter how many recruiters exist.
+ * Plans, per-recruiter usage against their limits, and the job-post credit
+ * ledger — everything the pricing model exposes, in one read. Uses the bulk
+ * entitlement index so this stays a single pass over jobs and credits no matter
+ * how many recruiters exist.
  */
 app.get('/api/admin/billing/plans', async (req, res, next) => {
   try {
@@ -2646,7 +2640,6 @@ app.get('/api/admin/billing/plans', async (req, res, next) => {
       enforced: entitlementsEnforced(),
       planCounts,
       recruiters,
-      founding: foundingStatus(db),
       creditLedger: [...(db.jobPostCredits || [])]
         .sort((a, b) => (b.grantedAt || 0) - (a.grantedAt || 0))
         .slice(0, 200)
@@ -2677,7 +2670,7 @@ app.get('/api/admin/billing/plans', async (req, res, next) => {
         singlePosting: { termDays: SINGLE_POSTING.termDays, usd: singlePostingPrice('USD'), vnd: singlePostingPrice('VND') },
         payPerHireFeePercent: PAY_PER_HIRE_FEE_PERCENT,
         postingTermDays: POSTING_TERM_DAYS,
-        trial: { foundingDays: FOUNDING_TRIAL_DAYS, publicDays: PUBLIC_TRIAL_DAYS, obligations: FOUNDING_OBLIGATIONS },
+        trialDays: TRIAL_DAYS,
       },
       teams: (db.teams || []).map((team) => ({
         id: team.id,

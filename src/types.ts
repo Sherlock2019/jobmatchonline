@@ -140,7 +140,7 @@ export interface BillingInfo {
   subscription: Subscription; effectiveStatus: SubscriptionStatus; canPublishJob?: boolean; credits: SubscriptionCredit[]; referralCode: string;
   instructions?: PaymentInstructions; vnpayEnabled?: boolean; vnpayAmountVnd?: number; stripeEnabled?: boolean; paypalEnabled?: boolean;
   googlePlayEnabled?: boolean; googlePlayProductId?: string; appleEnabled?: boolean; appleProductId?: string;
-  entitlements?: RecruiterEntitlements; founding?: FoundingStatus;
+  entitlements?: RecruiterEntitlements;
   plan?: PlanSummary; team?: TeamInfo;
   verification?: RecruiterVerification; trial?: TrialInfo; postings?: PostingsInfo;
 }
@@ -153,7 +153,7 @@ export interface BillingNotification { id: string; kind: string; text: string; c
 /** Plan limits and current usage, computed server-side (never trusted from the
  *  client) and returned alongside the subscription. */
 export interface RecruiterEntitlements {
-  planCode: 'trial' | 'free' | 'founding' | 'pro';
+  planCode: 'trial' | 'free' | 'pro';
   activeJobLimit: number;
   activeJobCount: number;
   jobCreditBalance: number;
@@ -162,8 +162,6 @@ export interface RecruiterEntitlements {
   jobEditingAllowed: boolean;
   enforced: boolean;
 }
-
-export interface FoundingStatus { sold: number; remaining: number; limit: number; soldOut: boolean }
 
 export interface JobPostCredit {
   id: string; recruiterUserId: string; recruiterName?: string; sourceType: string; sourceReferenceId: string | null;
@@ -190,7 +188,7 @@ export interface PlanCatalog {
   singlePosting: { termDays: number; usd: number; vnd: number };
   payPerHireFeePercent: number;
   postingTermDays: number;
-  trial: { foundingDays: number; publicDays: number; obligations: string[] };
+  trialDays: number;
 }
 export interface AdminTeamRow {
   id: string; owner: string; planCode: string; extraSeats: number;
@@ -206,7 +204,6 @@ export interface AdminPlansOverview {
   enforced: boolean;
   planCounts: Record<string, number>;
   recruiters: AdminPlanRow[];
-  founding: FoundingStatus;
   creditLedger: JobPostCredit[];
   shadowBlocks: (BillingEvent & { userName?: string })[];
   catalog: PlanCatalog;
@@ -229,8 +226,7 @@ export interface RecruiterVerification {
   verified: boolean; method: string | null; domain?: string; reason?: string; message?: string;
 }
 export interface TrialInfo {
-  kind: 'founding' | 'public'; days: number | null; startedAt: number | null; endsAt: number | null;
-  extendedForHire: boolean; obligations: { key: string; done: boolean }[];
+  days: number | null; startedAt: number | null; endsAt: number | null; extendedForHire: boolean;
 }
 export interface PostingsInfo {
   termDays: number; live: number; paused: number; lockedSlots: number; verifiedHire: boolean;

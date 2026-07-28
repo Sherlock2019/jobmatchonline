@@ -8,37 +8,23 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /* Trial terms.
  *
- * Two lengths, because they are sold to two different people:
- *   founding (90 days) — hand-picked cohort, long enough to cover a real VN
- *     hire cycle including a 30-45 day notice period. A shorter trial expires
- *     before the hire it produced can possibly land, which converts nobody and
- *     teaches you nothing.
- *   public (14 days) — self-serve signups on the larger tiers. Long enough to
- *     evaluate, short enough to keep the funnel measurable.
+ * One trial, one length, the same for everybody: 90 days. Long enough to cover
+ * a real VN hire cycle including a 30-45 day notice period — a shorter trial
+ * expires before the hire it produced can possibly land, which converts nobody
+ * and teaches you nothing.
  *
- * The clock is stored as a REMAINING-DAYS budget plus a start date rather than
- * a fixed end timestamp, so a pause (see PAUSE_WINDOWS) can move the end date
- * without losing track of how much trial the recruiter has actually consumed. */
+ * There is deliberately no cohort, no seat count and no second tier of trial.
+ * Every branch of "which kind of trial is this" was a branch that could be got
+ * wrong, and none of them were doing anything a single number doesn't do. */
 
 const intFromEnv = (name, fallback) => {
   const parsed = Number(process.env[name]);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-/* Founding cohort size. 100, not 1000: the page shows how many seats are LEFT,
- * and "1,000 of 1,000 left" tells every visitor that nobody has signed up. A
- * number small enough to visibly move is the whole point of showing one. */
-export const FOUNDING_RECRUITER_LIMIT = intFromEnv('FOUNDING_RECRUITER_LIMIT', 100);
-
-export const FOUNDING_TRIAL_DAYS = intFromEnv('FOUNDING_TRIAL_DAYS', 90);
-export const PUBLIC_TRIAL_DAYS = intFromEnv('PUBLIC_TRIAL_DAYS', 14);
+export const TRIAL_DAYS = intFromEnv('RECRUITER_TRIAL_DAYS', 90);
 /** Granted once, when a hire is still in flight as the trial runs out. */
 export const HIRE_IN_FLIGHT_EXTENSION_DAYS = intFromEnv('HIRE_IN_FLIGHT_EXTENSION_DAYS', 30);
-
-/** Founding seats get the long trial; everyone else the short one. */
-export function trialDaysFor(kind) {
-  return kind === 'founding' ? FOUNDING_TRIAL_DAYS : PUBLIC_TRIAL_DAYS;
-}
 
 /* Holiday windows during which the trial clock stops.
  *
@@ -136,22 +122,3 @@ export function extendForHireInFlight(db, subscription, now = Date.now()) {
   return { outcome: 'extended', trialEndsAt: subscription.trialEndsAt };
 }
 
-/* What a founding recruiter agrees to in exchange for 90 free days. Tracked so
- * the cohort can be managed as a cohort; nothing here gates access to the
- * product, and failing to do them never removes anyone's data. */
-export const FOUNDING_OBLIGATIONS = ['intro_call', 'feedback_call', 'testimonial', 'referral'];
-
-export function obligationStatus(subscription) {
-  const done = new Set(subscription?.completedObligations || []);
-  return FOUNDING_OBLIGATIONS.map((key) => ({ key, done: done.has(key) }));
-}
-
-export function completeObligation(db, subscription, key, actorUserId, now = Date.now()) {
-  if (!FOUNDING_OBLIGATIONS.includes(key)) return { outcome: 'unknown_obligation' };
-  if (!Array.isArray(subscription.completedObligations)) subscription.completedObligations = [];
-  if (subscription.completedObligations.includes(key)) return { outcome: 'already_done' };
-  subscription.completedObligations.push(key);
-  subscription.updatedAt = now;
-  logBillingEvent(db, actorUserId, 'founding_obligation_completed', 'subscription', subscription.id, { obligation: key });
-  return { outcome: 'completed', key };
-}
