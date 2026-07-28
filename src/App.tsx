@@ -293,7 +293,7 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
           — blue is free and always will be, pink is what recruiters pay. */}
       <section className="pricing-side pricing-candidates">
         <header>
-          <span className="pricing-side-tag">For candidates</span>
+          <h2 className="pricing-side-tag">For candidates</h2>
           <h3>Free forever</h3>
           <p>Everything below is free, with no paid tier waiting to appear. We are paid by the companies doing the hiring — never by the people looking for work.</p>
         </header>
@@ -310,7 +310,7 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
 
       <section className="pricing-side pricing-recruiters">
         <header>
-          <span className="pricing-side-tag">For recruiters</span>
+          <h2 className="pricing-side-tag">For recruiters</h2>
           <h3>From USD 20 a month</h3>
           <p>Start with {TRIAL.days} days free. Pick the number of seats and live roles you actually need — every plan below costs less per seat than the one before it.</p>
         </header>

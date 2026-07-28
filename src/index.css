@@ -491,17 +491,25 @@ button { cursor:pointer; }
 /* Two sides of the marketplace, two colours. Blue is the candidate half and is
    free; pink is the recruiter half and is what gets paid for. Someone landing
    mid-page should know which half is theirs without reading a word. */
-.pricing-side { border-radius:26px; padding:34px 32px; margin-bottom:24px; border:1px solid transparent; }
-.pricing-side > header { max-width:70ch; margin-bottom:22px; }
-.pricing-side-tag { display:inline-block; text-transform:uppercase; letter-spacing:.12em; font-size:11px; font-weight:800;
-  padding:6px 12px; border-radius:999px; margin-bottom:12px; }
-.pricing-side > header h3 { font:800 clamp(26px,3.4vw,36px)/1.15 'Manrope'; letter-spacing:-.03em; margin:0 0 10px; }
-.pricing-side > header p { margin:0; font-size:14px; line-height:1.65; color:#3a4550; }
+.pricing-side { border-radius:26px; padding:40px 38px; margin-bottom:28px; border:1px solid transparent; }
+.pricing-side > header { max-width:70ch; margin-bottom:26px; }
+
+/* The audience label is the biggest thing in the panel on purpose — it is what
+   tells someone in one glance which half of the page is theirs. Large uppercase
+   needs far less tracking than a small caps pill did, hence .04em not .12em. */
+.pricing-side-tag { display:block; margin:0 0 6px; text-transform:uppercase;
+  font:800 clamp(28px,3.6vw,38px)/1.05 'Manrope'; letter-spacing:.04em; }
+.pricing-side-tag::after { content:''; display:block; width:64px; height:4px; border-radius:999px; margin-top:16px; }
+
+/* The offer line sits a clear step below the label rather than competing with it. */
+.pricing-side > header h3 { font:800 clamp(20px,2.4vw,27px)/1.25 'Manrope'; letter-spacing:-.02em; margin:18px 0 10px; }
+.pricing-side > header p { margin:0; font-size:14.5px; line-height:1.7; color:#3a4550; }
 
 /* Candidates — blue, calm, and short. There is nothing to compare. */
 .pricing-candidates { background:linear-gradient(150deg,#f1f8fd 0%,#eaf4fc 100%); border-color:#cfe4f7; }
-.pricing-candidates .pricing-side-tag { background:var(--blue); color:#fff; }
-.pricing-candidates > header h3 { color:var(--blue); }
+.pricing-candidates .pricing-side-tag { color:var(--blue); }
+.pricing-candidates .pricing-side-tag::after { background:var(--blue); }
+.pricing-candidates > header h3 { color:#12324e; }
 .pricing-side-perks { list-style:none; margin:0 0 24px; padding:0;
   display:grid; grid-template-columns:repeat(3,1fr); gap:12px 22px; }
 .pricing-side-perks li { display:flex; align-items:flex-start; gap:9px; font-size:14px; font-weight:600; color:#12324e; }
@@ -513,10 +521,13 @@ button { cursor:pointer; }
 
 /* Recruiters — the brand pink, because this is the half with a price on it. */
 .pricing-recruiters { background:linear-gradient(150deg,#fff5f8 0%,#ffeef4 100%); border-color:#ffd7e5; }
-.pricing-recruiters .pricing-side-tag { background:var(--brand-gradient); color:#fff; }
-.pricing-recruiters > header h3 { background:var(--brand-gradient); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.pricing-recruiters .pricing-side-tag { background:var(--brand-gradient); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+/* Solid, not the gradient: the parent uses background-clip:text, and a gradient
+   on the pseudo-element renders inconsistently underneath that. */
+.pricing-recruiters .pricing-side-tag::after { background:var(--green); }
+.pricing-recruiters > header h3 { color:var(--ink); }
 @media(max-width:900px){ .pricing-side-perks { grid-template-columns:repeat(2,1fr); } }
-@media(max-width:560px){ .pricing-side { padding:26px 20px; } .pricing-side-perks { grid-template-columns:1fr; } }
+@media(max-width:560px){ .pricing-side { padding:28px 22px; } .pricing-side-perks { grid-template-columns:1fr; } }
 
 .plan-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; align-items:stretch; }
 .plan-card { position:relative; display:flex; flex-direction:column; gap:6px; background:#fff;
