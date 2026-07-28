@@ -25,6 +25,14 @@ import {
   applyCredit, availableCredits, canUseRecruiterFeatures, computeEffectiveStatus, DAY_MS,
   findSubscription, getOrCreateTrialSubscription, isBillingExempt, PRICE_AMOUNT, PRICE_CURRENCY,
 } from './billing/subscriptions.js';
+import {
+  buildEntitlementIndex, checkEditAllowed, checkPublishAllowed, consumeFreeJobAllowance,
+  consumeReferralJobCredit, entitlementsEnforced, foundingStatus, getRecruiterEntitlements,
+  lockMatchFieldsOnPublish, resolvePlanCode, revokeJobCredit,
+} from './billing/entitlements.js';
+import { boostedIds, boostPrice, BOOST_HOURS, BOOST_KINDS, expireBoosts, isBoosted, startBoost } from './billing/boosts.js';
+import { activeMembers, addMember, findTeam, getOrCreateTeam, reconcileSeats, seatsAllowed } from './billing/seats.js';
+import { addonPrice, currencyForCountry, EXTRA_SEAT_ADDON, PLANS, planPrice, seatPlanKey } from './billing/plans.js';
 import { attachReferralOnRegister, findReferrerByCode, getOrCreateReferralCode, revokeReferralCreditForPayment } from './billing/referrals.js';
 import { BANK_INSTRUCTION_FIELDS, generateInvoiceNumber, generateTransferReference, MANUAL_METHOD_IDS, paymentInstructions } from './billing/providers/manual.js';
 import { buildPaymentUrl, isVnpayConfigured, isVnpaySuccess, VNPAY_AMOUNT_VND, verifySignature as verifyVnpaySignature } from './billing/providers/vnpay.js';
@@ -80,7 +88,7 @@ await store.transaction((db) => {
   // Scheduled calls were introduced after the store may already exist on disk.
   if (!Array.isArray(db.bookmarks)) db.bookmarks = [];
   // Billing collections were introduced after the store may already exist on disk.
-  for (const collection of ['subscriptions', 'subscriptionCredits', 'referrals', 'payments', 'billingEvents', 'billingNotifications']) {
+  for (const collection of ['subscriptions', 'subscriptionCredits', 'jobPostCredits', 'referrals', 'payments', 'billingEvents', 'billingNotifications', 'teams', 'boosts']) {
     if (!Array.isArray(db[collection])) db[collection] = [];
   }
   // Trust & safety / support collections, same "may already exist on disk" reasoning.
@@ -152,6 +160,28 @@ function assertDemoActor(req, db, actorId) {
   if (authSession(req)) return;
   const user = db.users.find((item) => item.id === actorId);
   if (user && user.demo !== true) { const error = new Error('Sign in to continue as this account'); error.status = 401; throw error; }
+}
+
+/**
+ * Guard for match-scoped reads. Anything derived from a match (icebreakers,
+ * interview kits) is built from the candidate's profile, so only the two
+ * matched parties — or an admin — may read it. Without a session the match must
+ * be entirely demo data, mirroring assertDemoActor's rule.
+ */
+function assertMatchParticipant(req, db, match) {
+  const session = authSession(req);
+  if (session) {
+    if (session.role === 'admin') return;
+    if (session.sub !== match.candidateId && session.sub !== match.employerId) {
+      const error = new Error('Only the matched parties can view this'); error.status = 403; throw error;
+    }
+    return;
+  }
+  const candidate = db.users.find((user) => user.id === match.candidateId);
+  const employer = db.users.find((user) => user.id === match.employerId);
+  if (!demoAuth || candidate?.demo !== true || employer?.demo !== true) {
+    const error = new Error('Sign in to continue'); error.status = 401; throw error;
+  }
 }
 
 /** Guard for endpoints that operate on a specific user's own data. */
@@ -334,6 +364,9 @@ app.get('/api/site-settings', async (_req, res, next) => {
     res.json({
       activeLandingBanner,
       bannerImage: settings.bannerImageExt ? { url: `/api/site-settings/banner-image?v=${settings.bannerImageUpdatedAt || 0}`, updatedAt: settings.bannerImageUpdatedAt || null } : null,
+      // Real remaining founding seats so the launch offer on the public page
+      // shows a true number (or nothing) — never an invented countdown.
+      founding: foundingStatus(db),
     });
   } catch (error) { next(error); }
 });
@@ -818,8 +851,10 @@ const RESUME_TYPES = {
 /**
  * Demo access rule: the owner always sees their full resume; a recruiter sees
  * it only after a mutual match with that candidate. Everyone else gets the
- * anonymized preview. (Demo-level check via viewerId param — a real deployment
- * would derive the viewer from an authenticated session.)
+ * anonymized preview. The viewer identity is resolved in loadResume(): the
+ * session always wins, and the ?viewerId param is honored only in demo mode and
+ * only for demo-flagged accounts, so a real user's resume can never be unlocked
+ * by claiming someone else's id.
  */
 function fullResumeAccess(db, viewerId, ownerId) {
   if (!viewerId) return false;
@@ -1094,6 +1129,61 @@ const JOB_ACCENTS = ['#3d5afe', '#ff5a5f', '#00a884', '#8b5cf6', '#f59e0b', '#0e
 // protection). Thresholds live in config, never hard-block a legitimate user.
 const JOB_EXPIRY_DAYS = 30;
 const ACTIVE_JOB_REVIEW_THRESHOLD = Number(process.env.ACTIVE_JOB_REVIEW_THRESHOLD || 50);
+// Statuses a candidate must never see or act on: an unpublished draft, a
+// lapsed posting, or one an admin has taken down. Each stays fully visible to
+// the recruiter who owns it (to finish, renew, or read the suspension reason).
+const HIDDEN_FROM_CANDIDATES = ['draft', 'expired', 'suspended'];
+const isLiveStatus = (status) => String(status).toLowerCase() === 'active';
+
+// Move promoted cards to the front, in place, preserving the relative order of
+// both groups. Nothing else about a card changes — the match score a promoted
+// card shows is the score it earned, so paid reach never edits the explanation.
+function sortPromotedFirst(cards) {
+  cards.sort((a, b) => Number(Boolean(b.promoted)) - Number(Boolean(a.promoted)));
+  return cards;
+}
+
+/**
+ * The one place a job transitions into "published". Runs the entitlement check,
+ * records which allowance paid for the posting, consumes that allowance, and
+ * freezes match-relevant fields on free-tier posts — all inside the caller's
+ * transaction, so a rejected publish consumes nothing.
+ *
+ * Called from both create (POST with status=active) and update (PATCH moving a
+ * draft to active), because a recruiter can publish either way.
+ *
+ * While ENTITLEMENTS_ENFORCED is false the verdict is logged but never blocks —
+ * that is the deliberate observe-before-enforce rollout, and the kill switch if
+ * enforcement ever misfires in production.
+ */
+function applyPublishEntitlement(db, employer, job) {
+  const subscription = findSubscription(db, employer.id);
+  const verdict = checkPublishAllowed(db, employer, subscription);
+
+  if (!verdict.allowed) {
+    logBillingEvent(db, employer.id, 'job_publish_blocked', 'job', job.id, {
+      code: verdict.code, enforced: entitlementsEnforced(),
+    });
+    if (entitlementsEnforced()) {
+      const error = new Error(verdict.message);
+      error.status = 402;
+      error.code = verdict.code;
+      error.details = { nextFreeJobAvailableAt: verdict.nextFreeJobAvailableAt ?? null, activeJobCount: verdict.activeJobCount, activeJobLimit: verdict.activeJobLimit };
+      throw error;
+    }
+    return null; // shadow mode: allow through, having recorded what would have happened
+  }
+
+  job.postingSource = verdict.postingSource;
+  if (verdict.postingSource === 'free_base') {
+    consumeFreeJobAllowance(db, employer, subscription, job);
+    lockMatchFieldsOnPublish(job);
+  } else if (verdict.postingSource === 'referral_credit') {
+    consumeReferralJobCredit(db, employer, job);
+    lockMatchFieldsOnPublish(job);
+  }
+  return verdict;
+}
 
 // ---------------------------------------------------------------------------
 // Starter "sample" content: when a real recruiter posts their first job, or a
@@ -1275,6 +1365,10 @@ app.post('/api/jobs', async (req, res, next) => {
       if (!created.screeningQuestions?.length) created.screeningQuestions = suggestScreeningQuestions(created);
       // Inherit the recruiter's location so distance matching works out of the box.
       if (!created.geo && employer.geo) created.geo = employer.geo;
+      // Entitlement check runs BEFORE the job joins db.jobs, so the posting
+      // being created never counts against its own active-job limit. Creating a
+      // draft is always free — only publishing consumes an allowance.
+      if (isLiveStatus(created.status)) applyPublishEntitlement(db, employer, created);
       db.jobs.push(created);
       // Fair-use flag only (never a hard block) once a recruiter crosses the
       // configured active-postings threshold — an admin reviews, nothing is
@@ -1309,6 +1403,28 @@ app.patch('/api/jobs/:id', async (req, res, next) => {
       if (!item) { const error = new Error('Job not found'); error.status = 404; throw error; }
       if (session && item.employerId !== session.sub) { const error = new Error('You can only edit your own postings'); error.status = 403; throw error; }
       assertDemoActor(req, db, item.employerId); // a real user's posting needs their session
+      // Fields frozen at publish time (free-tier posts) can't be rewritten into
+      // a different role. Checked against the raw body before applyJob mutates
+      // anything, so a rejected edit leaves the posting untouched.
+      const editVerdict = checkEditAllowed(item, req.body);
+      if (!editVerdict.allowed) {
+        logBillingEvent(db, item.employerId, 'job_edit_blocked', 'job', item.id, { code: editVerdict.code, blockedFields: editVerdict.blockedFields, enforced: entitlementsEnforced() });
+        if (entitlementsEnforced()) {
+          const error = new Error(editVerdict.message);
+          error.status = 403;
+          error.code = editVerdict.code;
+          error.details = { blockedFields: editVerdict.blockedFields };
+          throw error;
+        }
+      }
+      // A draft going live is a publish, and must pass the same entitlement
+      // check as publishing straight from POST — most recruiters reach "active"
+      // through this route, not that one.
+      const wasLive = isLiveStatus(item.status);
+      const employer = db.users.find((user) => user.id === item.employerId);
+      if (!wasLive && isLiveStatus(req.body?.status) && employer) {
+        applyPublishEntitlement(db, employer, item);
+      }
       const updated = applyJob(item, req.body);
       if (updated.sourceSystem) updated.importNeedsReview = importedJobMissing(updated);
       return updated;
@@ -1438,6 +1554,7 @@ app.get('/api/matches/:id/icebreakers', async (req, res, next) => {
     const db = await store.read();
     const match = db.matches.find((item) => item.id === req.params.id);
     if (!match) { const error = new Error('Match not found'); error.status = 404; throw error; }
+    assertMatchParticipant(req, db, match);
     if (match.icebreakerCache) return res.json(match.icebreakerCache);
     const result = await generateIcebreakers(db.users.find((user) => user.id === match.candidateId) || {}, db.jobs.find((item) => item.id === match.jobId) || {});
     await store.transaction((inner) => {
@@ -1453,6 +1570,7 @@ app.get('/api/matches/:id/kit', async (req, res, next) => {
     const db = await store.read();
     const match = db.matches.find((item) => item.id === req.params.id);
     if (!match) { const error = new Error('Match not found'); error.status = 404; throw error; }
+    assertMatchParticipant(req, db, match);
     if (match.kitCache) return res.json(match.kitCache);
     const candidate = db.users.find((user) => user.id === match.candidateId);
     const job = db.jobs.find((item) => item.id === match.jobId);
@@ -1484,10 +1602,10 @@ app.get('/api/bootstrap', async (req, res, next) => {
     const incomingEmployerLikes = pool.swipes.filter((s) => s.direction === 'like' && s.targetType === 'candidate' && s.targetId === viewer.id);
     const viewerJobIds = new Set(pool.jobs.filter((job) => job.employerId === viewer.id).map((job) => job.id));
     const candidatesWhoSuperLikedMyJobs = new Set(pool.swipes.filter((s) => s.superLike && s.targetType === 'job' && viewerJobIds.has(s.targetId)).map((s) => s.actorId));
-    // Expired postings (30 days, unless renewed) and admin-suspended postings
-    // stay visible to their own recruiter (to renew or see why), but drop out
-    // of candidates' view.
-    const scoredJobs = pool.jobs.filter((job) => role !== 'candidate' || !['expired', 'suspended'].includes(String(job.status).toLowerCase())).map((job) => {
+    // Computed once per bootstrap so ranking stays O(1) per card.
+    const boostedJobIds = boostedIds(db, 'job');
+    const boostedCandidateIds = boostedIds(db, 'candidate');
+    const scoredJobs =pool.jobs.filter((job) => role !== 'candidate' || !HIDDEN_FROM_CANDIDATES.includes(String(job.status).toLowerCase())).map((job) => {
       const employer = pool.users.find((user) => user.id === job.employerId);
       // Real haversine distance when both sides have coordinates; else demo fallback.
       const realDist = haversineKm(viewer.geo, job.geo);
@@ -1500,8 +1618,13 @@ app.get('/api/bootstrap', async (req, res, next) => {
       const incomingLike = incomingEmployerLikes.find((swipe) => swipe.actorId === job.employerId && swipe.jobId === job.id);
       // Public recruiter card shown on each role (photo/name/title only — no contact info pre-match).
       const recruiter = employer ? { name: employer.name, title: employer.title, photo: employer.photo, company: employer.company } : undefined;
-      return { ...withDistance, companyLogo: employer?.companyLogo, recruiter, match, likedYou: Boolean(incomingLike), superLikedYou: Boolean(incomingLike?.superLike), verified: verifiedUser(employer) };
+      return { ...withDistance, companyLogo: employer?.companyLogo, recruiter, match, likedYou: Boolean(incomingLike), superLikedYou: Boolean(incomingLike?.superLike), verified: verifiedUser(employer), promoted: boostedJobIds.has(job.id) };
     });
+    // Boosted cards ride to the front of the deck, keeping their own relative
+    // order. The match score is never touched — a promoted card shows the same
+    // fit it would have shown unboosted, and is labelled `promoted` so the UI
+    // can say so. Paid reach changes the order; it must not change the score.
+    sortPromotedFirst(scoredJobs);
     // Score candidates against this recruiter's own (first active) job when possible.
     const referenceJob = pool.jobs.find((job) => job.employerId === viewer.id && String(job.status).toLowerCase() === 'active')
       || pool.jobs.find((job) => job.employerId === viewer.id) || pool.jobs[0];
@@ -1517,8 +1640,9 @@ app.get('/api/bootstrap', async (req, res, next) => {
         withDistance.salaryHidden = true;
       }
       const unlockedContacts = matchedCandidateIds.has(candidate.id) ? { email, phone, contactChannels } : {};
-      return { ...withDistance, ...unlockedContacts, match, superLikedYou: candidatesWhoSuperLikedMyJobs.has(candidate.id), verified: verifiedUser(candidate) };
+      return { ...withDistance, ...unlockedContacts, match, superLikedYou: candidatesWhoSuperLikedMyJobs.has(candidate.id), verified: verifiedUser(candidate), promoted: boostedCandidateIds.has(candidate.id) };
     });
+    sortPromotedFirst(scoredCandidates);
     // Every recruiter role receives its own correctly scored candidate list.
     // Candidate contact details remain stripped because these objects reuse the
     // same recruiter-safe payload as the discovery deck.
@@ -1625,6 +1749,16 @@ app.post('/api/swipes', async (req, res, next) => {
       }
       if (!targetIsInMatchingPool(db, actor, targetType, targetId)) {
         const error = new Error('Demo and live matching are separate'); error.status = 403; throw error;
+      }
+      // A job only accepts interest while it is genuinely live. Without this a
+      // candidate could swipe a job id straight from the API and match against
+      // an unpublished draft or an expired posting — the deck filter alone
+      // can't prevent that.
+      if (targetType === 'job') {
+        const targetJob = db.jobs.find((job) => job.id === targetId);
+        if (targetJob && HIDDEN_FROM_CANDIDATES.includes(String(targetJob.status).toLowerCase())) {
+          const error = new Error('This role is not open for applications'); error.status = 409; throw error;
+        }
       }
       if (direction === 'like' && likesRemainingToday(db.swipes, actorId) <= 0) {
         const error = new Error('Daily like limit reached'); error.status = 429; throw error;
@@ -1733,6 +1867,49 @@ function billingPayload(db, recruiter) {
     googlePlayProductId: googlePlaySubscriptionProductId(),
     appleEnabled: isAppleConfigured(),
     appleProductId: appleSubscriptionProductId(),
+    // Plan limits, usage, and remaining allowances — folded into the payload the
+    // Subscription page already loads rather than a second round trip.
+    entitlements: getRecruiterEntitlements(db, recruiter, subscription),
+    founding: foundingStatus(db),
+    plan: planSummary(db, recruiter),
+    team: teamPayload(db, recruiter),
+  };
+}
+
+/** What this recruiter's plan costs and grants, in their own currency. */
+function planSummary(db, recruiter) {
+  const planCode = resolvePlanCode(findSubscription(db, recruiter.id));
+  const key = seatPlanKey(planCode);
+  const plan = PLANS[key];
+  const currency = currencyForCountry(recruiter.country);
+  return {
+    planCode, key, display: plan.display, currency,
+    monthly: planPrice(key, currency),
+    annual: planPrice(key, currency, 'annual'),
+    seats: plan.seats, liveJobSlots: plan.liveJobSlots,
+    analytics: plan.analytics, atsExport: plan.atsExport,
+  };
+}
+
+/** A recruiter with no team row still gets a coherent one-person answer, so the
+ *  Subscription page never has to special-case "no team yet". */
+function teamPayload(db, recruiter) {
+  const planCode = resolvePlanCode(findSubscription(db, recruiter.id));
+  const team = findTeam(db, recruiter.id);
+  const extraSeats = team?.extraSeats || 0;
+  const allowed = seatsAllowed(planCode, extraSeats);
+  const nameOf = (id) => db.users.find((user) => user.id === id)?.name || id;
+  return {
+    teamId: team?.id || null,
+    isOwner: team ? team.ownerUserId === recruiter.id : true,
+    seatsAllowed: allowed,
+    seatsUsed: team ? activeMembers(team).length : 1,
+    extraSeats,
+    extraSeatPrice: addonPrice(currencyForCountry(recruiter.country)),
+    canBuyExtraSeats: EXTRA_SEAT_ADDON.availableOn.includes(seatPlanKey(planCode)),
+    members: team
+      ? team.members.map((member) => ({ ...member, name: nameOf(member.userId) }))
+      : [{ userId: recruiter.id, role: 'owner', status: 'active', joinedAt: recruiter.createdAt || null, name: recruiter.name }],
   };
 }
 
@@ -1760,6 +1937,50 @@ app.post('/api/billing/start-trial', async (req, res, next) => {
       if (recruiter.role !== 'employer') { const error = new Error('Only recruiter accounts can start a trial'); error.status = 400; throw error; }
       getOrCreateTrialSubscription(db, recruiterId); // idempotent — a repeat call never restarts the clock
       return billingPayload(db, recruiter);
+    });
+    res.status(201).json(payload);
+  } catch (error) { next(error); }
+});
+
+/* Seats. A recruiter who never invites anyone has no team row and this returns
+ * a one-person view built on the fly — so nothing about a solo account changes
+ * shape just because the seat model now exists. */
+app.get('/api/billing/team', async (req, res, next) => {
+  try {
+    const recruiterId = resolveActor(req, reqString(req.query, 'userId', { max: 128 }));
+    const payload = await store.read().then((db) => {
+      const recruiter = db.users.find((user) => user.id === recruiterId);
+      if (!recruiter) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, recruiterId);
+      if (recruiter.role !== 'employer') { const error = new Error('Only recruiter accounts have seats'); error.status = 400; throw error; }
+      return teamPayload(db, recruiter);
+    });
+    res.json(payload);
+  } catch (error) { next(error); }
+});
+
+/** Invite a teammate by email. Over the seat limit they join read-only rather
+ * than being refused — losing seats must never lock a colleague out. */
+app.post('/api/billing/team/members', rateLimit({ windowMs: 3600000, max: 20, bucket: 'team-invite' }), async (req, res, next) => {
+  try {
+    const recruiterId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const email = reqString(req.body, 'email', { max: 254 }).trim().toLowerCase();
+    const payload = await store.transaction((db) => {
+      const owner = db.users.find((user) => user.id === recruiterId);
+      if (!owner) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, recruiterId);
+      if (owner.role !== 'employer') { const error = new Error('Only recruiter accounts have seats'); error.status = 400; throw error; }
+
+      const invitee = db.users.find((user) => String(user.email || '').toLowerCase() === email);
+      if (!invitee) { const error = new Error('No account with that email yet — ask them to register first.'); error.status = 404; throw error; }
+      if (invitee.role !== 'employer') { const error = new Error('Only recruiter accounts can take a seat'); error.status = 400; throw error; }
+      if (findTeam(db, invitee.id)) { const error = new Error('That recruiter already belongs to a team'); error.status = 409; throw error; }
+
+      const team = getOrCreateTeam(db, owner.id);
+      const planCode = resolvePlanCode(db.subscriptions.find((entry) => entry.recruiterUserId === owner.id));
+      const result = addMember(db, team, invitee.id, planCode);
+      logBillingEvent(db, owner.id, 'team_member_added', 'team', team.id, { memberId: invitee.id, outcome: result.outcome });
+      return teamPayload(db, owner);
     });
     res.status(201).json(payload);
   } catch (error) { next(error); }
@@ -2268,6 +2489,176 @@ app.get('/api/admin/billing/overview', async (req, res, next) => {
       flaggedForJobReview: db.users.filter((user) => user.flaggedForJobReview === true).map((user) => ({ id: user.id, name: user.name, email: user.email })),
       recentAuditLog: db.billingEvents.slice(-200).reverse(),
     });
+  } catch (error) { next(error); }
+});
+
+/**
+ * Plans, per-recruiter usage against their limits, the job-post credit ledger,
+ * and founding-seat availability — everything the pricing model exposes, in one
+ * read. Uses the bulk entitlement index so this stays a single pass over jobs
+ * and credits no matter how many recruiters exist.
+ */
+app.get('/api/admin/billing/plans', async (req, res, next) => {
+  try {
+    requireAdminRole(authSession(req));
+    const db = await store.read();
+    const now = Date.now();
+    const index = buildEntitlementIndex(db);
+    const subsByRecruiter = new Map(db.subscriptions.map((entry) => [entry.recruiterUserId, entry]));
+    const nameById = new Map(db.users.map((user) => [user.id, user.name || user.id]));
+
+    const recruiters = db.users
+      .filter((user) => user.role === 'employer' && !user.demo)
+      .map((recruiter) => {
+        const subscription = subsByRecruiter.get(recruiter.id);
+        const entitlements = getRecruiterEntitlements(db, recruiter, subscription, now, index);
+        return {
+          recruiter: { id: recruiter.id, name: recruiter.name, email: recruiter.email, company: recruiter.company },
+          effectiveStatus: computeEffectiveStatus(subscription, now),
+          trialEndsAt: subscription?.trialEndsAt ?? null,
+          currentPeriodEndsAt: subscription?.currentPeriodEndsAt ?? null,
+          ...entitlements,
+        };
+      })
+      .sort((a, b) => (b.activeJobCount - a.activeJobCount) || a.recruiter.name.localeCompare(b.recruiter.name));
+
+    const planCounts = recruiters.reduce((acc, entry) => { acc[entry.planCode] = (acc[entry.planCode] || 0) + 1; return acc; }, {});
+
+    res.json({
+      enforced: entitlementsEnforced(),
+      planCounts,
+      recruiters,
+      founding: foundingStatus(db),
+      creditLedger: [...(db.jobPostCredits || [])]
+        .sort((a, b) => (b.grantedAt || 0) - (a.grantedAt || 0))
+        .slice(0, 200)
+        .map((credit) => ({ ...credit, recruiterName: nameById.get(credit.recruiterUserId) || credit.recruiterUserId })),
+      // What the entitlement checks WOULD have blocked — the observe-before-
+      // enforce signal. Only meaningful while `enforced` is false.
+      shadowBlocks: db.billingEvents
+        .filter((event) => event.eventType === 'job_publish_blocked' || event.eventType === 'job_edit_blocked')
+        .slice(-100).reverse()
+        .map((event) => ({ ...event, userName: nameById.get(event.userId) || event.userId })),
+      // The price list itself, read straight from the catalogue so the dashboard
+      // can never show a tier the server does not actually sell.
+      catalog: {
+        plans: Object.values(PLANS).map((plan) => ({
+          key: plan.key, display: plan.display, order: plan.order,
+          seats: plan.seats, liveJobSlots: plan.liveJobSlots,
+          monthlyMatchCap: plan.monthlyMatchCap,
+          analytics: plan.analytics, atsExport: plan.atsExport, priorityPlacement: plan.priorityPlacement,
+          usd: planPrice(plan.key, 'USD'), vnd: planPrice(plan.key, 'VND'),
+          hireFeePercent: plan.hireFeePercent ?? null,
+        })).sort((a, b) => a.order - b.order),
+        extraSeat: {
+          seats: EXTRA_SEAT_ADDON.seats, liveJobSlots: EXTRA_SEAT_ADDON.liveJobSlots,
+          usd: EXTRA_SEAT_ADDON.prices.USD.monthly, vnd: EXTRA_SEAT_ADDON.prices.VND.monthly,
+          availableOn: EXTRA_SEAT_ADDON.availableOn,
+        },
+        boost: { hours: BOOST_HOURS, usd: boostPrice('USD'), vnd: boostPrice('VND'), kinds: BOOST_KINDS },
+      },
+      teams: (db.teams || []).map((team) => ({
+        id: team.id,
+        owner: nameById.get(team.ownerUserId) || team.ownerUserId,
+        planCode: subsByRecruiter.get(team.ownerUserId)?.planCode || 'free',
+        extraSeats: team.extraSeats || 0,
+        seatsAllowed: seatsAllowed(subsByRecruiter.get(team.ownerUserId)?.planCode || 'starter', team.extraSeats),
+        active: activeMembers(team).length,
+        total: team.members.length,
+      })),
+      boosts: [...(db.boosts || [])]
+        .sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0))
+        .slice(0, 100)
+        .map((boost) => ({
+          ...boost,
+          targetName: boost.kind === 'job'
+            ? (db.jobs.find((job) => job.id === boost.targetId)?.title || boost.targetId)
+            : (nameById.get(boost.targetId) || boost.targetId),
+          buyerName: nameById.get(boost.purchasedByUserId) || boost.purchasedByUserId,
+          live: boost.status === 'active' && boost.expiresAt > now,
+        })),
+    });
+  } catch (error) { next(error); }
+});
+
+/** Grant a job-post credit by hand (support/goodwill/compensation). Reason is
+ * mandatory and lands in the audit log, same contract as every other admin
+ * override in this dashboard. */
+app.post('/api/admin/billing/job-credits', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const recruiterUserId = reqString(req.body, 'recruiterUserId', { max: 128 });
+    const reason = reqString(req.body, 'reason', { min: 3, max: 500 });
+    const credit = await store.transaction((db) => {
+      const recruiter = db.users.find((user) => user.id === recruiterUserId && user.role === 'employer');
+      if (!recruiter) { const error = new Error('Recruiter not found'); error.status = 404; throw error; }
+      if (!Array.isArray(db.jobPostCredits)) db.jobPostCredits = [];
+      const now = Date.now();
+      const granted = {
+        id: crypto.randomUUID(), recruiterUserId, sourceType: 'admin_grant', sourceReferenceId: null,
+        idempotencyKey: `admin:${crypto.randomUUID()}`, status: 'available', grantedAt: now,
+        consumedAt: null, revokedAt: null, consumedByJobId: null, createdAt: now, updatedAt: now,
+      };
+      db.jobPostCredits.push(granted);
+      logBillingEvent(db, session.sub, 'admin_job_credit_granted', 'jobPostCredit', granted.id, { recruiterUserId, reason });
+      return granted;
+    });
+    res.status(201).json(credit);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/billing/job-credits/:id/revoke', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const reason = reqString(req.body, 'reason', { min: 3, max: 500 });
+    const credit = await store.transaction((db) => {
+      const item = (db.jobPostCredits || []).find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Credit not found'); error.status = 404; throw error; }
+      if (item.status !== 'available') { const error = new Error(`Only unused credits can be revoked (this one is ${item.status})`); error.status = 409; throw error; }
+      return revokeJobCredit(db, item, session.sub, reason);
+    });
+    res.json(credit);
+  } catch (error) { next(error); }
+});
+
+/* Boosts are granted by an admin, not bought self-serve. The card rails are
+ * still test-mode/sandbox, so there is no honest way to take money for one
+ * in-app yet — rather than fake a purchase flow, an admin starts the boost once
+ * payment is settled the same way bank-transfer subscriptions already work. */
+app.post('/api/admin/billing/boosts', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const kind = reqString(req.body, 'kind', { max: 32 });
+    const targetId = reqString(req.body, 'targetId', { max: 128 });
+    const reason = reqString(req.body, 'reason', { min: 3, max: 500 });
+    if (!BOOST_KINDS.includes(kind)) { const error = new Error(`kind must be one of ${BOOST_KINDS.join(', ')}`); error.status = 400; throw error; }
+
+    const result = await store.transaction((db) => {
+      const owner = kind === 'job'
+        ? db.users.find((user) => user.id === db.jobs.find((job) => job.id === targetId)?.employerId)
+        : db.users.find((user) => user.id === targetId && user.role === 'candidate');
+      if (!owner) { const error = new Error(kind === 'job' ? 'Job not found' : 'Candidate not found'); error.status = 404; throw error; }
+      const started = startBoost(db, { kind, targetId, purchasedByUserId: owner.id, currency: currencyForCountry(owner.country) });
+      logBillingEvent(db, session.sub, 'admin_boost_granted', 'boost', started.boost.id, { kind, targetId, reason, outcome: started.outcome });
+      return started;
+    });
+    res.status(201).json(result);
+  } catch (error) { next(error); }
+});
+
+app.post('/api/admin/billing/boosts/:id/revoke', async (req, res, next) => {
+  try {
+    const session = requireAdminRole(authSession(req));
+    const reason = reqString(req.body, 'reason', { min: 3, max: 500 });
+    const boost = await store.transaction((db) => {
+      const item = (db.boosts || []).find((entry) => entry.id === req.params.id);
+      if (!item) { const error = new Error('Boost not found'); error.status = 404; throw error; }
+      item.status = 'revoked';
+      item.updatedAt = Date.now();
+      logBillingEvent(db, session.sub, 'admin_boost_revoked', 'boost', item.id, { kind: item.kind, targetId: item.targetId, reason });
+      return item;
+    });
+    res.json(boost);
   } catch (error) { next(error); }
 });
 
@@ -3162,7 +3553,16 @@ app.use((error, _req, res, _next) => {
   // "VNPay/Stripe/PayPal is not configured yet") always ships with an
   // authored, safe-to-show message, so redacting anything >= 500 was
   // swallowing those into a useless generic string.
-  res.status(status).json({ error: status === 500 ? 'Unexpected server error' : error.message, field: error.field });
+  // `code`/`details` carry the structured entitlement verdict (e.g.
+  // FREE_JOB_ALREADY_USED + nextFreeJobAvailableAt) so the client can render a
+  // specific, actionable message instead of parsing prose. Both are omitted
+  // unless the thrower set them.
+  res.status(status).json({
+    error: status === 500 ? 'Unexpected server error' : error.message,
+    field: error.field,
+    ...(error.code ? { code: error.code } : {}),
+    ...(error.details ? { details: error.details } : {}),
+  });
 });
 
 if (process.env.NODE_ENV !== 'test') {

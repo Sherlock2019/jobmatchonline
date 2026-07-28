@@ -1,4 +1,4 @@
-import type { ActionQueueItem, AdminAnalyticsOverview, AdminJobSummary, AdminRecruiterStatus, AdminUserDetail, AdminUserSummary, AuthConfig, BillingEvent, BillingInfo, Bootstrap, EmployerKind, InterviewKit, InterviewPrep, Job, JobDraft, JobImportResult, JobMatch, Message, Note, Payment, PaymentMethod, PipelineStep, Person, ProfileVariant, RecommendationRequest, Referral, Report, ReportCategory, ResumeMeta, Review, Role, ScheduledCall, ScreeningAnswer, SessionUser, SupportRequest, WeightedSkill } from './types';
+import type { ActionQueueItem, AdminAnalyticsOverview, AdminJobSummary, AdminPlansOverview, AdminRecruiterStatus, AdminUserDetail, AdminUserSummary, AuthConfig, BillingEvent, BillingInfo, Bootstrap, BoostRecord, EmployerKind, FoundingStatus, InterviewKit, InterviewPrep, Job, JobDraft, JobImportResult, JobMatch, JobPostCredit, Message, Note, Payment, PaymentMethod, PipelineStep, Person, ProfileVariant, RecommendationRequest, Referral, Report, ReportCategory, ResumeMeta, Review, Role, ScheduledCall, ScreeningAnswer, SessionUser, SupportRequest, TeamInfo, WeightedSkill } from './types';
 
 export const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
@@ -15,7 +15,7 @@ export const api = {
   authConfig: () => request<AuthConfig>('/api/auth/config'),
   showcase: () => request<{ jobs: Job[]; candidates: Person[] }>('/api/showcase'),
   reviews: () => request<{ reviews: Review[] }>('/api/feedback'),
-  siteSettings: () => request<{ activeLandingBanner: 'default' | 'alt' | 'image'; bannerImage: { url: string; updatedAt: number | null } | null }>('/api/site-settings'),
+  siteSettings: () => request<{ activeLandingBanner: 'default' | 'alt' | 'image'; bannerImage: { url: string; updatedAt: number | null } | null; founding?: FoundingStatus }>('/api/site-settings'),
   adminSetSiteSettings: (activeLandingBanner: 'default' | 'alt' | 'image') => request<{ activeLandingBanner: 'default' | 'alt' | 'image' }>('/api/admin/site-settings', { method: 'POST', body: JSON.stringify({ activeLandingBanner }) }),
   adminBankInstructions: () => request<{ bankAccountName: string; bankName: string; bankAccountNumber: string; bankSwift: string; vietQrImageUrl: string; supportEmail: string }>('/api/admin/bank-instructions'),
   adminSetBankInstructions: (payload: { bankAccountName: string; bankName: string; bankAccountNumber: string; bankSwift: string; vietQrImageUrl: string; supportEmail: string }) => request<typeof payload>('/api/admin/bank-instructions', { method: 'POST', body: JSON.stringify(payload) }),
@@ -130,7 +130,14 @@ export const api = {
   adminRevokeCredit: (id: string, reason: string) => request<unknown>(`/api/admin/billing/credits/${id}/revoke`, { method: 'POST', body: JSON.stringify({ reason }) }),
   adminSuspendSubscription: (id: string, reason?: string) => request<unknown>(`/api/admin/billing/subscriptions/${id}/suspend`, { method: 'POST', body: JSON.stringify({ reason }) }),
   adminReactivateSubscription: (id: string) => request<unknown>(`/api/admin/billing/subscriptions/${id}/reactivate`, { method: 'POST' }),
+  adminBillingPlans: () => request<AdminPlansOverview>('/api/admin/billing/plans'),
+  adminGrantJobCredit: (recruiterUserId: string, reason: string) => request<JobPostCredit>('/api/admin/billing/job-credits', { method: 'POST', body: JSON.stringify({ recruiterUserId, reason }) }),
+  adminRevokeJobCredit: (id: string, reason: string) => request<JobPostCredit>(`/api/admin/billing/job-credits/${id}/revoke`, { method: 'POST', body: JSON.stringify({ reason }) }),
   adminExtendTrial: (id: string, days: number, reason: string) => request<unknown>(`/api/admin/billing/subscriptions/${id}/extend-trial`, { method: 'POST', body: JSON.stringify({ days, reason }) }),
+  adminGrantBoost: (kind: 'job' | 'candidate', targetId: string, reason: string) => request<{ outcome: string; boost: BoostRecord }>('/api/admin/billing/boosts', { method: 'POST', body: JSON.stringify({ kind, targetId, reason }) }),
+  adminRevokeBoost: (id: string, reason: string) => request<BoostRecord>(`/api/admin/billing/boosts/${id}/revoke`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  billingTeam: (userId: string) => request<TeamInfo>(`/api/billing/team?userId=${encodeURIComponent(userId)}`),
+  billingInviteTeamMember: (userId: string, email: string) => request<TeamInfo>('/api/billing/team/members', { method: 'POST', body: JSON.stringify({ userId, email }) }),
   adminAnalyticsOverview: () => request<AdminAnalyticsOverview>('/api/admin/analytics/overview'),
 
   // --- Admin: job moderation ---

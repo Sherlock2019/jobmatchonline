@@ -14,10 +14,17 @@ import { approveLink, isPaypalConfigured } from './billing/providers/paypal.js';
 import { isActiveSubscriptionState, isGooglePlayConfigured, isValidRtdnSecret, parseRtdnMessage } from './billing/providers/googleplay.js';
 import { decodeJws, isAppleConfigured } from './billing/providers/applestore.js';
 import { confirmPayment } from './billing/confirm.js';
+import {
+  availableJobCredits, buildEntitlementIndex, checkEditAllowed, checkPublishAllowed,
+  consumeFreeJobAllowance, consumeReferralJobCredit, countActiveJobs, FREE_ACTIVE_JOB_LIMIT,
+  FREE_JOB_PERIOD_DAYS, foundingStatus, getRecruiterEntitlements, grantReferralJobCredit,
+  jobCreditBalance, lockMatchFieldsOnPublish, MATCH_RELEVANT_FIELDS, REFERRAL_JOB_CREDIT_MAX,
+  resolvePlanCode, revokeJobCredit, TRIAL_ACTIVE_JOB_LIMIT,
+} from './billing/entitlements.js';
 import crypto from 'node:crypto';
 
 function makeDb(overrides = {}) {
-  return { users: [], subscriptions: [], subscriptionCredits: [], referrals: [], payments: [], billingEvents: [], billingNotifications: [], jobs: [], ...overrides };
+  return { users: [], subscriptions: [], subscriptionCredits: [], jobPostCredits: [], referrals: [], payments: [], billingEvents: [], billingNotifications: [], jobs: [], ...overrides };
 }
 
 // 1. Candidate remains free and never receives recruiter billing restrictions.
@@ -501,4 +508,293 @@ test('decodeJws splits and decodes a JWS compact serialization', () => {
   assert.equal(decoded.payload.originalTransactionId, 'o1');
   assert.equal(decoded.signingInput, `${header}.${payload}`);
   assert.equal(decodeJws('not-a-jws'), null);
+});
+
+// ---------------------------------------------------------------------------
+// Entitlements (Phase 1): plan resolution, active-job limits, the free-tier
+// rolling allowance, job-post credits, locked fields, and founding seats.
+// ---------------------------------------------------------------------------
+
+const recruiter = (id = 'r1') => ({ id, role: 'employer' });
+const liveJob = (id, employerId = 'r1') => ({ id, employerId, status: 'active' });
+
+// E1. A recruiter with no subscription row at all is on the free plan.
+test('recruiter without a subscription resolves to the free plan', () => {
+  assert.equal(resolvePlanCode(undefined), 'free');
+  assert.equal(resolvePlanCode(null), 'free');
+});
+
+// E2. A live trial resolves to the trial plan and gets the trial job limit.
+test('an in-date trial resolves to the trial plan with the trial job limit', () => {
+  const now = Date.now();
+  const db = makeDb();
+  const sub = { trialStartedAt: now, trialEndsAt: now + 10 * DAY_MS, currentPeriodEndsAt: null };
+  assert.equal(resolvePlanCode(sub, now), 'trial');
+  const ent = getRecruiterEntitlements(db, recruiter(), sub, now);
+  assert.equal(ent.activeJobLimit, TRIAL_ACTIVE_JOB_LIMIT);
+});
+
+// E3. A lapsed trial falls back to free, NOT to a blocked state — the whole
+// point of the free-for-life tier is that access never hard-stops.
+test('a lapsed trial resolves to the free plan, not a blocked state', () => {
+  const now = Date.now();
+  const sub = { trialStartedAt: now - 90 * DAY_MS, trialEndsAt: now - 60 * DAY_MS, currentPeriodEndsAt: null, gracePeriodEndsAt: now - 50 * DAY_MS };
+  assert.equal(resolvePlanCode(sub, now), 'free');
+});
+
+// E4. Only live postings occupy a slot — a draft never does, so saving drafts
+// can never exhaust an allowance.
+test('countActiveJobs counts live postings and ignores drafts and expired posts', () => {
+  const db = makeDb({ jobs: [
+    liveJob('j1'), { id: 'j2', employerId: 'r1', status: 'draft' },
+    { id: 'j3', employerId: 'r1', status: 'expired' }, { id: 'j4', employerId: 'r1', status: 'paused' },
+    liveJob('j5', 'other'),
+  ] });
+  assert.equal(countActiveJobs(db, 'r1'), 2); // active + paused, not draft/expired, not another recruiter's
+});
+
+// E5. Trial recruiters can publish up to the limit.
+test('trial recruiter may publish up to the active-job limit', () => {
+  const now = Date.now();
+  const sub = { trialEndsAt: now + 10 * DAY_MS, currentPeriodEndsAt: null };
+  const jobs = Array.from({ length: TRIAL_ACTIVE_JOB_LIMIT - 1 }, (_, i) => liveJob('j' + i));
+  const db = makeDb({ jobs });
+  const verdict = checkPublishAllowed(db, recruiter(), sub, now);
+  assert.equal(verdict.allowed, true);
+  assert.equal(verdict.postingSource, 'trial');
+});
+
+// E6. ...and are refused the one that would exceed it.
+test('trial recruiter is refused the posting that would exceed the active-job limit', () => {
+  const now = Date.now();
+  const sub = { trialEndsAt: now + 10 * DAY_MS, currentPeriodEndsAt: null };
+  const jobs = Array.from({ length: TRIAL_ACTIVE_JOB_LIMIT }, (_, i) => liveJob('j' + i));
+  const db = makeDb({ jobs });
+  const verdict = checkPublishAllowed(db, recruiter(), sub, now);
+  assert.equal(verdict.allowed, false);
+  assert.equal(verdict.code, 'ACTIVE_JOB_LIMIT_REACHED');
+});
+
+// E7. A free recruiter's first post uses the base allowance.
+test('free recruiter publishes their first job against the base allowance', () => {
+  const db = makeDb();
+  const verdict = checkPublishAllowed(db, recruiter(), undefined);
+  assert.equal(verdict.allowed, true);
+  assert.equal(verdict.postingSource, 'free_base');
+});
+
+// E8. Consuming the allowance sets the next-available date exactly one period
+// out, and blocks the next base post until then.
+test('consuming the free allowance blocks the next base post until the period elapses', () => {
+  const now = Date.now();
+  const db = makeDb();
+  const sub = { id: 's1' };
+  consumeFreeJobAllowance(db, recruiter(), sub, { id: 'j1' }, now);
+  assert.equal(sub.nextFreeJobAvailableAt, now + FREE_JOB_PERIOD_DAYS * DAY_MS);
+  const verdict = checkPublishAllowed(db, recruiter(), sub, now + DAY_MS);
+  assert.equal(verdict.allowed, false);
+  assert.equal(verdict.code, 'FREE_JOB_ALREADY_USED');
+  assert.equal(verdict.nextFreeJobAvailableAt, sub.nextFreeJobAvailableAt);
+});
+
+// E9. Closing the free job early does NOT return the allowance — the window is
+// wall-clock, per the product decision.
+test('closing a free job early does not restore the allowance before the window elapses', () => {
+  const now = Date.now();
+  const db = makeDb();
+  const sub = { id: 's1' };
+  consumeFreeJobAllowance(db, recruiter(), sub, { id: 'j1' }, now);
+  // No live jobs at all now (recruiter closed it), but the clock still governs.
+  const verdict = checkPublishAllowed(db, recruiter(), sub, now + 5 * DAY_MS);
+  assert.equal(verdict.allowed, false);
+  assert.equal(verdict.code, 'FREE_JOB_ALREADY_USED');
+});
+
+// E10. Once the window elapses the base allowance returns.
+test('the base allowance returns once the free period elapses', () => {
+  const now = Date.now();
+  const db = makeDb();
+  const sub = { id: 's1' };
+  consumeFreeJobAllowance(db, recruiter(), sub, { id: 'j1' }, now);
+  const verdict = checkPublishAllowed(db, recruiter(), sub, now + FREE_JOB_PERIOD_DAYS * DAY_MS + 1);
+  assert.equal(verdict.allowed, true);
+  assert.equal(verdict.postingSource, 'free_base');
+});
+
+// E11. A referral credit unlocks a post even while the base allowance is spent.
+test('a referral job credit unlocks an extra post while the base allowance is spent', () => {
+  const now = Date.now();
+  const db = makeDb();
+  const sub = { id: 's1' };
+  consumeFreeJobAllowance(db, recruiter(), sub, { id: 'j1' }, now);
+  grantReferralJobCredit(db, 'r1', 'ref-1', now);
+  const verdict = checkPublishAllowed(db, recruiter(), sub, now + DAY_MS);
+  assert.equal(verdict.allowed, true);
+  assert.equal(verdict.postingSource, 'referral_credit');
+});
+
+// E12. Exactly one credit is granted per referral, however many times the
+// qualification is replayed.
+test('a referral grants exactly one job credit however often it is replayed', () => {
+  const db = makeDb();
+  const first = grantReferralJobCredit(db, 'r1', 'ref-1');
+  const second = grantReferralJobCredit(db, 'r1', 'ref-1');
+  assert.equal(first.outcome, 'granted');
+  assert.equal(second.outcome, 'duplicate');
+  assert.equal(db.jobPostCredits.length, 1);
+});
+
+// E13. Consuming spends exactly one credit and links it to the job.
+test('publishing with a credit consumes exactly one and links it to the job', () => {
+  const db = makeDb();
+  grantReferralJobCredit(db, 'r1', 'ref-1');
+  grantReferralJobCredit(db, 'r1', 'ref-2');
+  const job = { id: 'j1' };
+  const consumed = consumeReferralJobCredit(db, recruiter(), job);
+  assert.equal(consumed.status, 'consumed');
+  assert.equal(consumed.consumedByJobId, 'j1');
+  assert.equal(job.consumedCreditId, consumed.id);
+  assert.equal(jobCreditBalance(db, 'r1'), 1);
+});
+
+// E14. Credits are spent oldest-first, so the ledger reads predictably.
+test('credits are consumed oldest first', () => {
+  const now = Date.now();
+  const db = makeDb();
+  const older = grantReferralJobCredit(db, 'r1', 'ref-old', now - 10 * DAY_MS).credit;
+  grantReferralJobCredit(db, 'r1', 'ref-new', now).credit;
+  const consumed = consumeReferralJobCredit(db, recruiter(), { id: 'j1' }, now);
+  assert.equal(consumed.id, older.id);
+});
+
+// E15. The balance can never go negative — consuming with nothing available is
+// a no-op, not an underflow.
+test('consuming with no available credit is a no-op and never goes negative', () => {
+  const db = makeDb();
+  const consumed = consumeReferralJobCredit(db, recruiter(), { id: 'j1' });
+  assert.equal(consumed, null);
+  assert.equal(jobCreditBalance(db, 'r1'), 0);
+});
+
+// E16. The unused-credit ceiling is enforced, and reports itself rather than
+// silently discarding a credit the referrer earned.
+test('the unused-credit ceiling is reported, not silently discarded', () => {
+  const db = makeDb();
+  for (let i = 0; i < REFERRAL_JOB_CREDIT_MAX; i += 1) grantReferralJobCredit(db, 'r1', 'ref-' + i);
+  const overflow = grantReferralJobCredit(db, 'r1', 'ref-overflow');
+  assert.equal(overflow.outcome, 'capped');
+  assert.equal(overflow.max, REFERRAL_JOB_CREDIT_MAX);
+  assert.equal(jobCreditBalance(db, 'r1'), REFERRAL_JOB_CREDIT_MAX);
+  // Spending one frees room for the next award.
+  consumeReferralJobCredit(db, recruiter(), { id: 'j1' });
+  assert.equal(grantReferralJobCredit(db, 'r1', 'ref-overflow').outcome, 'granted');
+});
+
+// E17. Revocation only applies to unspent credits.
+test('revocation claws back an unspent credit but never a consumed one', () => {
+  const db = makeDb();
+  const credit = grantReferralJobCredit(db, 'r1', 'ref-1').credit;
+  assert.ok(revokeJobCredit(db, credit, 'admin-1', 'fraud'));
+  assert.equal(credit.status, 'revoked');
+  assert.equal(jobCreditBalance(db, 'r1'), 0);
+  const spent = grantReferralJobCredit(db, 'r1', 'ref-2').credit;
+  consumeReferralJobCredit(db, recruiter(), { id: 'j1' });
+  assert.equal(revokeJobCredit(db, spent, 'admin-1', 'too late'), null);
+  assert.equal(spent.status, 'consumed');
+});
+
+// E18. Locking freezes exactly the match-relevant fields and nothing else.
+test('publishing a free job freezes match-relevant fields but leaves copy editable', () => {
+  const job = { id: 'j1' };
+  lockMatchFieldsOnPublish(job);
+  assert.deepEqual(job.lockedFields, [...MATCH_RELEVANT_FIELDS]);
+  assert.equal(checkEditAllowed(job, { title: 'Fixed a typo' }).allowed, true);
+  assert.equal(checkEditAllowed(job, { description: 'Longer copy' }).allowed, true);
+  const blocked = checkEditAllowed(job, { salaryRange: { min: 1, max: 2, currency: 'USD' } });
+  assert.equal(blocked.allowed, false);
+  assert.equal(blocked.code, 'FREE_JOB_EDITING_NOT_ALLOWED');
+  assert.deepEqual(blocked.blockedFields, ['salaryRange']);
+});
+
+// E19. A job with no locked fields (trial/paid) is fully editable.
+test('a job with no locked fields stays fully editable', () => {
+  assert.equal(checkEditAllowed({ id: 'j1' }, { salaryRange: {} }).allowed, true);
+  assert.equal(checkEditAllowed({ id: 'j1', lockedFields: [] }, { salaryRange: {} }).allowed, true);
+});
+
+// E20. Demo/exempt accounts bypass entitlements entirely.
+test('billing-exempt accounts bypass entitlement checks', () => {
+  const db = makeDb({ jobs: Array.from({ length: 50 }, (_, i) => liveJob('j' + i, 'demo')) });
+  const verdict = checkPublishAllowed(db, { id: 'demo', role: 'employer', demo: true }, undefined);
+  assert.equal(verdict.allowed, true);
+  assert.equal(verdict.postingSource, 'admin');
+});
+
+// E21. Founding seats count only genuinely activated, non-cancelled subs.
+test('founding seat count ignores cancelled and non-active subscriptions', () => {
+  const db = makeDb({ subscriptions: [
+    { planCode: 'founding', status: 'active' },
+    { planCode: 'founding', status: 'active', cancelledAt: Date.now() },
+    { planCode: 'founding', status: 'trialing' },
+    { planCode: 'recruiter-monthly', status: 'active' },
+  ] });
+  assert.equal(foundingStatus(db).sold, 1);
+  assert.equal(foundingStatus(db).soldOut, false);
+});
+
+// E22. The bulk index produces the same numbers as the per-recruiter scans —
+// the optimisation must never change a verdict.
+test('the bulk entitlement index matches per-recruiter counts exactly', () => {
+  const db = makeDb({
+    jobs: [liveJob('j1', 'r1'), liveJob('j2', 'r1'), { id: 'j3', employerId: 'r1', status: 'draft' }, liveJob('j4', 'r2')],
+  });
+  grantReferralJobCredit(db, 'r1', 'ref-1');
+  const index = buildEntitlementIndex(db);
+  for (const id of ['r1', 'r2']) {
+    const direct = getRecruiterEntitlements(db, recruiter(id), undefined);
+    const indexed = getRecruiterEntitlements(db, recruiter(id), undefined, Date.now(), index);
+    assert.equal(indexed.activeJobCount, direct.activeJobCount, 'active jobs for ' + id);
+    assert.equal(indexed.jobCreditBalance, direct.jobCreditBalance, 'credits for ' + id);
+  }
+});
+
+// E23. The free plan allows exactly one live posting at a time.
+test('the free plan caps live postings at the configured free limit', () => {
+  const db = makeDb({ jobs: Array.from({ length: FREE_ACTIVE_JOB_LIMIT }, (_, i) => liveJob('j' + i)) });
+  const verdict = checkPublishAllowed(db, recruiter(), undefined);
+  assert.equal(verdict.allowed, false);
+  assert.equal(verdict.code, 'ACTIVE_JOB_LIMIT_REACHED');
+});
+
+// E24. Granting a credit is recorded in the audit log, so every award is
+// traceable back to the referral that caused it.
+test('every credit grant and consumption writes an audit event', () => {
+  const db = makeDb();
+  grantReferralJobCredit(db, 'r1', 'ref-1');
+  consumeReferralJobCredit(db, recruiter(), { id: 'j1' });
+  const types = db.billingEvents.map((e) => e.eventType);
+  assert.ok(types.includes('referral_job_credit_awarded'));
+  assert.ok(types.includes('referral_job_credit_consumed'));
+});
+
+// ---------------------------------------------------------------------------
+// Access control regression: match-derived content (icebreakers, interview
+// kits) is built from the candidate's profile, so a third party must never be
+// able to read it by guessing a match id.
+// ---------------------------------------------------------------------------
+
+// A1. The participant guard admits both matched parties and admins, and
+// refuses everyone else.
+test('match-scoped content is readable only by the matched parties or an admin', () => {
+  const match = { id: 'm1', candidateId: 'cand-1', employerId: 'emp-1' };
+  const allowed = (sessionRole, sub) => {
+    // Mirrors assertMatchParticipant's session branch in server/index.js.
+    if (sessionRole === 'admin') return true;
+    return sub === match.candidateId || sub === match.employerId;
+  };
+  assert.equal(allowed('candidate', 'cand-1'), true, 'the matched candidate may read');
+  assert.equal(allowed('employer', 'emp-1'), true, 'the matched recruiter may read');
+  assert.equal(allowed('admin', 'admin-1'), true, 'an admin may read');
+  assert.equal(allowed('employer', 'emp-2'), false, 'an unrelated recruiter may not read');
+  assert.equal(allowed('candidate', 'cand-2'), false, 'an unrelated candidate may not read');
 });

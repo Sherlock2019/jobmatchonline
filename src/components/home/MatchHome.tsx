@@ -10,6 +10,7 @@ import { CandidateCards } from '../profile/CandidateCards';
 import { CompanyLogoMark, JobHeaderBadge } from '../jobs/JobHeaderBadge';
 import { NotesBox } from '../NotesBox';
 import { DemoBadge } from '../DemoBadge';
+import { CANDIDATE_OFFERS, LaunchOffers } from '../LaunchOffers';
 
 type HomeProps = {
   data: Bootstrap;
@@ -221,6 +222,8 @@ export function CandidateHome({ data, setData, navigate, onEditProfile }: HomePr
       </aside>
       <div className="td-hero-faces">{conversations.slice(0, 3).map((match) => <img key={match.id} src={match.employer?.photo || data.viewer.photo} alt="" />)}{conversations.length > 2 && <span>+{conversations.length}</span>}</div>
     </section>
+
+    <LaunchOffers offers={CANDIDATE_OFFERS} compact />
 
     <section className="td-section" id="td-profile">
       <DashboardTitle icon={User} title="My Current Job Profile" subtitle="How recruiters see you." action="Edit profile" onAction={() => navigate('profile')} />

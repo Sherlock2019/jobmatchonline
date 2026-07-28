@@ -63,8 +63,11 @@ button { cursor:pointer; }
 .hero-alt-feature strong { display:block; font-size:14px; color:var(--ink); }
 .hero-alt-feature span { display:block; font-size:13px; color:#6b5a63; margin-top:2px; }
 @media (max-width:850px) { .hero-alt { padding:38px 22px; border-radius:24px; } }
-.hero-image { display:flex; flex-direction:column; align-items:center; gap:26px; text-align:center; max-width:1200px; margin:0 auto; padding:40px 0 90px; }
-.hero-image-art { width:100%; display:block; }
+/* `width:100%` alone lets a banner narrower than the container sit on whatever
+   is painted behind it; the explicit background and auto height keep the strip
+   either side of the artwork the page's own pink rather than bare backdrop. */
+.hero-image { display:flex; flex-direction:column; align-items:center; gap:26px; text-align:center; max-width:1200px; margin:0 auto; padding:40px 0 90px; background:transparent; }
+.hero-image-art { width:100%; max-width:100%; height:auto; display:block; background:var(--paper); }
 .hero-image-art-top { border-radius:24px; box-shadow:0 20px 50px rgba(16,27,56,.12); }
 .hero-image-art-bottom { border-radius:24px; box-shadow:0 20px 50px rgba(16,27,56,.12); }
 .hero-image .proof-row { width:100%; background:#fff; padding:14px 0; margin:0; }
@@ -82,6 +85,11 @@ button { cursor:pointer; }
 .company-mark,.company-logo { width:52px; height:52px; border-radius:16px; display:grid; place-items:center; color:white; font:800 22px 'Manrope'; box-shadow:inset 0 0 0 1px rgba(255,255,255,.25); }
 .company-logo.small { width:40px; height:40px; border-radius:50%; font-size:15px; flex:none; }
 .fit-pill,.fit-badge { color:var(--green); background:#fff0f5; border:1px solid #ffd7e5; border-radius:999px; padding:7px 11px; font-size:11px; font-weight:800; }
+/* Paid placement, always disclosed. Deliberately neutral so it reads as a label
+   rather than an endorsement — the match score beside it is the real signal. */
+.promoted-badge { display:inline-flex; align-items:center; color:#6b5a1f; background:#fff6d9; border:1px solid #f2e0a6;
+  border-radius:999px; padding:5px 10px; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+.card-hero-top .promoted-badge { background:rgba(255,255,255,.94); border-color:transparent; box-shadow:0 6px 18px rgba(0,0,0,.18); margin-right:auto; margin-left:8px; }
 .preview-top .fit-pill { margin-left:auto; }
 .preview-card .label { font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
 .preview-card h3 { font:800 27px/1.15 'Manrope'; letter-spacing:-.04em; margin:8px 0; }
@@ -446,6 +454,31 @@ button { cursor:pointer; }
 /* ── Landing: feedback + reviews ── */
 .feedback-section { max-width:1160px; margin:0 auto; padding:70px 22px 40px; }
 .pricing-section { max-width:1000px; margin:0 auto; padding:60px 22px 90px; }
+/* Launch-day offers — shared by the landing page, the recruiter Subscription
+   page, and the candidate dashboard (src/components/LaunchOffers.tsx). */
+.launch-offers { border:1px solid #ffd9e6; border-radius:22px; padding:28px 30px; margin-bottom:26px; background:linear-gradient(135deg,#fff5f9,#fff9f5); }
+.launch-offers.compact { padding:20px 22px; margin-bottom:20px; border-radius:18px; }
+.launch-offers-head { display:flex; flex-direction:column; gap:10px; align-items:flex-start; margin-bottom:20px; }
+.launch-badge { display:inline-flex; align-items:center; gap:7px; padding:6px 14px; border-radius:999px; background:var(--brand-gradient); color:#fff; font:800 11px 'Manrope'; letter-spacing:.08em; text-transform:uppercase; }
+.launch-offers-head h3 { font:800 22px/1.25 'Manrope'; margin:0; letter-spacing:-.02em; }
+.launch-offers.compact .launch-offers-head h3 { font-size:17px; }
+.launch-offer-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; }
+.launch-offer { background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px 18px 20px; display:flex; flex-direction:column; gap:6px; }
+.launch-offer-icon { width:38px; height:38px; border-radius:12px; display:grid; place-items:center; background:var(--lime); color:var(--green); margin-bottom:4px; }
+.launch-offer-badge { color:var(--green); text-transform:uppercase; letter-spacing:.09em; font-size:9px; font-weight:800; }
+.launch-offer strong { font:800 15px 'Manrope'; }
+.launch-offer p { color:#5a6474; font-size:12.5px; line-height:1.55; margin:0; }
+.launch-founding { margin:18px 0 0; padding:12px 15px; border-radius:12px; background:#fff; border:1px dashed #ffc2d6; color:#8a3455; font-size:12.5px; }
+.launch-founding b { color:var(--green); font-size:15px; }
+.launch-offers-cta { margin-top:18px; }
+@media(max-width:640px){ .launch-offers { padding:20px 18px; } .launch-offer-grid { grid-template-columns:1fr; } }
+
+/* Pitch line above the plan cards — the one-sentence summary of the whole
+   pricing model, so it reads at headline weight rather than as caption text. */
+.pricing-pitch { margin:0 0 26px; text-align:center; font:800 clamp(22px,3vw,34px)/1.25 'Manrope'; letter-spacing:-.02em; }
+.pricing-pitch .pitch-free { color:var(--blue); }
+.pricing-pitch .pitch-value { background:var(--brand-gradient); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+@media(max-width:640px){ .pricing-pitch .pitch-free,.pricing-pitch .pitch-value { display:block; } }
 .pricing-cards { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
 .pricing-card { border:1px solid var(--line); border-radius:22px; padding:32px 30px; background:#fff; display:flex; flex-direction:column; }
 .pricing-card.featured { border-color:var(--green); box-shadow:0 20px 44px rgba(63,211,112,.14); position:relative; }
@@ -460,6 +493,41 @@ button { cursor:pointer; }
 .pricing-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
 .pricing-card ul { margin-bottom:0; }
 @media(max-width:760px){ .pricing-cards { grid-template-columns:1fr; } }
+
+/* Candidates get a full-width band rather than a column beside the recruiter
+   tiers: "free forever" is a statement, not one option among several. */
+.pricing-candidate-band { display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap;
+  border:1px solid var(--line); border-radius:22px; padding:24px 30px; background:#fff; margin-bottom:22px; }
+.pricing-candidate-band h3 { font:800 30px 'Manrope'; letter-spacing:-.03em; margin:8px 0 6px; }
+.pricing-candidate-band p { margin:0; font-size:13.5px; color:#3a4550; max-width:60ch; }
+
+.plan-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; align-items:stretch; }
+.plan-card { position:relative; display:flex; flex-direction:column; gap:6px; background:#fff;
+  border:1px solid var(--line); border-radius:20px; padding:26px 22px 22px; }
+.plan-card.popular { border-color:var(--green); box-shadow:0 20px 44px rgba(253,38,122,.16); }
+.plan-badge { position:absolute; top:-11px; left:22px; background:var(--brand-gradient); color:#fff;
+  font:800 10px/1 'Manrope'; letter-spacing:.08em; text-transform:uppercase; padding:7px 11px; border-radius:999px; }
+.plan-name { color:var(--muted); text-transform:uppercase; letter-spacing:.08em; font-size:11px; font-weight:800; }
+.plan-price { margin:4px 0 0; font:800 30px 'Manrope'; letter-spacing:-.03em; }
+.plan-price small { font-size:13px; font-weight:700; color:var(--muted); }
+.plan-vnd { margin:0; font-size:12px; color:var(--muted); }
+.plan-tagline { margin:8px 0 4px; font-size:13px; color:#3a4550; }
+.plan-perks { list-style:none; margin:6px 0 18px; padding:0; display:flex; flex-direction:column; gap:8px; flex:1; }
+.plan-perks li { display:flex; align-items:flex-start; gap:7px; font-size:13px; color:#3a4550; }
+.plan-perks li svg { flex:none; margin-top:2px; color:var(--green); }
+.plan-card button { width:100%; }
+
+.plan-more { margin-top:18px; }
+.plan-more > summary { cursor:pointer; font-weight:700; font-size:13.5px; color:var(--blue); padding:12px 0; list-style:none; }
+.plan-more > summary::-webkit-details-marker { display:none; }
+.plan-more > summary::before { content:'＋ '; font-weight:800; }
+.plan-more[open] > summary::before { content:'－ '; }
+.plan-more[open] > summary { margin-bottom:14px; }
+.plan-more .plan-grid { grid-template-columns:repeat(2,1fr); max-width:560px; }
+.plan-addon-note { margin:14px 0 0; font-size:13px; color:#3a4550; }
+.plan-footnote { margin:18px 0 26px; font-size:12.5px; line-height:1.7; color:var(--muted); }
+@media(max-width:980px){ .plan-grid { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:560px){ .plan-grid,.plan-more .plan-grid { grid-template-columns:1fr; } }
 .feedback-layout { display:grid; grid-template-columns:1.15fr .85fr; gap:34px; align-items:start; }
 .review-wall { columns:2; column-gap:14px; }
 .review-card { break-inside:avoid; margin-bottom:14px; border:1px solid var(--line); border-radius:16px; padding:18px; background:white; box-shadow:0 8px 24px rgba(29,53,37,.05); }
@@ -703,6 +771,25 @@ img.avatar-mini { object-fit:cover; }
 .billing-card-pay { border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:18px; background:#f7f8f5; }
 .billing-card-pay h3 { margin:0 0 6px !important; }
 .billing-card-pay p { margin:0 0 12px; }
+/* Plan + seats, above the payment options: what you have before what it costs. */
+.billing-plan-card { border:1px solid var(--line); border-radius:16px; padding:22px 24px; margin-bottom:24px; background:#fff; }
+.billing-plan-headline { display:flex; gap:24px; justify-content:space-between; flex-wrap:wrap; align-items:flex-start; }
+.billing-plan-headline h3 { font:800 26px 'Manrope'; letter-spacing:-.02em; margin:6px 0 4px; }
+.billing-plan-headline p { margin:0; }
+.billing-plan-facts { list-style:none; margin:0; padding:0; display:flex; gap:18px; flex-wrap:wrap; font-size:13px; color:#3a4550; }
+.billing-plan-facts li { background:var(--lime); border-radius:10px; padding:9px 13px; }
+.billing-seats { margin-top:20px; padding-top:18px; border-top:1px solid var(--line); }
+.billing-seats h4 { margin:0 0 12px; font:800 14px 'Manrope'; }
+.billing-seat-list { list-style:none; margin:0 0 14px; padding:0; display:flex; flex-direction:column; gap:8px; }
+.billing-seat-list li { display:flex; justify-content:space-between; align-items:center; gap:12px; font-size:13.5px;
+  border:1px solid var(--line); border-radius:10px; padding:10px 13px; }
+.billing-seat-list small { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+.billing-seat-list .seat-active { color:var(--green); }
+.billing-seat-list .seat-readonly { color:var(--muted); }
+.billing-seat-invite { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+.billing-seat-invite .wz-input { flex:1; min-width:220px; }
+.billing-seat-error { margin:0 0 8px; color:#b42318; font-size:13px; }
+.billing-seats .muted { font-size:12.5px; line-height:1.6; }
 .billing-grid { display:grid; grid-template-columns:1.3fr 1fr; gap:20px; margin-bottom:24px; }
 .billing-pay-card, .billing-referral-card { border:1px solid var(--line); border-radius:16px; padding:22px 24px; background:#fff; }
 .billing-pay-card h3, .billing-referral-card h3, .billing-history h3 { font:800 15px 'Manrope'; margin:0 0 14px; }

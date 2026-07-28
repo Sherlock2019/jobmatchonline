@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { logBillingEvent } from './audit.js';
 import { applyCredit, DAY_MS, GRACE_DAYS } from './subscriptions.js';
+import { expireBoosts } from './boosts.js';
 
 function pushNotification(db, userId, kind, text) {
   if (!Array.isArray(db.billingNotifications)) db.billingNotifications = [];
@@ -12,7 +13,7 @@ function pushNotification(db, userId, kind, text) {
  * itself, so calling this twice in the same day (a retried cron hit, or a
  * test calling it repeatedly) is always safe — a no-op the second time. */
 export function runDailyBilling(db, now = Date.now()) {
-  const summary = { creditsApplied: 0, enteredGrace: 0, expired: 0, remindersSent: 0, jobsExpired: 0 };
+  const summary = { creditsApplied: 0, enteredGrace: 0, expired: 0, remindersSent: 0, jobsExpired: 0, boostsExpired: 0 };
   if (!Array.isArray(db.subscriptions)) db.subscriptions = [];
   for (const subscription of db.subscriptions) {
     if (subscription.status === 'cancelled' || subscription.suspendedAt) continue;
@@ -78,6 +79,10 @@ export function runDailyBilling(db, now = Date.now()) {
       summary.jobsExpired += 1;
     }
   }
+
+  // Boosts fall off on their own schedule. Ranking already ignores an expired
+  // boost, so this sweep only keeps the ledger honest for the admin view.
+  summary.boostsExpired = expireBoosts(db, now);
 
   return summary;
 }

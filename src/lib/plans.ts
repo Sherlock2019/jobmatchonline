@@ -1,0 +1,70 @@
+/* Display copy for the recruiter plans.
+ *
+ * `server/billing/plans.js` is the ENFORCEMENT authority — nothing here is ever
+ * trusted server-side. This file exists so the marketing page renders instantly
+ * without an API round-trip for six static numbers. `plans.sync.test.js` fails
+ * the build if the two ever disagree, so this is a mirror, not a second truth. */
+
+export type PlanKey = 'starter' | 'solo' | 'duo' | 'trio' | 'team' | 'agency';
+
+export type PlanCard = {
+  key: PlanKey;
+  display: string;
+  seats: number;
+  liveJobSlots: number;
+  usd: number;
+  vnd: number;
+  /** Short line under the price — what you're actually buying at this step. */
+  tagline: string;
+  perks: string[];
+};
+
+export const PLAN_CARDS: PlanCard[] = [
+  {
+    key: 'starter', display: 'Starter', seats: 1, liveJobSlots: 1, usd: 0, vnd: 0,
+    tagline: 'Free, forever. No card.',
+    perks: ['1 live job', '1 recruiter seat', 'Mutual-likes matching', 'Messaging and interview scheduling'],
+  },
+  {
+    key: 'solo', display: 'Solo', seats: 1, liveJobSlots: 5, usd: 20, vnd: 490000,
+    tagline: 'For one recruiter hiring steadily.',
+    perks: ['5 live jobs', '1 recruiter seat', 'Unlimited matches', 'Message candidates first', 'Cancel anytime'],
+  },
+  {
+    key: 'duo', display: 'Duo', seats: 2, liveJobSlots: 10, usd: 35, vnd: 850000,
+    tagline: 'Two people, one pipeline.',
+    perks: ['10 live jobs', '2 recruiter seats', 'Everything in Solo'],
+  },
+  {
+    key: 'trio', display: 'Trio', seats: 3, liveJobSlots: 15, usd: 49, vnd: 1190000,
+    tagline: 'A small hiring team with reporting.',
+    perks: ['15 live jobs', '3 recruiter seats', 'Hiring analytics', 'Everything in Duo'],
+  },
+  {
+    key: 'team', display: 'Team', seats: 5, liveJobSlots: 25, usd: 75, vnd: 1790000,
+    tagline: 'In-house teams hiring across roles.',
+    perks: ['25 live jobs', '5 recruiter seats', 'Hiring analytics', 'Everything in Trio'],
+  },
+  {
+    key: 'agency', display: 'Agency', seats: 10, liveJobSlots: 50, usd: 130, vnd: 3190000,
+    tagline: 'Agencies and high-volume hiring.',
+    perks: ['50 live jobs', '10 recruiter seats', 'ATS export', 'Promoted placement', 'Add extra seats any time'],
+  },
+];
+
+/** Rendered on the pricing page. Team and Agency sit behind the expander. */
+export const HEADLINE_PLANS: PlanKey[] = ['starter', 'solo', 'duo', 'trio'];
+export const MORE_SEAT_PLANS: PlanKey[] = ['team', 'agency'];
+export const POPULAR_PLAN: PlanKey = 'solo';
+
+export const EXTRA_SEAT = { seats: 1, liveJobSlots: 5, usd: 12, vnd: 290000, availableOn: 'Agency' };
+
+/** Annual bills 10 months — two free. */
+export const ANNUAL_MONTHS_CHARGED = 10;
+
+export const BOOST = { hours: 72, usd: 12, vnd: 300000 };
+
+export const planCard = (key: PlanKey) => PLAN_CARDS.find((plan) => plan.key === key)!;
+
+export const usd = (amount: number) => (amount === 0 ? 'Free' : `USD ${amount}`);
+export const vnd = (amount: number) => `${amount.toLocaleString('en-US')} ₫`;

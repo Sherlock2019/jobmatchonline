@@ -33,6 +33,8 @@ export interface Person {
   demoOrder?: number;
   location?: string; distanceKm?: number; company?: string; photo: string; skills: string[]; languages: string[];
   experienceLevel: string; completeness?: number; availability?: string; match?: MatchEvidence; onboarding?: boolean; salaryHidden?: boolean; demo?: boolean; sample?: boolean; invitesSent?: number; superLikedYou?: boolean; likedYou?: boolean; viewedYou?: boolean; verified?: boolean;
+  /** Paid placement. Moves the card up the deck; the match score is untouched. */
+  promoted?: boolean;
   // Candidate profile model (item 4)
   headline?: string; phone?: string; city?: string; country?: string; distanceRangeKm?: number;
   birthdate?: string; discloseAge?: boolean; agePrivacy?: AgePrivacy; nationality?: string; contactChannels?: ContactChannel[];
@@ -79,6 +81,8 @@ export interface Job {
   superLikedYou?: boolean;
   likedYou?: boolean;
   verified?: boolean;
+  /** Paid placement. Moves the card up the deck; the match score is untouched. */
+  promoted?: boolean;
   // Card-mirroring fields (job profile = 5 cards, like the candidate)
   openings?: number; urgency?: string; deadline?: string; // card 1
   successMeasures?: string[]; // card 2
@@ -136,12 +140,86 @@ export interface BillingInfo {
   subscription: Subscription; effectiveStatus: SubscriptionStatus; canPublishJob?: boolean; credits: SubscriptionCredit[]; referralCode: string;
   instructions?: PaymentInstructions; vnpayEnabled?: boolean; vnpayAmountVnd?: number; stripeEnabled?: boolean; paypalEnabled?: boolean;
   googlePlayEnabled?: boolean; googlePlayProductId?: string; appleEnabled?: boolean; appleProductId?: string;
+  entitlements?: RecruiterEntitlements; founding?: FoundingStatus;
+  plan?: PlanSummary; team?: TeamInfo;
 }
 export interface Referral { id: string; referrerUserId: string; referredUserId: string; referralCode: string; status: string; suspicious?: boolean; qualifiedPaymentId: string | null; qualifiedAt: number | null; createdAt: number }
 export interface BillingEvent { id: string; userId: string | null; eventType: string; entityType: string; entityId: string; metadata: Record<string, unknown>; createdAt: number }
 export interface AdminRecruiterStatus { recruiter: { id: string; name: string; email?: string; company?: string }; subscription?: Subscription; effectiveStatus: SubscriptionStatus }
 
-export interface BillingNotification { id: string; kind: string; text: string; createdAt: number; read?: boolean }
+export interface BillingNotification { id: string; kind: string; text: string; createdAt: number; read?: boolean; jobId?: string }
+
+/** Plan limits and current usage, computed server-side (never trusted from the
+ *  client) and returned alongside the subscription. */
+export interface RecruiterEntitlements {
+  planCode: 'trial' | 'free' | 'founding' | 'pro';
+  activeJobLimit: number;
+  activeJobCount: number;
+  jobCreditBalance: number;
+  nextFreeJobAvailableAt: number | null;
+  freeJobAvailable: boolean;
+  jobEditingAllowed: boolean;
+  enforced: boolean;
+}
+
+export interface FoundingStatus { sold: number; remaining: number; limit: number; soldOut: boolean }
+
+export interface JobPostCredit {
+  id: string; recruiterUserId: string; recruiterName?: string; sourceType: string; sourceReferenceId: string | null;
+  status: 'available' | 'consumed' | 'revoked'; grantedAt: number; consumedAt: number | null;
+  revokedAt: number | null; consumedByJobId: string | null;
+}
+
+export interface AdminPlanRow extends RecruiterEntitlements {
+  recruiter: { id: string; name: string; email?: string; company?: string };
+  effectiveStatus: SubscriptionStatus;
+  trialEndsAt: number | null;
+  currentPeriodEndsAt: number | null;
+}
+
+export interface CatalogPlan {
+  key: string; display: string; order: number; seats: number; liveJobSlots: number;
+  monthlyMatchCap: number | null; analytics: boolean; atsExport: boolean; priorityPlacement: boolean;
+  usd: number; vnd: number; hireFeePercent: number | null;
+}
+export interface PlanCatalog {
+  plans: CatalogPlan[];
+  extraSeat: { seats: number; liveJobSlots: number; usd: number; vnd: number; availableOn: string[] };
+  boost: { hours: number; usd: number; vnd: number; kinds: string[] };
+}
+export interface AdminTeamRow {
+  id: string; owner: string; planCode: string; extraSeats: number;
+  seatsAllowed: number; active: number; total: number;
+}
+export interface BoostRecord {
+  id: string; kind: 'job' | 'candidate'; targetId: string; targetName?: string;
+  purchasedByUserId: string; buyerName?: string; amount: number; currency: string;
+  status: 'active' | 'expired' | 'revoked'; startedAt: number; expiresAt: number; live?: boolean;
+}
+
+export interface AdminPlansOverview {
+  enforced: boolean;
+  planCounts: Record<string, number>;
+  recruiters: AdminPlanRow[];
+  founding: FoundingStatus;
+  creditLedger: JobPostCredit[];
+  shadowBlocks: (BillingEvent & { userName?: string })[];
+  catalog: PlanCatalog;
+  teams: AdminTeamRow[];
+  boosts: BoostRecord[];
+}
+
+/** Seats on the recruiter's own Subscription page. */
+export interface TeamInfo {
+  teamId: string | null; isOwner: boolean; seatsAllowed: number; seatsUsed: number;
+  extraSeats: number; extraSeatPrice: number | null; canBuyExtraSeats: boolean;
+  members: { userId: string; name: string; role: 'owner' | 'member'; status: 'active' | 'readonly'; joinedAt: number | null }[];
+}
+export interface PlanSummary {
+  planCode: string; key: string; display: string; currency: string;
+  monthly: number | null; annual: number | null;
+  seats: number; liveJobSlots: number; analytics: boolean; atsExport: boolean;
+}
 export interface Bootstrap { viewer: Person; jobs: Job[]; candidates: Person[]; roleMatches?: RoleMatchGroup[]; matches: JobMatch[]; messages: Message[]; calls: ScheduledCall[]; notes: Note[]; bookmarkedIds: string[]; likesRemaining: number; billing?: BillingInfo; billingNotifications?: BillingNotification[] }
 
 // Admin: account management, fraud/scam reports, support requests (minimal —

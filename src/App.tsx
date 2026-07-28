@@ -4,7 +4,7 @@ import { SupportModal } from './components/SupportModal';
 import { ReportModal } from './components/ReportModal';
 import { ConductModal } from './components/ConductModal';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'motion/react';
-import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, CreditCard, Download, ExternalLink, Eye, FileText, Filter, Flag, Handshake, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, Map as MapIcon, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowRight, BadgeCheck, BarChart3, Bell, Bookmark as BookmarkIcon, BriefcaseBusiness, Calendar, Check, ChevronDown, CircleHelp, Clock3, Coffee, Command, Compass, CreditCard, Download, ExternalLink, Eye, FileText, Filter, Flag, Gift, Handshake, Heart, Inbox, Layers3, Linkedin, Loader2, Lock, LogOut, Mail, Map as MapIcon, MapPin, Menu, MessageCircle, MessageCircleQuestion, MoreHorizontal, RotateCcw, Search, Send, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Star, Target, Trash2, Users, X, Zap } from 'lucide-react';
 import { api } from './api';
 import { apiBase } from './api';
 import { Capacitor } from '@capacitor/core';
@@ -13,6 +13,9 @@ import { App as NativeApp } from '@capacitor/app';
 import { LoginModal, RegisterModal, ResetPasswordModal, SettingsModal } from './components/AuthModals';
 import { FeaturesTable, FeedbackSection, JourneyPipeline, LatestShowcase } from './components/LandingSections';
 import { HeroAlt, HeroDefault, HeroImage } from './components/landing/HeroBanners';
+import { CANDIDATE_OFFERS, LaunchOffers } from './components/LaunchOffers';
+import { PlanCardView } from './components/landing/PlanCards';
+import { ANNUAL_MONTHS_CHARGED, BOOST, EXTRA_SEAT, HEADLINE_PLANS, MORE_SEAT_PLANS, planCard, usd, vnd } from './lib/plans';
 import { CandidateWizard } from './components/profile/CandidateWizard';
 import { CandidateProfilePage } from './components/profile/CandidateProfilePage';
 import { RecruiterWizard } from './components/profile/RecruiterWizard';
@@ -43,6 +46,30 @@ import type { ScreeningAnswer } from './types';
 import { comparisonRows } from './content/landingContent';
 import { loadSession, saveSession } from './lib/auth';
 import type { Bootstrap, Job, JobMatch, Message, Person, Role, ScheduledCall, SessionUser, View } from './types';
+
+type NotificationItem = {
+  id: string;
+  kind: 'match' | 'msg' | 'billing';
+  /** The server's specific billing event (trial_ending_7, job_credit_awarded, …).
+   *  Kept so each billing notification can route and render on its own terms. */
+  billingKind?: string;
+  text: string;
+  at: number;
+  matchId?: string;
+  jobId?: string;
+};
+
+/** Billing notifications about a posting belong on the Jobs screen; everything
+ *  else (trials, plans, credits, payments) belongs on Subscription. Unknown or
+ *  future kinds fall through to Subscription, which is the safe default. */
+const JOB_NOTIFICATION_KINDS = new Set(['job_expiring_7', 'job_expiring_1', 'job_expired', 'free_job_published', 'referral_job_credit_consumed']);
+
+function billingNotificationIcon(billingKind?: string) {
+  if (billingKind && JOB_NOTIFICATION_KINDS.has(billingKind)) return <BriefcaseBusiness size={14} />;
+  if (billingKind?.startsWith('referral')) return <Gift size={14} />;
+  if (billingKind?.startsWith('trial') || billingKind === 'downgraded_to_free') return <Clock3 size={14} />;
+  return <CreditCard size={14} />;
+}
 
 // Nav items either open a dedicated view (`view`) or scroll to a section on the
 // home dashboard (`anchor`). `short` is the compact label for the mobile bar.
@@ -127,7 +154,17 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const openRegister = () => setAuthModal('register');
   const complete = (user: SessionUser) => { setAuthModal(null); onLogin(user); };
   const [banner, setBanner] = useState<'default' | 'alt' | 'image'>('default');
-  useEffect(() => { api.siteSettings().then((res) => setBanner(res.activeLandingBanner)).catch(() => undefined); }, []);
+  const [foundingRemaining, setFoundingRemaining] = useState<number | undefined>(undefined);
+  const [bannerImageUrl, setBannerImageUrl] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    api.siteSettings().then((res) => {
+      setBanner(res.activeLandingBanner);
+      setFoundingRemaining(res.founding?.remaining);
+      // The ?v= cache-buster is already on the URL, so a replaced image shows
+      // immediately instead of serving the browser's copy of the old one.
+      setBannerImageUrl(res.bannerImage ? `${apiBase}${res.bannerImage.url}` : undefined);
+    }).catch(() => undefined);
+  }, []);
   type TrustPipelineRow = {
     label: string; classic: number; jobsmatch: number; unit: string; color: string;
     feature: string; note: string; classicDisplay?: string; jobsmatchDisplay?: string; deltaText?: string;
@@ -180,7 +217,7 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     </header>
     {linkedinState && <div className="integration-notice">{linkedinState === 'connected' ? 'LinkedIn connected. Your professional identity is ready to use.' : 'Add LinkedIn app credentials to enable live account connection. The demo remains available.'}<button onClick={() => history.replaceState({}, '', '/')}>×</button></div>}
     {banner === 'alt' ? <HeroAlt onRegister={openRegister} onLogin={openLogin} />
-      : banner === 'image' ? <HeroImage onRegister={openRegister} onLogin={openLogin} />
+      : banner === 'image' ? <HeroImage url={bannerImageUrl} onRegister={openRegister} onLogin={openLogin} />
       : <HeroDefault onRegister={openRegister} onLogin={openLogin} />}
     {banner === 'image' && <nav className="landing-subnav hero-image-subnav">
       <a href="#compare">Why JobsMatchNow</a>
@@ -251,35 +288,39 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
         </section>
       </div>
     </div></section>
-    <LatestShowcase onRegister={openRegister} onLogin={openLogin} />
-    <FeedbackSection />
     <section className="section pricing-section" id="pricing">
-      <div className="section-heading centered"><span className="eyebrow"><Sparkles size={14} /> Simple pricing</span><h2>Free for candidates. One flat rate for recruiters.</h2></div>
-      <div className="pricing-cards">
-        <div className="pricing-card">
+      <div className="section-heading centered"><span className="eyebrow"><Sparkles size={14} /> Best Value for the Money</span><h2>Get the Best Results for your Time and Money!</h2></div>
+      <p className="pricing-pitch"><span className="pitch-free">Free for candidates,</span> <span className="pitch-value">Incredible Value Packages for Recruiters</span></p>
+      <div className="pricing-candidate-band">
+        <div>
           <span className="pricing-kicker">Candidates</span>
           <h3>Free forever</h3>
-          <ul><li>Profile</li><li>Job matching</li><li>Messaging</li><li>Interview scheduling</li></ul>
-          <button type="button" className="secondary-button" onClick={openRegister}>Get started free</button>
+          <p>Profile, job matching, messaging and interview scheduling. Nothing here is ever paywalled.</p>
         </div>
-        <div className="pricing-card featured">
-          <span className="pricing-kicker">Recruiters</span>
-          <div className="pricing-actions">
-            <button type="button" className="primary-button" onClick={openRegister}>Start free 30-day trial</button>
-            <button type="button" className="secondary-button" onClick={openLogin}>View subscription</button>
-          </div>
-          <h3 className="pricing-price-small">USD 20<small> / month</small></h3>
-          <ul>
-            <li>Unlimited legitimate job postings</li>
-            <li>One recruiter seat</li>
-            <li>Matching and messaging</li>
-            <li>Interview scheduling</li>
-            <li>Cancel anytime</li>
-            <li>One free month for every referred recruiter who completes their first paid month</li>
-          </ul>
-        </div>
+        <button type="button" className="primary-button" onClick={openRegister}>Get started free</button>
       </div>
+      <div className="plan-grid">
+        {HEADLINE_PLANS.map((key) => <PlanCardView key={key} plan={planCard(key)} onRegister={openRegister} />)}
+      </div>
+      <details className="plan-more">
+        <summary>Hiring with a bigger team? See Team and Agency seats</summary>
+        <div className="plan-grid">
+          {MORE_SEAT_PLANS.map((key) => <PlanCardView key={key} plan={planCard(key)} onRegister={openRegister} />)}
+        </div>
+        <p className="plan-addon-note">
+          Need more than {planCard('agency').seats} seats? Add extra {EXTRA_SEAT.availableOn} seats at <b>{usd(EXTRA_SEAT.usd)}</b> each per month
+          (<span className="plan-vnd">{vnd(EXTRA_SEAT.vnd)}</span>) — each one adds {EXTRA_SEAT.liveJobSlots} more live jobs.
+        </p>
+      </details>
+      <p className="plan-footnote">
+        Annual billing charges {ANNUAL_MONTHS_CHARGED} months — two are free. Vietnam accounts are billed in đồng at the prices shown.
+        Boost any job to the top of the deck for {BOOST.hours} hours for {usd(BOOST.usd)}; boosted cards are labelled <b>Promoted</b> and
+        keep the exact match score they earned.
+      </p>
+      <LaunchOffers onRegister={openRegister} foundingRemaining={foundingRemaining} />
     </section>
+    <LatestShowcase onRegister={openRegister} onLogin={openLogin} />
+    <FeedbackSection />
     <footer><Brand /><span>Perfect matches should feel human.</span><button type="button" className="text-button footer-conduct-link" onClick={() => setConductOpen(true)}>Code of Conduct</button><small>© 2026 JobsMatchNow</small></footer>
     {modals}
     <AnimatePresence>{conductOpen && <ConductModal onClose={() => setConductOpen(false)} />}</AnimatePresence>
@@ -359,8 +400,8 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
   const openJobEditor = (jobId: string) => { setEditJobId(jobId); setView('jobs'); };
   const role: Role = data?.viewer.role ?? session.role;
   const notifications = useMemo(() => {
-    if (!data) return [] as { id: string; kind: 'match' | 'msg' | 'billing'; text: string; at: number; matchId?: string }[];
-    const list: { id: string; kind: 'match' | 'msg' | 'billing'; text: string; at: number; matchId?: string }[] = [];
+    if (!data) return [] as NotificationItem[];
+    const list: NotificationItem[] = [];
     for (const m of data.matches) {
       const who = role === 'candidate' ? (m.job?.company || 'A team') : (m.candidate?.name || 'A candidate');
       list.push({ id: `match-${m.id}`, kind: 'match', text: `It’s a match with ${who}`, at: m.createdAt, matchId: m.id });
@@ -368,7 +409,12 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
       const last = thread[thread.length - 1];
       if (last && last.senderId !== data.viewer.id) list.push({ id: `msg-${last.id}`, kind: 'msg', text: `New message from ${who}`, at: last.createdAt, matchId: m.id });
     }
-    for (const n of data.billingNotifications || []) list.push({ id: `billing-${n.id}`, kind: 'billing', text: n.text, at: n.createdAt });
+    // The server's specific billing kind (trial_ending_7, job_credit_awarded, …)
+    // is preserved rather than flattened to a generic 'billing', so each one can
+    // carry its own icon and land on the screen it's actually about.
+    for (const n of data.billingNotifications || []) {
+      list.push({ id: `billing-${n.id}`, kind: 'billing', billingKind: n.kind, text: n.text, at: n.createdAt, jobId: n.jobId });
+    }
     return list.sort((a, b) => b.at - a.at).slice(0, 8);
   }, [data, role]);
 
@@ -420,7 +466,7 @@ function Workspace({ session, onSwitchUser, onExit }: { session: SessionUser; on
     <AnimatePresence>{supportOpen && <SupportModal viewer={data?.viewer} onClose={() => setSupportOpen(false)} />}</AnimatePresence>
     <AnimatePresence>{conductOpen && <ConductModal onClose={() => setConductOpen(false)} />}</AnimatePresence>
     {mobileNav && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
-    <section className="app-main">{session.emailVerified === false && <div className="verify-banner"><span><ShieldCheck size={15} /> Verify your email to secure your account and unlock everything.</span><button onClick={() => setSettingsOpen(true)}>Verify now</button></div>}<header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} onKeyDown={(event) => { if (event.key === 'Enter') setView('discover'); }} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><div className="notif-wrap"><button aria-label="Notifications" onClick={() => setNotifOpen((v) => !v)}><Bell size={19} />{notifications.length > 0 && <i />}</button>{notifOpen && <><button className="notif-scrim" aria-label="Close notifications" onClick={() => setNotifOpen(false)} /><div className="notif-dropdown"><header>Notifications</header>{notifications.length === 0 ? <p className="notif-empty">No notifications yet.</p> : notifications.map((n) => <button key={n.id} className="notif-item" onClick={() => { setNotifOpen(false); if (n.kind === 'billing') setView('billing'); else if (n.matchId) openMessages(n.matchId); }}><span className={`notif-icon ${n.kind}`}>{n.kind === 'match' ? <Heart size={14} fill="currentColor" /> : n.kind === 'billing' ? <CreditCard size={14} /> : <MessageCircle size={14} />}</span><span className="notif-text">{n.text}<small>{timeAgo(n.at)}</small></span></button>)}</div></>}</div>{data?.viewer.demo && <button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Recruiter view' : 'Candidate view'}<ChevronDown size={14} /></button>}</div></header>
+    <section className="app-main">{session.emailVerified === false && <div className="verify-banner"><span><ShieldCheck size={15} /> Verify your email to secure your account and unlock everything.</span><button onClick={() => setSettingsOpen(true)}>Verify now</button></div>}<header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}><Menu /></button><div className="search-box"><Search size={17} /><input aria-label="Search" placeholder={role === 'candidate' ? 'Search jobs, companies, skills…' : 'Search talent, jobs, messages…'} onKeyDown={(event) => { if (event.key === 'Enter') setView('discover'); }} /><kbd><Command size={12} /> K</kbd></div><div className="topbar-actions"><div className="notif-wrap"><button aria-label="Notifications" onClick={() => setNotifOpen((v) => !v)}><Bell size={19} />{notifications.length > 0 && <i />}</button>{notifOpen && <><button className="notif-scrim" aria-label="Close notifications" onClick={() => setNotifOpen(false)} /><div className="notif-dropdown"><header>Notifications</header>{notifications.length === 0 ? <p className="notif-empty">No notifications yet.</p> : notifications.map((n) => <button key={n.id} className="notif-item" onClick={() => { setNotifOpen(false); if (n.kind === 'billing') { if (n.jobId) openJobEditor(n.jobId); else if (n.billingKind && JOB_NOTIFICATION_KINDS.has(n.billingKind)) setView('jobs'); else setView('billing'); } else if (n.matchId) openMessages(n.matchId); }}><span className={`notif-icon ${n.kind}`}>{n.kind === 'match' ? <Heart size={14} fill="currentColor" /> : n.kind === 'billing' ? billingNotificationIcon(n.billingKind) : <MessageCircle size={14} />}</span><span className="notif-text">{n.text}<small>{timeAgo(n.at)}</small></span></button>)}</div></>}</div>{data?.viewer.demo && <button className="role-chip" onClick={() => changeRole(role === 'candidate' ? 'employer' : 'candidate')}>{role === 'candidate' ? 'Recruiter view' : 'Candidate view'}<ChevronDown size={14} /></button>}</div></header>
       {loading ? <LoadingState /> : error ? <ErrorState message={error} retry={load} /> : data && (
         (data.viewer.onboarding || editStep !== null)
           ? (data.viewer.role === 'candidate'
@@ -744,7 +790,7 @@ function CardSummary({ item, role, detailed = false, onOpenResume, resumeUnlocke
   const wm = person.preferences?.workMode;
   return <>
     <div className="card-hero" style={{ backgroundImage: `linear-gradient(transparent 38%, rgba(0,0,0,.82)), url(${person.photo})` }}>
-      <div className="card-hero-top"><div className="fit-badge"><span>{person.match?.score}%</span> match</div>{onToggleBookmark && <BookmarkButton active={Boolean(bookmarked)} onToggle={onToggleBookmark} />}</div>
+      <div className="card-hero-top"><div className="fit-badge"><span>{person.match?.score}%</span> match</div>{person.promoted && <span className="promoted-badge">Promoted</span>}{onToggleBookmark && <BookmarkButton active={Boolean(bookmarked)} onToggle={onToggleBookmark} />}</div>
       <div className="card-hero-overlay">
         {person.availability && <span className="avail-pill"><i />Available {person.availability}</span>}
         <h2>{person.name}{age !== undefined && <span className="card-age">{age}</span>}{person.verified && <BadgeCheck size={18} className="verified-mark" />}{person.demo && <span className="demo-badge">Demo</span>}</h2>

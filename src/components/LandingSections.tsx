@@ -59,7 +59,7 @@ export function FeaturesTable() {
   return <section className="section features-section" id="features">
     <div className="section-heading centered">
       <span className="eyebrow"><Sparkles size={14} /> Why JobsMatchNow</span>
-      <h2>Better, faster, easier job search and recruitment — powered by killer mutual matching.</h2>
+      <h2>Better, faster, easier job search and recruitment — powered by our Mutual Human Likes Matching feature.</h2>
       <p>Everything below exists for one reason: matches that are worth your time.</p>
     </div>
     <div className="features-columns">

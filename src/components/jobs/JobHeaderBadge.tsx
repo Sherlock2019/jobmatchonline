@@ -65,6 +65,9 @@ export function JobHeaderBadge({ job, compact = false, actions, className = '' }
       {job.location && <span><MapPin size={13} />{job.location}</span>}
       <span className="job-header-salary">{job.salaryHidden ? 'Salary shared after mutual match' : job.salary}</span>
       {job.match?.score !== undefined && <span className="job-header-match">{job.match.score}% match</span>}
+      {/* Labelled, and sitting next to an untouched match score — a boost buys
+          position in the deck, never a better-looking fit. */}
+      {job.promoted && <span className="promoted-badge">Promoted</span>}
       {status && <span className="job-header-status">{status}</span>}
     </div>}
   </header>;

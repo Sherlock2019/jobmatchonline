@@ -3,7 +3,13 @@ import { Check, Copy, Loader2, Mail } from 'lucide-react';
 import { api } from '../../api';
 import { Field, TextInput } from '../profile/fields';
 import { isAndroidNative, isIosNative, purchaseAppleSubscription, purchaseGooglePlaySubscription } from '../../lib/nativeBilling';
-import type { Bootstrap, Payment, PaymentMethod } from '../../types';
+import { LaunchOffers } from '../LaunchOffers';
+import type { Bootstrap, Payment, PaymentMethod, TeamInfo } from '../../types';
+
+function money(amount: number, currency: string) {
+  if (amount === 0) return 'Free';
+  return currency === 'VND' ? `${amount.toLocaleString('en-US')} ₫` : `USD ${amount}`;
+}
 
 const STATUS_LABEL: Record<string, string> = {
   trialing: 'Free trial', active: 'Active', grace_period: 'Grace period', past_due: 'Past due',
@@ -28,6 +34,11 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
   const [proofPaymentId, setProofPaymentId] = useState<string | null>(null);
   const [referralStats, setReferralStats] = useState<{ successfulReferrals: number; pendingReferrals: number } | null>(null);
   const [cardRedirecting, setCardRedirecting] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState('');
+  // Set only after an invite, so the seat list updates without a full reload.
+  const [teamOverride, setTeamOverride] = useState<TeamInfo | null>(null);
 
   useEffect(() => { api.myPayments(viewer.id).then((res) => setPayments(res.payments)).catch(() => undefined); }, [viewer.id]);
   useEffect(() => { api.billingReferral(viewer.id).then(setReferralStats).catch(() => undefined); }, [viewer.id]);
@@ -39,13 +50,21 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
 
   if (!data.billing) {
     return <div className="page"><div className="page-title"><div><span className="overline">Recruiter plan</span><h1>Subscription</h1></div></div>
-      <div className="billing-empty"><p>No subscription yet.</p><button className="primary-button" onClick={startTrial}>Start free 30-day trial</button></div>
+      <div className="billing-empty"><p>No subscription yet.</p><button className="primary-button" onClick={startTrial}>Start free 3-month trial</button></div>
     </div>;
   }
 
-  const { subscription, effectiveStatus, credits, referralCode, instructions, vnpayEnabled, vnpayAmountVnd, stripeEnabled, paypalEnabled, googlePlayEnabled, googlePlayProductId, appleEnabled, appleProductId } = data.billing;
+  const { subscription, effectiveStatus, credits, referralCode, instructions, vnpayEnabled, vnpayAmountVnd, stripeEnabled, paypalEnabled, googlePlayEnabled, googlePlayProductId, appleEnabled, appleProductId, plan } = data.billing;
+  const team = teamOverride ?? data.billing.team;
   const accessEndsAt = subscription.currentPeriodEndsAt || subscription.trialEndsAt;
   const referralLink = `${window.location.origin}/ref/${referralCode}`;
+
+  const invite = async () => {
+    setInviting(true); setInviteError('');
+    try { setTeamOverride(await api.billingInviteTeamMember(viewer.id, inviteEmail.trim())); setInviteEmail(''); }
+    catch (e) { setInviteError(e instanceof Error ? e.message : 'Could not add that teammate'); }
+    finally { setInviting(false); }
+  };
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(referralLink).catch(() => undefined);
@@ -116,12 +135,14 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
   };
 
   return <div className="page billing-page">
-    <div className="page-title"><div><span className="overline">Recruiter plan</span><h1>Subscription</h1><p>USD 20/month per seat — your first 30 days are free.</p></div></div>
+    <div className="page-title"><div><span className="overline">Recruiter plan</span><h1>Subscription</h1><p>USD 20/month per seat — your first 3 months are free.</p></div></div>
 
     {paymentResult && <div className={`billing-result-banner billing-result-${paymentResult}`}>
       {paymentResult === 'success' ? 'Payment confirmed — thanks!' : 'The card payment did not go through. You can try again or use bank transfer / VietQR below.'}
       <button type="button" onClick={onDismissResult}>Dismiss</button>
     </div>}
+
+    <LaunchOffers foundingRemaining={data.billing?.founding?.remaining} compact />
 
     <section className={`billing-status-card status-${effectiveStatus}`}>
       <span className="billing-status-badge">{STATUS_LABEL[effectiveStatus] || effectiveStatus}</span>
@@ -129,6 +150,49 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
       {effectiveStatus === 'grace_period' && <p className="billing-grace-warning">You're in a 7-day grace period — you can still view existing jobs and messages, but can't publish new jobs or contact new candidates until you renew.</p>}
       {credits.length > 0 && <p className="billing-credit-note">{credits.length} referral credit{credits.length > 1 ? 's' : ''} available — applied automatically before you're asked to pay again.</p>}
     </section>
+
+    {plan && <section className="billing-plan-card">
+      <div className="billing-plan-headline">
+        <div>
+          <span className="pricing-kicker">Your plan</span>
+          <h3>{plan.display}</h3>
+          <p className="muted">{plan.monthly ? `${money(plan.monthly, plan.currency)} / month` : 'Free'}
+            {plan.annual ? ` · ${money(plan.annual, plan.currency)} / year (two months free)` : ''}</p>
+        </div>
+        <ul className="billing-plan-facts">
+          <li><b>{plan.liveJobSlots}</b> live jobs</li>
+          <li><b>{team ? team.seatsAllowed : plan.seats}</b> recruiter seat{(team ? team.seatsAllowed : plan.seats) > 1 ? 's' : ''}</li>
+          {plan.analytics && <li>Hiring analytics</li>}
+          {plan.atsExport && <li>ATS export</li>}
+        </ul>
+      </div>
+
+      {team && <div className="billing-seats">
+        <h4>Seats — {team.seatsUsed} of {team.seatsAllowed} in use</h4>
+        <ul className="billing-seat-list">
+          {team.members.map((member) => <li key={member.userId}>
+            <span>{member.name}</span>
+            <small className={member.status === 'active' ? 'seat-active' : 'seat-readonly'}>
+              {member.role === 'owner' ? 'Owner' : member.status === 'active' ? 'Active' : 'Read-only'}
+            </small>
+          </li>)}
+        </ul>
+        {team.isOwner && <>
+          <div className="billing-seat-invite">
+            <TextInput type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="teammate@company.com" />
+            <button type="button" className="secondary-button" disabled={inviting || !inviteEmail.trim()} onClick={invite}>
+              {inviting ? <Loader2 size={15} className="spin" /> : 'Add teammate'}
+            </button>
+          </div>
+          {inviteError && <p className="billing-seat-error">{inviteError}</p>}
+          <p className="muted">
+            They need a recruiter account first. Over the seat limit they still join — read-only — so nobody is ever locked out;
+            they get their seat back the moment you add one.
+            {team.canBuyExtraSeats && team.extraSeatPrice !== null && ` Extra seats are ${money(team.extraSeatPrice, plan.currency)} / month each.`}
+          </p>
+        </>}
+      </div>}
+    </section>}
 
     <section className="billing-grid">
       <div className="billing-pay-card">

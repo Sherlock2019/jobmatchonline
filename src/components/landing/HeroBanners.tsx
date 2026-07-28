@@ -26,10 +26,15 @@ export function HeroDefault({ onRegister, onLogin }: HeroProps) {
 }
 
 /** Custom-image hero banner with the complete five-step journey and product
- * screenshots composed as one responsive marketing template. */
-export function HeroImage({ onRegister, onLogin }: HeroProps) {
+ * screenshots composed as one responsive marketing template.
+ *
+ * `url` is the admin-uploaded banner (Action Queue → Landing page banner →
+ * Replace image). When one has been uploaded it is what renders; the bundled
+ * template is only the fallback for a fresh install that has never had an
+ * upload. Without this the upload silently had no effect on the live page. */
+export function HeroImage({ url, onRegister, onLogin }: HeroProps & { url?: string }) {
   return <section className="hero hero-image">
-    <img className="hero-image-art hero-image-art-top" src={FIVE_STEPS_TEMPLATE} alt="JobsMatchNow five-step recruiting journey" />
+    <img className="hero-image-art hero-image-art-top" src={url || FIVE_STEPS_TEMPLATE} alt="JobsMatchNow five-step recruiting journey" />
     <div className="hero-actions"><button className="primary-button" onClick={onRegister}>Register free <ArrowRight size={18} /></button><button className="secondary-button" onClick={onLogin}>Log in</button><button className="secondary-button demo-test-button" onClick={onLogin}><Sparkles size={18} /> Test demo matching</button></div>
   </section>;
 }

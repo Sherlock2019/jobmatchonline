@@ -5,9 +5,16 @@ import { Field, TextInput } from '../profile/fields';
 
 type Overview = Awaited<ReturnType<typeof api.adminBillingOverview>>;
 type BankInstructions = Awaited<ReturnType<typeof api.adminBankInstructions>>;
-type SectionId = 'bank' | 'pending' | 'confirmed' | 'rejected' | 'trials' | 'grace' | 'expired' | 'rewards' | 'flagged' | 'audit';
+type Plans = Awaited<ReturnType<typeof api.adminBillingPlans>>;
+type SectionId = 'bank' | 'catalog' | 'plans' | 'seats' | 'boosts' | 'credits' | 'founding' | 'pending' | 'confirmed' | 'rejected' | 'trials' | 'grace' | 'expired' | 'rewards' | 'flagged' | 'audit';
 
 function fmt(ts?: number | null) { return ts ? new Date(ts).toLocaleDateString() : '—'; }
+function money(amount: number, currency: string) { return amount === 0 ? 'Free' : currency === 'VND' ? `${amount.toLocaleString('en-US')} ₫` : `USD ${amount}`; }
+
+const PLAN_LABEL: Record<string, string> = {
+  trial: 'Trial', free: 'Free', founding: 'Founding', pro: 'Pro',
+  starter: 'Starter', solo: 'Solo', duo: 'Duo', trio: 'Trio', team: 'Team', agency: 'Agency', pay_per_hire: 'Pay per hire',
+};
 
 export function AdminBillingPage() {
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -16,9 +23,14 @@ export function AdminBillingPage() {
   const [bank, setBank] = useState<BankInstructions | null>(null);
   const [bankSaving, setBankSaving] = useState(false);
   const [bankSaved, setBankSaved] = useState(false);
-  const [section, setSection] = useState<SectionId>('bank');
+  const [section, setSection] = useState<SectionId>('catalog');
+  const [boostKind, setBoostKind] = useState<'job' | 'candidate'>('job');
+  const [boostTarget, setBoostTarget] = useState('');
+  const [plans, setPlans] = useState<Plans | null>(null);
+  const [grantTarget, setGrantTarget] = useState('');
 
-  const reload = () => { api.adminBillingOverview().then(setOverview).catch(() => undefined); };
+  const loadPlans = () => { api.adminBillingPlans().then(setPlans).catch(() => undefined); };
+  const reload = () => { api.adminBillingOverview().then(setOverview).catch(() => undefined); loadPlans(); };
   useEffect(reload, []);
   useEffect(() => { api.adminBankInstructions().then(setBank).catch(() => undefined); }, []);
 
@@ -42,6 +54,12 @@ export function AdminBillingPage() {
   const setReason = (id: string, value: string) => setReasonDrafts((prev) => ({ ...prev, [id]: value }));
 
   const sections: { id: SectionId; label: string; count?: number }[] = [
+    { id: 'catalog', label: 'Pricing & plans', count: plans?.catalog.plans.length },
+    { id: 'plans', label: 'Plans & usage', count: plans?.recruiters.length },
+    { id: 'seats', label: 'Seats & teams', count: plans?.teams.length },
+    { id: 'boosts', label: 'Boosts', count: plans?.boosts.filter((b) => b.live).length },
+    { id: 'credits', label: 'Job-post credits', count: plans?.creditLedger.length },
+    { id: 'founding', label: 'Founding seats', count: plans?.founding.sold },
     { id: 'bank', label: 'Bank transfer instructions' },
     { id: 'pending', label: 'Pending payments', count: overview.pendingPayments.length },
     { id: 'confirmed', label: 'Confirmed payments', count: overview.confirmedPayments.length },
@@ -76,6 +94,186 @@ export function AdminBillingPage() {
       </nav>
 
       <div className="admin-billing-content">
+        {section === 'catalog' && <section className="admin-section">
+          <h3>Pricing &amp; plans</h3>
+          {!plans ? <Loader2 className="spin" size={18} /> : <>
+            <p className="muted">
+              Read straight from the server catalogue, so this is exactly what the product enforces and what the pricing page
+              advertises — there is no second copy of these numbers to fall out of date.
+            </p>
+            <table className="admin-table">
+              <thead><tr><th>Plan</th><th>USD / mo</th><th>VND / mo</th><th>Seats</th><th>Live jobs</th><th>Match cap</th><th>Extras</th></tr></thead>
+              <tbody>{plans.catalog.plans.map((plan) => <tr key={plan.key}>
+                <td><b>{plan.display}</b><br /><small className="muted">{plan.key}</small></td>
+                <td>{money(plan.usd, 'USD')}</td>
+                <td>{money(plan.vnd, 'VND')}</td>
+                <td>{plan.seats}</td>
+                <td>{plan.liveJobSlots}</td>
+                <td>{plan.monthlyMatchCap === null ? 'Unlimited' : plan.monthlyMatchCap}</td>
+                <td>{[plan.analytics && 'Analytics', plan.atsExport && 'ATS export', plan.priorityPlacement && 'Promoted placement',
+                  plan.hireFeePercent !== null && `${plan.hireFeePercent}% per hire`].filter(Boolean).join(' · ') || '—'}</td>
+              </tr>)}</tbody>
+            </table>
+            <p className="muted" style={{ marginTop: 16 }}>
+              <b>Extra seat</b> (on {plans.catalog.extraSeat.availableOn.map((key) => PLAN_LABEL[key] || key).join(', ')} only):{' '}
+              {money(plans.catalog.extraSeat.usd, 'USD')} / {money(plans.catalog.extraSeat.vnd, 'VND')} per month —
+              adds {plans.catalog.extraSeat.seats} seat and {plans.catalog.extraSeat.liveJobSlots} live jobs.<br />
+              <b>Boost</b>: {money(plans.catalog.boost.usd, 'USD')} / {money(plans.catalog.boost.vnd, 'VND')} for {plans.catalog.boost.hours} hours,
+              available for {plans.catalog.boost.kinds.join(' and ')}.<br />
+              <b>Annual</b> billing charges 10 months — two are free.
+            </p>
+            <p className="muted">
+              Prices are set in <code>server/billing/plans.js</code> and change with a deploy, so a price is never edited by
+              accident from this screen. Live subscriptions on the older plan codes ({['trial', 'free', 'founding', 'pro'].join(', ')})
+              keep their terms and are mapped onto this catalogue for seat and slot limits.
+            </p>
+          </>}
+        </section>}
+
+        {section === 'seats' && <section className="admin-section">
+          <h3>Seats &amp; teams</h3>
+          {!plans ? <Loader2 className="spin" size={18} /> : plans.teams.length === 0
+            ? <p className="muted">No recruiter has invited a teammate yet. Solo recruiters have no team record at all — they behave exactly as before the seat model existed.</p>
+            : <table className="admin-table">
+              <thead><tr><th>Owner</th><th>Plan</th><th>Seats used</th><th>Add-on seats</th><th>Members</th></tr></thead>
+              <tbody>{plans.teams.map((team) => <tr key={team.id}>
+                <td>{team.owner}</td>
+                <td><span className="billing-status-pill">{PLAN_LABEL[team.planCode] || team.planCode}</span></td>
+                <td>{team.active} / {team.seatsAllowed}</td>
+                <td>{team.extraSeats}</td>
+                <td>{team.total}{team.total > team.active && <small className="muted"> ({team.total - team.active} read-only)</small>}</td>
+              </tr>)}</tbody>
+            </table>}
+        </section>}
+
+        {section === 'boosts' && <section className="admin-section">
+          <h3>Boosts</h3>
+          <p className="muted">
+            A boost pins a job or a candidate profile to the front of the deck for {plans?.catalog.boost.hours ?? 72} hours.
+            The match score is never changed — the card is labelled <b>Promoted</b> and shows the fit it actually earned.
+            Boosts are started here rather than bought in-app because the card rails are still in test mode.
+          </p>
+          <div className="admin-actions" style={{ marginBottom: 16 }}>
+            <select className="admin-reason-input" value={boostKind} onChange={(event) => setBoostKind(event.target.value as 'job' | 'candidate')}>
+              <option value="job">Job</option>
+              <option value="candidate">Candidate profile</option>
+            </select>
+            <input className="admin-reason-input" placeholder={boostKind === 'job' ? 'Job id' : 'Candidate user id'} value={boostTarget} onChange={(event) => setBoostTarget(event.target.value)} />
+            <input className="admin-reason-input" placeholder="Reason (required)" value={reasonFor('boost')} onChange={(event) => setReason('boost', event.target.value)} />
+            <button type="button" className="primary-button small" disabled={busyId === 'boost' || !boostTarget.trim() || reasonFor('boost').trim().length < 3}
+              onClick={() => run('boost', async () => { await api.adminGrantBoost(boostKind, boostTarget.trim(), reasonFor('boost')); setBoostTarget(''); setReason('boost', ''); })}>
+              Start boost
+            </button>
+          </div>
+          {!plans ? <Loader2 className="spin" size={18} /> : plans.boosts.length === 0 ? <p className="muted">No boosts yet.</p> : <table className="admin-table">
+            <thead><tr><th>Target</th><th>Kind</th><th>Bought by</th><th>Price</th><th>Started</th><th>Expires</th><th>Status</th><th /></tr></thead>
+            <tbody>{plans.boosts.map((boost) => <tr key={boost.id}>
+              <td>{boost.targetName}</td>
+              <td>{boost.kind}</td>
+              <td>{boost.buyerName}</td>
+              <td>{money(boost.amount, boost.currency)}</td>
+              <td>{fmt(boost.startedAt)}</td>
+              <td>{new Date(boost.expiresAt).toLocaleString()}</td>
+              <td><span className="billing-status-pill">{boost.live ? 'Live' : boost.status}</span></td>
+              <td className="admin-actions">
+                {boost.live && <>
+                  <input className="admin-reason-input" placeholder="Reason" value={reasonFor(boost.id)} onChange={(event) => setReason(boost.id, event.target.value)} />
+                  <button type="button" className="secondary-button small" disabled={busyId === boost.id || reasonFor(boost.id).trim().length < 3}
+                    onClick={() => run(boost.id, () => api.adminRevokeBoost(boost.id, reasonFor(boost.id)))}>Revoke</button>
+                </>}
+              </td>
+            </tr>)}</tbody>
+          </table>}
+        </section>}
+
+        {section === 'plans' && <section className="admin-section">
+          <h3>Plans &amp; usage</h3>
+          {!plans ? <Loader2 className="spin" size={18} /> : <>
+            <p className="muted">
+              Enforcement is <b>{plans.enforced ? 'ON' : 'OFF (shadow mode)'}</b>.{' '}
+              {plans.enforced
+                ? 'Publishing and editing limits are being applied.'
+                : 'Limits are evaluated and logged but never block — set ENTITLEMENTS_ENFORCED=true to enforce.'}
+            </p>
+            <div className="admin-stat-row">
+              {Object.entries(plans.planCounts).map(([code, count]) => (
+                <div className="admin-stat" key={code}><strong>{count}</strong><span>{PLAN_LABEL[code] || code}</span></div>
+              ))}
+            </div>
+            {plans.recruiters.length === 0 ? <p className="muted">No recruiters yet.</p> : <table className="admin-table">
+              <thead><tr><th>Recruiter</th><th>Plan</th><th>Status</th><th>Active jobs</th><th>Credits</th><th>Next free job</th><th>Access until</th></tr></thead>
+              <tbody>{plans.recruiters.map((row) => <tr key={row.recruiter.id}>
+                <td>{row.recruiter.name}<br /><small className="muted">{row.recruiter.email}</small></td>
+                <td><span className="billing-status-pill">{PLAN_LABEL[row.planCode] || row.planCode}</span></td>
+                <td>{row.effectiveStatus}</td>
+                <td>{row.activeJobCount} / {row.activeJobLimit}</td>
+                <td>{row.jobCreditBalance}</td>
+                <td>{row.planCode === 'free' ? (row.freeJobAvailable ? 'Available now' : fmt(row.nextFreeJobAvailableAt)) : '—'}</td>
+                <td>{fmt(row.currentPeriodEndsAt || row.trialEndsAt)}</td>
+              </tr>)}</tbody>
+            </table>}
+            {plans.shadowBlocks.length > 0 && <>
+              <h3 style={{ marginTop: 24 }}>Would have been blocked ({plans.shadowBlocks.length})</h3>
+              <p className="muted">Publish/edit attempts the limits would have refused. Review before enabling enforcement.</p>
+              <table className="admin-table">
+                <thead><tr><th>When</th><th>Recruiter</th><th>Action</th><th>Reason</th></tr></thead>
+                <tbody>{plans.shadowBlocks.map((event) => <tr key={event.id}>
+                  <td>{new Date(event.createdAt).toLocaleString()}</td>
+                  <td>{event.userName}</td>
+                  <td>{event.eventType === 'job_publish_blocked' ? 'Publish' : 'Edit'}</td>
+                  <td>{String((event.metadata as Record<string, unknown>)?.code ?? '')}</td>
+                </tr>)}</tbody>
+              </table>
+            </>}
+          </>}
+        </section>}
+
+        {section === 'credits' && <section className="admin-section">
+          <h3>Job-post credits</h3>
+          <p className="muted">Immutable ledger — the balance is always derived from it, never stored as a counter.</p>
+          <div className="admin-actions" style={{ marginBottom: 16 }}>
+            <input className="admin-reason-input" placeholder="Recruiter user id" value={grantTarget} onChange={(event) => setGrantTarget(event.target.value)} />
+            <input className="admin-reason-input" placeholder="Reason (required)" value={reasonFor('grant')} onChange={(event) => setReason('grant', event.target.value)} />
+            <button type="button" className="primary-button small" disabled={busyId === 'grant' || !grantTarget.trim() || reasonFor('grant').trim().length < 3}
+              onClick={() => run('grant', async () => { await api.adminGrantJobCredit(grantTarget.trim(), reasonFor('grant').trim()); setGrantTarget(''); setReason('grant', ''); })}>
+              {busyId === 'grant' ? <Loader2 size={13} className="spin" /> : 'Grant credit'}
+            </button>
+          </div>
+          {!plans ? <Loader2 className="spin" size={18} /> : plans.creditLedger.length === 0 ? <p className="muted">No credits granted yet.</p> : <table className="admin-table">
+            <thead><tr><th>Recruiter</th><th>Source</th><th>Status</th><th>Granted</th><th>Used on</th><th></th></tr></thead>
+            <tbody>{plans.creditLedger.map((credit) => <tr key={credit.id}>
+              <td>{credit.recruiterName}</td>
+              <td>{credit.sourceType.replace(/_/g, ' ')}</td>
+              <td><span className={`billing-status-pill status-${credit.status}`}>{credit.status}</span></td>
+              <td>{fmt(credit.grantedAt)}</td>
+              <td>{credit.consumedByJobId || '—'}</td>
+              <td className="admin-actions">
+                {credit.status === 'available' && <>
+                  <input className="admin-reason-input" placeholder="Revoke reason" value={reasonFor(credit.id)} onChange={(event) => setReason(credit.id, event.target.value)} />
+                  <button type="button" className="secondary-button small" disabled={busyId === credit.id || reasonFor(credit.id).trim().length < 3}
+                    onClick={() => run(credit.id, () => api.adminRevokeJobCredit(credit.id, reasonFor(credit.id).trim()))}>Revoke</button>
+                </>}
+              </td>
+            </tr>)}</tbody>
+          </table>}
+        </section>}
+
+        {section === 'founding' && <section className="admin-section">
+          <h3>Founding Recruiter seats</h3>
+          {!plans ? <Loader2 className="spin" size={18} /> : <>
+            <div className="admin-stat-row">
+              <div className="admin-stat"><strong>{plans.founding.sold}</strong><span>Seats taken</span></div>
+              <div className="admin-stat"><strong>{plans.founding.remaining}</strong><span>Seats remaining</span></div>
+              <div className="admin-stat"><strong>{plans.founding.limit}</strong><span>Total seats</span></div>
+            </div>
+            <p className="muted">
+              {plans.founding.soldOut
+                ? 'All founding seats are taken — new subscribers pay the standard price.'
+                : 'Counts only genuinely activated, non-cancelled founding subscriptions. This is the real number shown to recruiters — never a fabricated countdown.'}
+            </p>
+          </>}
+        </section>}
+
         {section === 'bank' && <section className="admin-section">
           <h3>Bank transfer instructions</h3>
           <p className="muted">Shown to recruiters on the Subscription page when they choose a bank-transfer payment method.</p>
