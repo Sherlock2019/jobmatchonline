@@ -12,8 +12,10 @@ import { ArrowRight, BadgeCheck, Gift, Rocket, Sparkles } from 'lucide-react';
 export type LaunchOffer = { icon: typeof Rocket; badge: string; title: string; body: string };
 
 export const RECRUITER_OFFERS: LaunchOffer[] = [
-  { icon: Rocket, badge: 'Free trial', title: '3 months free', body: 'Post jobs, match with candidates, and message them for a full 3 months. No credit card required to start.' },
-  { icon: BadgeCheck, badge: 'Keep your data', title: 'Nothing is deleted', body: 'When the trial ends your jobs, matches, and conversations all stay exactly where they are. Subscribe whenever you are ready.' },
+  { icon: Rocket, badge: 'Free trial', title: '3 months free', body: 'Post jobs, match with candidates, and message them for a full 90 days — long enough to actually close a hire.' },
+  // Says "stays live", not "is kept". A stored job is worth nothing to a
+  // candidate who can't see it, so this promises visibility, not storage.
+  { icon: BadgeCheck, badge: 'After the trial', title: 'One job stays live free forever', body: 'When the trial ends one of your jobs stays visible to candidates at no cost. The rest pause — nothing is ever closed or deleted.' },
   { icon: Gift, badge: 'Referrals', title: 'Invite, earn free months', body: 'Every recruiter you refer earns you a free month once they complete their first paid month.' },
 ];
 
@@ -22,16 +24,22 @@ export const CANDIDATE_OFFERS: LaunchOffer[] = [
   { icon: Sparkles, badge: 'Mutual only', title: 'You choose who reaches you', body: 'A conversation opens only when you and the company both say yes. No cold outreach, no salary guessing.' },
 ];
 
-/** Founding-seat line. Rendered only when the caller has the real count. */
-function FoundingLine({ remaining }: { remaining?: number }) {
+/** Founding-cohort block. Rendered only when the caller has the real count —
+ *  the seats-left figure is the live server count, never a fake countdown. */
+function FoundingLine({ remaining, limit }: { remaining?: number; limit?: number }) {
   if (remaining === undefined) return null;
-  if (remaining <= 0) return <p className="launch-founding">Founding Recruiter seats are all taken — standard pricing now applies.</p>;
-  return <p className="launch-founding"><b>{remaining.toLocaleString()}</b> of the first 1,000 Founding Recruiter seats left — lock USD 20/month for as long as you stay subscribed.</p>;
+  if (remaining <= 0) return <p className="launch-founding">The founding cohort is full — standard pricing now applies.</p>;
+  return <div className="launch-founding">
+    <strong>Founding cohort — {(limit ?? remaining).toLocaleString()} recruiters</strong>
+    <span>3 months free. Lock $20/month for life.</span>
+    <em>{remaining.toLocaleString()} seat{remaining === 1 ? '' : 's'} left.</em>
+  </div>;
 }
 
-export function LaunchOffers({ offers = RECRUITER_OFFERS, foundingRemaining, onRegister, compact }: {
+export function LaunchOffers({ offers = RECRUITER_OFFERS, foundingRemaining, foundingLimit, onRegister, compact }: {
   offers?: LaunchOffer[];
   foundingRemaining?: number;
+  foundingLimit?: number;
   onRegister?: () => void;
   compact?: boolean;
 }) {
@@ -48,7 +56,7 @@ export function LaunchOffers({ offers = RECRUITER_OFFERS, foundingRemaining, onR
         <p>{offer.body}</p>
       </article>)}
     </div>
-    <FoundingLine remaining={foundingRemaining} />
+    <FoundingLine remaining={foundingRemaining} limit={foundingLimit} />
     {onRegister && <button type="button" className="primary-button launch-offers-cta" onClick={onRegister}>Claim these offers <ArrowRight size={17} /></button>}
   </section>;
 }

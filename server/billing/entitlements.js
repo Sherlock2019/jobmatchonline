@@ -1,6 +1,11 @@
 import crypto from 'node:crypto';
 import { logBillingEvent } from './audit.js';
 import { computeEffectiveStatus, DAY_MS, isBillingExempt } from './subscriptions.js';
+// Cohort size lives with the trial terms it belongs to; re-exported here so
+// every existing `from './entitlements.js'` import keeps working.
+import { FOUNDING_RECRUITER_LIMIT } from './trial.js';
+
+export { FOUNDING_RECRUITER_LIMIT };
 
 /* Recruiter entitlements: the single server-side authority for "may this
  * recruiter publish / edit this job right now". Every decision is derived live
@@ -33,7 +38,25 @@ export const TRIAL_ACTIVE_JOB_LIMIT = intFromEnv('TRIAL_ACTIVE_JOB_LIMIT', 10);
 export const FREE_ACTIVE_JOB_LIMIT = intFromEnv('RECRUITER_FREE_JOB_LIMIT', 1);
 export const FREE_JOB_PERIOD_DAYS = intFromEnv('RECRUITER_FREE_JOB_DAYS', 30);
 export const REFERRAL_JOB_CREDIT_MAX = intFromEnv('REFERRAL_JOB_CREDIT_MAX', 10);
-export const FOUNDING_RECRUITER_LIMIT = intFromEnv('FOUNDING_RECRUITER_LIMIT', 1000);
+
+/* The founding price, locked for life. Held here rather than read from the
+ * subscription row so a future bulk price change cannot silently migrate people
+ * who were promised this number forever — see `foundingPriceFor`. */
+export const FOUNDING_PRICE_USD = intFromEnv('FOUNDING_PRICE_USD', 20);
+export const FOUNDING_PRICE_VND = intFromEnv('FOUNDING_PRICE_VND', 490000);
+
+/**
+ * What a founding subscriber pays, forever. Any repricing of the catalogue has
+ * to go through here, and here it is ignored: a founding row always bills at
+ * the price it was sold at. `subscriptions.test.js` asserts this survives a
+ * catalogue price change.
+ */
+export function foundingPriceFor(subscription, currency = 'USD') {
+  if (!subscription || subscription.planCode !== 'founding') return null;
+  const lockedAt = currency === 'VND' ? subscription.foundingPriceVnd : subscription.foundingPriceUsd;
+  if (Number.isFinite(lockedAt)) return lockedAt;
+  return currency === 'VND' ? FOUNDING_PRICE_VND : FOUNDING_PRICE_USD;
+}
 
 /* Job statuses that occupy an "active posting" slot. Deliberately narrower than
  * the fair-use counter in server/index.js, which also counts drafts — the two

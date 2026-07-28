@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { FOUNDING_RECRUITER_LIMIT, trialDaysFor, trialEndsAt } from './trial.js';
 import { logBillingEvent } from './audit.js';
 
 /* Recruiter subscription state machine. All entitlement decisions are derived
@@ -25,13 +26,28 @@ export function findSubscription(db, recruiterUserId) {
   return (db.subscriptions || []).find((entry) => entry.recruiterUserId === recruiterUserId && entry.status !== 'cancelled');
 }
 
-/** Idempotent: trialStartedAt is set only once per recruiter, ever. Safe to
- * call on every bootstrap load — a no-op after the first time. */
-export function getOrCreateTrialSubscription(db, recruiterUserId) {
+/**
+ * Idempotent: trialStartedAt is set only once per recruiter, ever. Safe to
+ * call on every bootstrap load — a no-op after the first time.
+ *
+ * `kind` picks the trial length. Founding seats get 90 days (a full VN hire
+ * cycle including a 30-45 day notice period — anything shorter expires before
+ * the hire it produced can land); public signups get 14. Existing rows are
+ * never rewritten, so live trials keep whatever end date they already have.
+ */
+export function getOrCreateTrialSubscription(db, recruiterUserId, kind = null) {
   if (!Array.isArray(db.subscriptions)) db.subscriptions = [];
   const existing = findSubscription(db, recruiterUserId);
   if (existing) return existing;
   const now = Date.now();
+
+  // Founding seats are allocated here, inside the caller's transaction, so the
+  // cohort cap is enforced by the same serialised write that creates the row.
+  const foundingSold = db.subscriptions.filter((entry) => entry.planCode === 'founding' && entry.status === 'active' && !entry.cancelledAt).length;
+  const foundingOpen = foundingSold < FOUNDING_RECRUITER_LIMIT;
+  const trialKind = kind || (foundingOpen ? 'founding' : 'public');
+  const days = trialDaysFor(trialKind);
+
   const subscription = {
     id: crypto.randomUUID(),
     recruiterUserId,
@@ -39,8 +55,15 @@ export function getOrCreateTrialSubscription(db, recruiterUserId) {
     status: 'trialing',
     priceAmount: PRICE_AMOUNT,
     priceCurrency: PRICE_CURRENCY,
+    trialKind,
+    // Founding pricing is captured at signup, not looked up later, so a future
+    // catalogue reprice cannot migrate someone who was promised this for life.
+    foundingPriceUsd: trialKind === 'founding' ? PRICE_AMOUNT : null,
     trialStartedAt: now,
-    trialEndsAt: now + TRIAL_DAYS * DAY_MS,
+    trialEndsAt: trialEndsAt(now, days),
+    trialDays: days,
+    sentCheckpoints: [],
+    completedObligations: [],
     currentPeriodStartedAt: null,
     currentPeriodEndsAt: null,
     gracePeriodEndsAt: null,
@@ -50,7 +73,8 @@ export function getOrCreateTrialSubscription(db, recruiterUserId) {
     updatedAt: now,
   };
   db.subscriptions.push(subscription);
-  logBillingEvent(db, recruiterUserId, 'trial_started', 'subscription', subscription.id, { trialEndsAt: subscription.trialEndsAt });
+  logBillingEvent(db, recruiterUserId, 'trial_started', 'subscription', subscription.id,
+    { trialEndsAt: subscription.trialEndsAt, trialKind, days });
   return subscription;
 }
 

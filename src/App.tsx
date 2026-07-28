@@ -15,7 +15,7 @@ import { FeaturesTable, FeedbackSection, JourneyPipeline, LatestShowcase } from 
 import { HeroAlt, HeroDefault, HeroImage } from './components/landing/HeroBanners';
 import { CANDIDATE_OFFERS, LaunchOffers } from './components/LaunchOffers';
 import { PlanCardView } from './components/landing/PlanCards';
-import { ANNUAL_MONTHS_CHARGED, BOOST, EXTRA_SEAT, HEADLINE_PLANS, MORE_SEAT_PLANS, planCard, usd, vnd } from './lib/plans';
+import { ANNUAL_MONTHS_CHARGED, BOOST, EXTRA_SEAT, HEADLINE_PLANS, MORE_SEAT_PLANS, PAY_PER_HIRE, planCard, POSTING_TERM_DAYS, SINGLE_POSTING, usd, vnd } from './lib/plans';
 import { CandidateWizard } from './components/profile/CandidateWizard';
 import { CandidateProfilePage } from './components/profile/CandidateProfilePage';
 import { RecruiterWizard } from './components/profile/RecruiterWizard';
@@ -155,11 +155,13 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const complete = (user: SessionUser) => { setAuthModal(null); onLogin(user); };
   const [banner, setBanner] = useState<'default' | 'alt' | 'image'>('default');
   const [foundingRemaining, setFoundingRemaining] = useState<number | undefined>(undefined);
+  const [foundingLimit, setFoundingLimit] = useState<number | undefined>(undefined);
   const [bannerImageUrl, setBannerImageUrl] = useState<string | undefined>(undefined);
   useEffect(() => {
     api.siteSettings().then((res) => {
       setBanner(res.activeLandingBanner);
       setFoundingRemaining(res.founding?.remaining);
+      setFoundingLimit(res.founding?.limit);
       // The ?v= cache-buster is already on the URL, so a replaced image shows
       // immediately instead of serving the browser's copy of the old one.
       setBannerImageUrl(res.bannerImage ? `${apiBase}${res.bannerImage.url}` : undefined);
@@ -289,8 +291,8 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
       </div>
     </div></section>
     <section className="section pricing-section" id="pricing">
-      <div className="section-heading centered"><span className="eyebrow"><Sparkles size={14} /> Best Value for the Money</span><h2>Get the Best Results for your Time and Money!</h2></div>
-      <p className="pricing-pitch"><span className="pitch-free">Free for candidates,</span> <span className="pitch-value">Incredible Value Packages for Recruiters</span></p>
+      <div className="section-heading centered"><span className="eyebrow"><Sparkles size={14} /> Pricing</span><h2>Hire faster. Pay less than one agency placement.</h2></div>
+      <p className="pricing-pitch"><span className="pitch-free">Always free for candidates,</span> <span className="pitch-value">from USD 20 a month for recruiters</span></p>
       <div className="pricing-candidate-band">
         <div>
           <span className="pricing-kicker">Candidates</span>
@@ -312,12 +314,27 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
           (<span className="plan-vnd">{vnd(EXTRA_SEAT.vnd)}</span>) — each one adds {EXTRA_SEAT.liveJobSlots} more live jobs.
         </p>
       </details>
+      <div className="plan-alt-row">
+        <article>
+          <span className="plan-name">One role only</span>
+          <p className="plan-price">{usd(SINGLE_POSTING.usd)}<small> once</small></p>
+          <p className="plan-vnd">{vnd(SINGLE_POSTING.vnd)}</p>
+          <p>A single job posting, live for {SINGLE_POSTING.termDays} days. No subscription.</p>
+        </article>
+        <article>
+          <span className="plan-name">Pay per hire</span>
+          <p className="plan-price">{usd(0)}<small> up front</small></p>
+          <p className="plan-vnd">then {PAY_PER_HIRE.feePercent}% of first-year salary</p>
+          <p>Nothing to pay until someone is actually hired through the platform.</p>
+        </article>
+      </div>
       <p className="plan-footnote">
-        Annual billing charges {ANNUAL_MONTHS_CHARGED} months — two are free. Vietnam accounts are billed in đồng at the prices shown.
+        Every posting runs {POSTING_TERM_DAYS} days and then pauses — renewing is free, one click, as often as you like.
+        Annual billing charges {ANNUAL_MONTHS_CHARGED} months, so two are free. Vietnam accounts are billed in đồng at the prices shown.
         Boost any job to the top of the deck for {BOOST.hours} hours for {usd(BOOST.usd)}; boosted cards are labelled <b>Promoted</b> and
         keep the exact match score they earned.
       </p>
-      <LaunchOffers onRegister={openRegister} foundingRemaining={foundingRemaining} />
+      <LaunchOffers onRegister={openRegister} foundingRemaining={foundingRemaining} foundingLimit={foundingLimit} />
     </section>
     <LatestShowcase onRegister={openRegister} onLogin={openLogin} />
     <FeedbackSection />

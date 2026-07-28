@@ -1,6 +1,9 @@
 import { logBillingEvent } from './audit.js';
 import { extendFromPayment, findSubscription } from './subscriptions.js';
 import { qualifyReferralIfEligible } from './referrals.js';
+import { clearSlotLocks } from './postings.js';
+import { applyLiveJobLimit } from './downgrade.js';
+import { PLANS, seatPlanKey } from './plans.js';
 
 /** Shared by the admin manual-confirm route and the VNPay IPN webhook so the
  * money-critical extend-subscription + qualify-referral + audit logic exists
@@ -23,6 +26,15 @@ export function confirmPayment(db, payment, { now = Date.now(), adminId = null, 
   extendFromPayment(subscription, payment, now);
   logBillingEvent(db, adminId || payment.recruiterUserId, 'payment_confirmed', 'payment', payment.id, { recruiterUserId: payment.recruiterUserId, newExpiry: subscription.currentPeriodEndsAt, source });
   const qualification = qualifyReferralIfEligible(db, payment);
+
+  /* Paying clears every slot lock and brings the paused postings back up. The
+   * paywall's whole job is to sell the upgrade, so it has to disappear the
+   * instant they buy — a customer who paid and still sees a locked slot has
+   * been charged for nothing. */
+  clearSlotLocks(db, payment.recruiterUserId, 'upgraded', now);
+  const planKey = seatPlanKey(subscription?.planCode);
+  applyLiveJobLimit(db, payment.recruiterUserId, PLANS[planKey].liveJobSlots, { reason: 'upgraded', now });
+
   const recruiter = db.users.find((entry) => entry.id === payment.recruiterUserId);
   const referrer = qualification ? db.users.find((entry) => entry.id === qualification.referral.referrerUserId) : null;
   return { payment, subscription, qualification, recruiterEmail: recruiter?.email, recruiterName: recruiter?.name, referrerEmail: referrer?.email };

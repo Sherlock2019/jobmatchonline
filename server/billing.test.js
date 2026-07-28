@@ -19,8 +19,9 @@ import {
   consumeFreeJobAllowance, consumeReferralJobCredit, countActiveJobs, FREE_ACTIVE_JOB_LIMIT,
   FREE_JOB_PERIOD_DAYS, foundingStatus, getRecruiterEntitlements, grantReferralJobCredit,
   jobCreditBalance, lockMatchFieldsOnPublish, MATCH_RELEVANT_FIELDS, REFERRAL_JOB_CREDIT_MAX,
-  resolvePlanCode, revokeJobCredit, TRIAL_ACTIVE_JOB_LIMIT,
+  resolvePlanCode, revokeJobCredit, TRIAL_ACTIVE_JOB_LIMIT, foundingPriceFor,
 } from './billing/entitlements.js';
+import { FOUNDING_RECRUITER_LIMIT, FOUNDING_TRIAL_DAYS, PUBLIC_TRIAL_DAYS } from './billing/trial.js';
 import crypto from 'node:crypto';
 
 function makeDb(overrides = {}) {
@@ -35,11 +36,31 @@ test('candidate remains free and never receives recruiter billing restrictions',
   assert.equal(canPublishJob(candidate, undefined), true);
 });
 
-// 2. New recruiter receives exactly 30 trial days.
-test('new recruiter receives exactly 30 trial days', () => {
+// 2. Trial length follows the cohort: 90 founding days, 14 public.
+test('a founding-cohort recruiter receives the full 90-day trial', () => {
   const db = makeDb();
   const sub = getOrCreateTrialSubscription(db, 'r1');
-  assert.equal(sub.trialEndsAt - sub.trialStartedAt, TRIAL_DAYS * DAY_MS);
+  assert.equal(sub.trialKind, 'founding', 'the cohort has seats free, so this recruiter is in it');
+  assert.equal(sub.trialEndsAt - sub.trialStartedAt, FOUNDING_TRIAL_DAYS * DAY_MS);
+});
+
+test('once the founding cohort is full, new recruiters get the public trial', () => {
+  const db = makeDb();
+  // Fill every founding seat.
+  for (let i = 0; i < FOUNDING_RECRUITER_LIMIT; i += 1) {
+    db.subscriptions.push({ id: `f${i}`, recruiterUserId: `founder${i}`, planCode: 'founding', status: 'active', cancelledAt: null });
+  }
+  const sub = getOrCreateTrialSubscription(db, 'late-arrival');
+  assert.equal(sub.trialKind, 'public');
+  assert.equal(sub.trialEndsAt - sub.trialStartedAt, PUBLIC_TRIAL_DAYS * DAY_MS);
+});
+
+test('the founding price is captured at signup, not looked up later', () => {
+  const db = makeDb();
+  const sub = getOrCreateTrialSubscription(db, 'r1');
+  sub.planCode = 'founding';
+  // Whatever the catalogue does later, this row still bills at what it was sold at.
+  assert.equal(foundingPriceFor(sub, 'USD'), sub.foundingPriceUsd);
 });
 
 // 3. Trial cannot be restarted by creating another request.
@@ -223,11 +244,25 @@ test('admin action creates an audit log', () => {
 });
 
 // 21. Job expiry occurs after 30 days.
-test('job expiry occurs after 30 days', () => {
-  const db = makeDb({ jobs: [{ id: 'j1', status: 'active', expiresAt: Date.now() - 1000 }] });
+// A posting whose term runs out PAUSES — it is never expired or deleted, so
+// the recruiter keeps it and renewal is one free click.
+test('a posting past its term pauses instead of expiring', () => {
+  const db = makeDb({ jobs: [
+    { id: 'j1', employerId: 'r1', status: 'active', expiresAt: Date.now() - 1000, createdAt: 1 },
+    // A second, current posting so the never-zero-live rule doesn't restore j1.
+    { id: 'j2', employerId: 'r1', status: 'active', expiresAt: Date.now() + 1e9, createdAt: 2 },
+  ] });
   const summary = runDailyBilling(db);
-  assert.equal(db.jobs[0].status, 'expired');
-  assert.equal(summary.jobsExpired, 1);
+  assert.equal(db.jobs[0].status, 'paused');
+  assert.equal(db.jobs[0].pausedReason, 'term_elapsed');
+  assert.equal(summary.postingsPaused, 1);
+});
+
+// The invariant that outranks everything else in this file.
+test('a recruiter whose only posting elapses still has it visible to candidates', () => {
+  const db = makeDb({ jobs: [{ id: 'j1', employerId: 'r1', status: 'active', expiresAt: Date.now() - 1000, createdAt: 1 }] });
+  runDailyBilling(db);
+  assert.equal(db.jobs[0].status, 'active', 'never zero live jobs — the sweep paused it and the invariant restored it');
 });
 
 // 22. More than 50 active jobs is a flag, never a hard block or deletion —

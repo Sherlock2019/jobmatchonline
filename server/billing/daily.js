@@ -2,6 +2,10 @@ import crypto from 'node:crypto';
 import { logBillingEvent } from './audit.js';
 import { applyCredit, DAY_MS, GRACE_DAYS } from './subscriptions.js';
 import { expireBoosts } from './boosts.js';
+import { assertNeverZeroLiveJobs, downgradeToFree } from './downgrade.js';
+import { pauseElapsedPostings, releaseElapsedSlotLocks } from './postings.js';
+import { dueCheckpoints, markCheckpointSent } from './trial.js';
+import { FREE_ACTIVE_JOB_LIMIT } from './entitlements.js';
 
 function pushNotification(db, userId, kind, text) {
   if (!Array.isArray(db.billingNotifications)) db.billingNotifications = [];
@@ -13,7 +17,10 @@ function pushNotification(db, userId, kind, text) {
  * itself, so calling this twice in the same day (a retried cron hit, or a
  * test calling it repeatedly) is always safe — a no-op the second time. */
 export function runDailyBilling(db, now = Date.now()) {
-  const summary = { creditsApplied: 0, enteredGrace: 0, expired: 0, remindersSent: 0, jobsExpired: 0, boostsExpired: 0 };
+  const summary = {
+    creditsApplied: 0, enteredGrace: 0, expired: 0, remindersSent: 0, boostsExpired: 0,
+    downgraded: 0, checkpointsSent: 0, postingsPaused: 0, slotLocksReleased: 0, zeroLiveJobsRepaired: 0,
+  };
   if (!Array.isArray(db.subscriptions)) db.subscriptions = [];
   for (const subscription of db.subscriptions) {
     if (subscription.status === 'cancelled' || subscription.suspendedAt) continue;
@@ -66,19 +73,39 @@ export function runDailyBilling(db, now = Date.now()) {
       subscription.status = 'expired';
       subscription.updatedAt = now;
       logBillingEvent(db, recruiter.id, 'subscription_expired', 'subscription', subscription.id, {});
-      pushNotification(db, recruiter.id, 'subscription_expired', 'Your subscription has expired. Recruiter features are paused until you renew.');
+      // Downgrade rather than cut off: one job stays live free forever, the
+      // rest pause. Nothing is closed and nothing is deleted.
+      const result = downgradeToFree(db, subscription, FREE_ACTIVE_JOB_LIMIT, now);
+      pushNotification(db, recruiter.id, 'downgraded_to_free',
+        `Your subscription ended. One job stays live free forever${result?.paused ? ` — your other ${result.paused} ${result.paused === 1 ? 'posting is' : 'postings are'} paused and one click from live again` : ''}.`);
       summary.expired += 1;
+      summary.downgraded += 1;
     }
   }
 
-  // Job expiry: 30 days unless renewed (renewing bumps job.expiresAt via the
-  // existing job-update route, so this only ever touches genuinely stale posts).
-  for (const job of db.jobs || []) {
-    if (job.expiresAt && job.expiresAt < now && String(job.status).toLowerCase() !== 'expired') {
-      job.status = 'expired';
-      summary.jobsExpired += 1;
+  // Trial check-ins. Day 2 fires only for recruiters who have not posted
+  // anything yet — the group most likely to churn without ever evaluating.
+  for (const subscription of db.subscriptions) {
+    const recruiter = db.users.find((user) => user.id === subscription.recruiterUserId);
+    if (!recruiter || recruiter.demo === true) continue;
+    if (subscription.currentPeriodEndsAt) continue; // paid, not trialing
+    const hasJobs = (db.jobs || []).some((job) => job.employerId === recruiter.id);
+    for (const checkpoint of dueCheckpoints(subscription, { now, hasJobs })) {
+      pushNotification(db, recruiter.id, checkpoint.kind, checkpoint.text);
+      markCheckpointSent(subscription, checkpoint.key);
+      summary.checkpointsSent += 1;
     }
   }
+
+  // Postings pause at the end of their term instead of expiring: the recruiter
+  // keeps the posting and renewal is one free click.
+  summary.postingsPaused = pauseElapsedPostings(db, now);
+  summary.slotLocksReleased = releaseElapsedSlotLocks(db, now);
+
+  /* The invariant, verified rather than assumed. Every path above is supposed
+   * to leave at least one job visible; this proves it did, repairs it if not,
+   * and surfaces the count so a silent regression can't hide. */
+  summary.zeroLiveJobsRepaired = assertNeverZeroLiveJobs(db, { now }).length;
 
   // Boosts fall off on their own schedule. Ranking already ignores an expired
   // boost, so this sweep only keeps the ledger honest for the admin view.

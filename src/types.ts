@@ -142,6 +142,7 @@ export interface BillingInfo {
   googlePlayEnabled?: boolean; googlePlayProductId?: string; appleEnabled?: boolean; appleProductId?: string;
   entitlements?: RecruiterEntitlements; founding?: FoundingStatus;
   plan?: PlanSummary; team?: TeamInfo;
+  verification?: RecruiterVerification; trial?: TrialInfo; postings?: PostingsInfo;
 }
 export interface Referral { id: string; referrerUserId: string; referredUserId: string; referralCode: string; status: string; suspicious?: boolean; qualifiedPaymentId: string | null; qualifiedAt: number | null; createdAt: number }
 export interface BillingEvent { id: string; userId: string | null; eventType: string; entityType: string; entityId: string; metadata: Record<string, unknown>; createdAt: number }
@@ -186,6 +187,10 @@ export interface PlanCatalog {
   plans: CatalogPlan[];
   extraSeat: { seats: number; liveJobSlots: number; usd: number; vnd: number; availableOn: string[] };
   boost: { hours: number; usd: number; vnd: number; kinds: string[] };
+  singlePosting: { termDays: number; usd: number; vnd: number };
+  payPerHireFeePercent: number;
+  postingTermDays: number;
+  trial: { foundingDays: number; publicDays: number; obligations: string[] };
 }
 export interface AdminTeamRow {
   id: string; owner: string; planCode: string; extraSeats: number;
@@ -219,6 +224,16 @@ export interface PlanSummary {
   planCode: string; key: string; display: string; currency: string;
   monthly: number | null; annual: number | null;
   seats: number; liveJobSlots: number; analytics: boolean; atsExport: boolean;
+}
+export interface RecruiterVerification {
+  verified: boolean; method: string | null; domain?: string; reason?: string; message?: string;
+}
+export interface TrialInfo {
+  kind: 'founding' | 'public'; days: number | null; startedAt: number | null; endsAt: number | null;
+  extendedForHire: boolean; obligations: { key: string; done: boolean }[];
+}
+export interface PostingsInfo {
+  termDays: number; live: number; paused: number; lockedSlots: number; verifiedHire: boolean;
 }
 export interface Bootstrap { viewer: Person; jobs: Job[]; candidates: Person[]; roleMatches?: RoleMatchGroup[]; matches: JobMatch[]; messages: Message[]; calls: ScheduledCall[]; notes: Note[]; bookmarkedIds: string[]; likesRemaining: number; billing?: BillingInfo; billingNotifications?: BillingNotification[] }
 

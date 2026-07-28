@@ -142,7 +142,7 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
       <button type="button" onClick={onDismissResult}>Dismiss</button>
     </div>}
 
-    <LaunchOffers foundingRemaining={data.billing?.founding?.remaining} compact />
+    <LaunchOffers foundingRemaining={data.billing?.founding?.remaining} foundingLimit={data.billing?.founding?.limit} compact />
 
     <section className={`billing-status-card status-${effectiveStatus}`}>
       <span className="billing-status-badge">{STATUS_LABEL[effectiveStatus] || effectiveStatus}</span>

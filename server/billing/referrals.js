@@ -1,10 +1,27 @@
 import crypto from 'node:crypto';
 import { logBillingEvent } from './audit.js';
-import { REFERRAL_CREDIT_DAYS } from './subscriptions.js';
+import { DAY_MS, REFERRAL_CREDIT_DAYS } from './subscriptions.js';
 
 /* Recruiter-only referral program. Candidates never get a code, never create
  * a Referral row, and never receive a credit — every entry point below
  * checks role === 'employer' before doing anything. */
+
+/** Twelve free months a year is a free year. That is the ceiling, not a target. */
+export const REFERRAL_CREDITS_PER_YEAR = Number(process.env.REFERRAL_CREDITS_PER_YEAR || 12);
+
+/** Referral credits granted to this recruiter in the last rolling 365 days.
+ *  Counted from the ledger, never from a stored counter that could drift. */
+export function referralCreditsInLastYear(db, recruiterUserId, now = Date.now()) {
+  const since = now - 365 * DAY_MS;
+  let count = 0;
+  for (const credit of db.subscriptionCredits || []) {
+    if (credit.recruiterUserId !== recruiterUserId) continue;
+    if (credit.sourceType !== 'referral') continue;
+    if (credit.status === 'revoked') continue; // a clawed-back credit frees capacity
+    if ((credit.grantedAt || 0) >= since) count += 1;
+  }
+  return count;
+}
 
 function normalizeEmailSignal(email) {
   if (!email) return '';
@@ -71,6 +88,23 @@ export function qualifyReferralIfEligible(db, payment) {
   const earlierConfirmed = (db.payments || []).some((entry) =>
     entry.recruiterUserId === payment.recruiterUserId && entry.status === 'confirmed' && entry.id !== payment.id && entry.confirmedAt < payment.confirmedAt);
   if (earlierConfirmed) return null; // this is not the referred recruiter's first confirmed month
+
+  // A free month per referral is uncapped revenue leakage at scale: twelve
+  // successful referrals is a free year, and beyond that the referrer never
+  // pays again. The cap makes the programme generous but finite. The referral
+  // itself still qualifies — only the reward is withheld — so the referred
+  // recruiter's own signup is unaffected and the referrer is told why.
+  if (referralCreditsInLastYear(db, referral.referrerUserId) >= REFERRAL_CREDITS_PER_YEAR) {
+    referral.status = 'qualified';
+    referral.qualifiedPaymentId = payment.id;
+    referral.qualifiedAt = Date.now();
+    referral.rewardCappedAt = Date.now();
+    referral.updatedAt = Date.now();
+    logBillingEvent(db, referral.referrerUserId, 'referral_reward_capped', 'referral', referral.id,
+      { max: REFERRAL_CREDITS_PER_YEAR, referredUserId: referral.referredUserId });
+    return { referral, credit: null, capped: true };
+  }
+
   referral.status = 'qualified';
   referral.qualifiedPaymentId = payment.id;
   referral.qualifiedAt = Date.now();

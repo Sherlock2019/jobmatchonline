@@ -118,9 +118,22 @@ export function AdminBillingPage() {
               <b>Extra seat</b> (on {plans.catalog.extraSeat.availableOn.map((key) => PLAN_LABEL[key] || key).join(', ')} only):{' '}
               {money(plans.catalog.extraSeat.usd, 'USD')} / {money(plans.catalog.extraSeat.vnd, 'VND')} per month —
               adds {plans.catalog.extraSeat.seats} seat and {plans.catalog.extraSeat.liveJobSlots} live jobs.<br />
+              <b>Single posting</b>: {money(plans.catalog.singlePosting.usd, 'USD')} / {money(plans.catalog.singlePosting.vnd, 'VND')} once,
+              live {plans.catalog.singlePosting.termDays} days. Priced above Solo on purpose — it sells the subscription.<br />
+              <b>Pay per hire</b>: nothing up front, {plans.catalog.payPerHireFeePercent}% of first-year salary on a completed hire.<br />
               <b>Boost</b>: {money(plans.catalog.boost.usd, 'USD')} / {money(plans.catalog.boost.vnd, 'VND')} for {plans.catalog.boost.hours} hours,
               available for {plans.catalog.boost.kinds.join(' and ')}.<br />
               <b>Annual</b> billing charges 10 months — two are free.
+            </p>
+            <p className="muted">
+              <b>Trials</b>: {plans.catalog.trial.foundingDays} days for the founding cohort
+              ({plans.founding.remaining} of {plans.founding.limit} seats left),
+              {' '}{plans.catalog.trial.publicDays} days for everyone after it. Founding seats lock USD 20/month for life —
+              that price is captured on the subscription row at signup, so a future catalogue reprice cannot migrate them.<br />
+              <b>Postings</b> run {plans.catalog.postingTermDays} days and then <i>pause</i> — never expire, never delete.
+              Renewal is free, one click, unlimited.<br />
+              <b>Founding obligations</b>: {plans.catalog.trial.obligations.join(', ')} — tracked, never enforced.
+              Missing one never removes access or data.
             </p>
             <p className="muted">
               Prices are set in <code>server/billing/plans.js</code> and change with a deploy, so a price is never edited by

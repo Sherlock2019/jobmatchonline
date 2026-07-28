@@ -22,7 +22,7 @@ export type PlanCard = {
 export const PLAN_CARDS: PlanCard[] = [
   {
     key: 'starter', display: 'Starter', seats: 1, liveJobSlots: 1, usd: 0, vnd: 0,
-    tagline: 'Free, forever. No card.',
+    tagline: 'One job, live free forever.',
     perks: ['1 live job', '1 recruiter seat', 'Mutual-likes matching', 'Messaging and interview scheduling'],
   },
   {
@@ -63,6 +63,18 @@ export const EXTRA_SEAT = { seats: 1, liveJobSlots: 5, usd: 12, vnd: 290000, ava
 export const ANNUAL_MONTHS_CHARGED = 10;
 
 export const BOOST = { hours: 72, usd: 12, vnd: 300000 };
+
+/** A posting runs this long and then pauses. Renewal is free and unlimited. */
+export const POSTING_TERM_DAYS = 60;
+
+/* Priced above Solo on purpose: USD 25 for one job against USD 20/month for
+ * five makes the subscription the obvious choice. It sells the plan. */
+export const SINGLE_POSTING = { termDays: 60, usd: 25, vnd: 590000 };
+
+export const PAY_PER_HIRE = { feePercent: 5 };
+
+/** Founding cohort gets 90 days; everyone after it gets 14. */
+export const TRIAL = { foundingDays: 90, publicDays: 14 };
 
 export const planCard = (key: PlanKey) => PLAN_CARDS.find((plan) => plan.key === key)!;
 

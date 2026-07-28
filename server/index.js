@@ -32,7 +32,11 @@ import {
 } from './billing/entitlements.js';
 import { boostedIds, boostPrice, BOOST_HOURS, BOOST_KINDS, expireBoosts, isBoosted, startBoost } from './billing/boosts.js';
 import { activeMembers, addMember, findTeam, getOrCreateTeam, reconcileSeats, seatsAllowed } from './billing/seats.js';
-import { addonPrice, currencyForCountry, EXTRA_SEAT_ADDON, PLANS, planPrice, seatPlanKey } from './billing/plans.js';
+import { addonPrice, currencyForCountry, EXTRA_SEAT_ADDON, PAY_PER_HIRE_FEE_PERCENT, PLANS, planPrice, seatPlanKey, SINGLE_POSTING, singlePostingPrice } from './billing/plans.js';
+import { assertNeverZeroLiveJobs, downgradeToFree, applyLiveJobLimit } from './billing/downgrade.js';
+import { clearSlotLocks, confirmHire, hasVerifiedHire, HIRE_OUTCOMES, POSTING_TERM_DAYS, recordHire, renewPosting, startPostingTerm } from './billing/postings.js';
+import { completeObligation, extendForHireInFlight, FOUNDING_OBLIGATIONS, obligationStatus, PUBLIC_TRIAL_DAYS, FOUNDING_TRIAL_DAYS } from './billing/trial.js';
+import { recruiterVerification } from './billing/verification.js';
 import { attachReferralOnRegister, findReferrerByCode, getOrCreateReferralCode, revokeReferralCreditForPayment } from './billing/referrals.js';
 import { BANK_INSTRUCTION_FIELDS, generateInvoiceNumber, generateTransferReference, MANUAL_METHOD_IDS, paymentInstructions } from './billing/providers/manual.js';
 import { buildPaymentUrl, isVnpayConfigured, isVnpaySuccess, VNPAY_AMOUNT_VND, verifySignature as verifyVnpaySignature } from './billing/providers/vnpay.js';
@@ -1158,6 +1162,29 @@ function sortPromotedFirst(cards) {
  */
 function applyPublishEntitlement(db, employer, job) {
   const subscription = findSubscription(db, employer.id);
+
+  /* Spam control that is actually a control: a company email domain or a
+   * company LinkedIn page. Gated on the same kill switch as the plan limits so
+   * it can be turned off instantly if it misfires on real recruiters, and
+   * exempt accounts (demo, admin) skip it entirely. */
+  if (!isBillingExempt(employer)) {
+    const verification = recruiterVerification(employer);
+    if (!verification.verified) {
+      logBillingEvent(db, employer.id, 'job_publish_blocked', 'job', job.id, {
+        code: 'RECRUITER_NOT_VERIFIED', enforced: entitlementsEnforced(),
+      });
+      if (entitlementsEnforced()) {
+        const error = new Error(verification.message);
+        error.status = 403;
+        error.code = 'RECRUITER_NOT_VERIFIED';
+        throw error;
+      }
+    }
+  }
+
+  // A 60-day term starts now, whether this is a first publish or a re-publish.
+  startPostingTerm(job);
+
   const verdict = checkPublishAllowed(db, employer, subscription);
 
   if (!verdict.allowed) {
@@ -1430,6 +1457,68 @@ app.patch('/api/jobs/:id', async (req, res, next) => {
       return updated;
     });
     res.json({ job });
+  } catch (error) { next(error); }
+});
+
+/* Renew a posting for another 60-day term. Free, one click, unlimited: jobs are
+ * the scarce resource here, and charging for the renewal risks losing the
+ * listing — which costs far more than the fee could earn. */
+app.post('/api/jobs/:id/renew', async (req, res, next) => {
+  try {
+    const result = await store.transaction((db) => {
+      const job = db.jobs.find((entry) => entry.id === req.params.id);
+      if (!job) { const error = new Error('Job not found'); error.status = 404; throw error; }
+      const actorId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+      assertDemoActor(req, db, actorId);
+      const isAdmin = authSession(req)?.role === 'admin';
+      if (job.employerId !== actorId && !isAdmin) {
+        const error = new Error('Only the recruiter who posted this job can renew it'); error.status = 403; throw error;
+      }
+      return renewPosting(db, job, actorId);
+    });
+    res.json(result);
+  } catch (error) { next(error); }
+});
+
+/* Record the outcome of a role. `platform` locks the slot for 30 days — the
+ * recruiter got a hire out of us, so the next one is the moment to ask for
+ * money. `elsewhere` and `cancelled` open the slot immediately: never penalise
+ * someone for the product not having worked. */
+app.post('/api/jobs/:id/hire', async (req, res, next) => {
+  try {
+    const outcome = reqString(req.body, 'outcome', { max: 32 });
+    const candidateId = req.body?.candidateId ? reqString(req.body, 'candidateId', { max: 128 }) : null;
+    const result = await store.transaction((db) => {
+      const job = db.jobs.find((entry) => entry.id === req.params.id);
+      if (!job) { const error = new Error('Job not found'); error.status = 404; throw error; }
+      const actorId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+      assertDemoActor(req, db, actorId);
+      if (job.employerId !== actorId) { const error = new Error('Only the recruiter who posted this job can close it'); error.status = 403; throw error; }
+
+      const recorded = recordHire(db, job, { outcome, candidateId });
+      if (recorded.outcome === 'invalid_outcome') { const error = new Error(`outcome must be one of ${HIRE_OUTCOMES.join(', ')}`); error.status = 400; throw error; }
+      // Closing a role must never leave the deck empty for this recruiter.
+      assertNeverZeroLiveJobs(db);
+      return recorded;
+    });
+    res.json(result);
+  } catch (error) { next(error); }
+});
+
+/** The candidate's own confirmation — the only thing that earns a verified-hire
+ *  badge. A recruiter's word alone never does. */
+app.post('/api/jobs/:id/hire/confirm', async (req, res, next) => {
+  try {
+    const result = await store.transaction((db) => {
+      const job = db.jobs.find((entry) => entry.id === req.params.id);
+      if (!job) { const error = new Error('Job not found'); error.status = 404; throw error; }
+      const candidateId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+      assertDemoActor(req, db, candidateId);
+      const confirmed = confirmHire(db, job, candidateId);
+      if (confirmed.outcome === 'not_the_hired_candidate') { const error = new Error('Only the hired candidate can confirm this'); error.status = 403; throw error; }
+      return confirmed;
+    });
+    res.json(result);
   } catch (error) { next(error); }
 });
 
@@ -1873,6 +1962,35 @@ function billingPayload(db, recruiter) {
     founding: foundingStatus(db),
     plan: planSummary(db, recruiter),
     team: teamPayload(db, recruiter),
+    verification: recruiterVerification(recruiter),
+    trial: trialPayload(subscription),
+    postings: postingsPayload(db, recruiter),
+  };
+}
+
+/** Trial terms as the recruiter sees them — length, kind, and what a founding
+ *  seat asks for in return. */
+function trialPayload(subscription) {
+  if (!subscription) return null;
+  return {
+    kind: subscription.trialKind || 'public',
+    days: subscription.trialDays ?? null,
+    startedAt: subscription.trialStartedAt ?? null,
+    endsAt: subscription.trialEndsAt ?? null,
+    extendedForHire: Boolean(subscription.hireExtensionGrantedAt),
+    obligations: subscription.trialKind === 'founding' ? obligationStatus(subscription) : [],
+  };
+}
+
+function postingsPayload(db, recruiter) {
+  const now = Date.now();
+  const own = (db.jobs || []).filter((job) => job.employerId === recruiter.id);
+  return {
+    termDays: POSTING_TERM_DAYS,
+    live: own.filter((job) => String(job.status).toLowerCase() === 'active').length,
+    paused: own.filter((job) => String(job.status).toLowerCase() === 'paused').length,
+    lockedSlots: own.filter((job) => job.slotLockedUntil && job.slotLockedUntil > now).length,
+    verifiedHire: hasVerifiedHire(db, recruiter.id),
   };
 }
 
@@ -2556,6 +2674,10 @@ app.get('/api/admin/billing/plans', async (req, res, next) => {
           availableOn: EXTRA_SEAT_ADDON.availableOn,
         },
         boost: { hours: BOOST_HOURS, usd: boostPrice('USD'), vnd: boostPrice('VND'), kinds: BOOST_KINDS },
+        singlePosting: { termDays: SINGLE_POSTING.termDays, usd: singlePostingPrice('USD'), vnd: singlePostingPrice('VND') },
+        payPerHireFeePercent: PAY_PER_HIRE_FEE_PERCENT,
+        postingTermDays: POSTING_TERM_DAYS,
+        trial: { foundingDays: FOUNDING_TRIAL_DAYS, publicDays: PUBLIC_TRIAL_DAYS, obligations: FOUNDING_OBLIGATIONS },
       },
       teams: (db.teams || []).map((team) => ({
         id: team.id,

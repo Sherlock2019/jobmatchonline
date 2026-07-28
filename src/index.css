@@ -468,8 +468,10 @@ button { cursor:pointer; }
 .launch-offer-badge { color:var(--green); text-transform:uppercase; letter-spacing:.09em; font-size:9px; font-weight:800; }
 .launch-offer strong { font:800 15px 'Manrope'; }
 .launch-offer p { color:#5a6474; font-size:12.5px; line-height:1.55; margin:0; }
-.launch-founding { margin:18px 0 0; padding:12px 15px; border-radius:12px; background:#fff; border:1px dashed #ffc2d6; color:#8a3455; font-size:12.5px; }
-.launch-founding b { color:var(--green); font-size:15px; }
+.launch-founding { margin:18px 0 0; padding:15px 18px; border-radius:12px; background:#fff; border:1px dashed #ffc2d6;
+  color:#8a3455; font-size:13px; display:flex; flex-direction:column; gap:3px; }
+.launch-founding strong { font:800 16px 'Manrope'; letter-spacing:-.01em; color:var(--ink); }
+.launch-founding em { font-style:normal; font-weight:800; color:var(--green); }
 .launch-offers-cta { margin-top:18px; }
 @media(max-width:640px){ .launch-offers { padding:20px 18px; } .launch-offer-grid { grid-template-columns:1fr; } }
 
@@ -525,6 +527,12 @@ button { cursor:pointer; }
 .plan-more[open] > summary { margin-bottom:14px; }
 .plan-more .plan-grid { grid-template-columns:repeat(2,1fr); max-width:560px; }
 .plan-addon-note { margin:14px 0 0; font-size:13px; color:#3a4550; }
+/* One-off posting and pay-per-hire — the two ways to buy without subscribing. */
+.plan-alt-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:18px; }
+.plan-alt-row article { border:1px solid var(--line); border-radius:16px; padding:20px 22px; background:#fff; }
+.plan-alt-row .plan-price { font-size:24px; }
+.plan-alt-row p:last-child { margin:10px 0 0; font-size:13px; color:#3a4550; }
+@media(max-width:640px){ .plan-alt-row { grid-template-columns:1fr; } }
 .plan-footnote { margin:18px 0 26px; font-size:12.5px; line-height:1.7; color:var(--muted); }
 @media(max-width:980px){ .plan-grid { grid-template-columns:repeat(2,1fr); } }
 @media(max-width:560px){ .plan-grid,.plan-more .plan-grid { grid-template-columns:1fr; } }

@@ -11,7 +11,7 @@ export function PlanCardView({ plan, onRegister }: { plan: PlanCard; onRegister:
     {popular && <span className="plan-badge">Most popular</span>}
     <span className="plan-name">{plan.display}</span>
     <p className="plan-price">{usd(plan.usd)}{!free && <small> / month</small>}</p>
-    <p className="plan-vnd">{free ? 'No card required' : `${vnd(plan.vnd)} / month`}</p>
+    <p className="plan-vnd">{free ? 'Free forever' : `${vnd(plan.vnd)} / month`}</p>
     <p className="plan-tagline">{plan.tagline}</p>
     <ul className="plan-perks">
       {plan.perks.map((perk) => <li key={perk}><Check size={14} /> {perk}</li>)}

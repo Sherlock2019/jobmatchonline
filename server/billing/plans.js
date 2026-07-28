@@ -88,6 +88,25 @@ export const EXTRA_SEAT_ADDON = {
   prices: { USD: { monthly: 12 }, VND: { monthly: 290000 } },
 };
 
+/* A single 60-day posting, for someone with exactly one role who will not take
+ * a subscription. Priced ABOVE Solo on purpose: at USD 25 for one job versus
+ * USD 20/month for five, the one-off exists mainly to make the subscription the
+ * obvious choice. It is a conversion device that happens to also be a product. */
+export const SINGLE_POSTING = {
+  key: 'single_posting', display: 'Single job posting',
+  termDays: 60, liveJobSlots: 1,
+  prices: { USD: { once: 25 }, VND: { once: 590000 } },
+};
+
+/* No subscription, no monthly fee: pay a percentage of first-year salary when a
+ * hire actually completes. VN SMEs consistently prefer pay-per-use to
+ * commitment, and this is the only plan that asks for nothing up front. */
+export const PAY_PER_HIRE_FEE_PERCENT = Number(process.env.PAY_PER_HIRE_FEE_PERCENT || 5);
+
+export function singlePostingPrice(currency = 'USD') {
+  return SINGLE_POSTING.prices[currency]?.once ?? SINGLE_POSTING.prices.USD.once;
+}
+
 /** Annual is 10x monthly — two months free. Derived, not stored per plan. */
 export const ANNUAL_MONTHS_CHARGED = 10;
 export const BILLING_INTERVALS = ['monthly', 'annual'];

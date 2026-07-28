@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { EXTRA_SEAT_ADDON, ANNUAL_MONTHS_CHARGED, PLANS } from './billing/plans.js';
+import { EXTRA_SEAT_ADDON, ANNUAL_MONTHS_CHARGED, PAY_PER_HIRE_FEE_PERCENT, PLANS, SINGLE_POSTING } from './billing/plans.js';
 import { BOOST_HOURS, BOOST_PRICE_USD, BOOST_PRICE_VND } from './billing/boosts.js';
+import { POSTING_TERM_DAYS } from './billing/postings.js';
+import { FOUNDING_TRIAL_DAYS, PUBLIC_TRIAL_DAYS } from './billing/trial.js';
 
 /* The pricing page renders from src/lib/plans.ts so it doesn't need an API call
  * for six static numbers. That copy can silently drift from the plans the
@@ -54,4 +56,25 @@ test('pricing page shows the same boost and annual terms the server uses', () =>
   assert.equal(num('usd'), BOOST_PRICE_USD);
   assert.equal(num('vnd'), BOOST_PRICE_VND);
   assert.equal(Number(source.match(/ANNUAL_MONTHS_CHARGED = (\d+)/)[1]), ANNUAL_MONTHS_CHARGED);
+});
+
+test('pricing page shows the same one-off posting the server sells', () => {
+  const block = source.slice(source.indexOf('export const SINGLE_POSTING ='));
+  const num = (field) => Number(block.match(new RegExp(`${field}: (\\d+)`))[1]);
+  assert.equal(num('termDays'), SINGLE_POSTING.termDays);
+  assert.equal(num('usd'), SINGLE_POSTING.prices.USD.once);
+  assert.equal(num('vnd'), SINGLE_POSTING.prices.VND.once);
+  // The one-off has to stay more expensive than a month of Solo, or it stops
+  // selling the subscription and starts cannibalising it.
+  assert.ok(SINGLE_POSTING.prices.USD.once > PLANS.solo.prices.USD.monthly);
+  assert.ok(SINGLE_POSTING.prices.VND.once > PLANS.solo.prices.VND.monthly);
+});
+
+test('pricing page shows the same posting term, trial lengths and hire fee', () => {
+  assert.equal(Number(source.match(/POSTING_TERM_DAYS = (\d+)/)[1]), POSTING_TERM_DAYS);
+  const fee = source.slice(source.indexOf('export const PAY_PER_HIRE ='));
+  assert.equal(Number(fee.match(/feePercent: (\d+)/)[1]), PAY_PER_HIRE_FEE_PERCENT);
+  const trial = source.slice(source.indexOf('export const TRIAL ='));
+  assert.equal(Number(trial.match(/foundingDays: (\d+)/)[1]), FOUNDING_TRIAL_DAYS);
+  assert.equal(Number(trial.match(/publicDays: (\d+)/)[1]), PUBLIC_TRIAL_DAYS);
 });
