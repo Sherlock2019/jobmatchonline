@@ -594,9 +594,15 @@ button { cursor:pointer; }
 /* The audience heading is a full-bleed colour band across the top of its panel.
    Negative margins cancel the panel's own padding so it reaches the edges; they
    have to be kept in step with that padding at every breakpoint below. */
+/* The header caps its text at 70ch for readability, which also capped the band
+   and left it stopping short of the panel's right edge. The cap belongs on the
+   prose, not on the container the band spans. */
+#pricing .pricing-side > header { max-width:none; }
+#pricing .pricing-side > header h3, #pricing .pricing-side > header p { max-width:64ch; }
+
 #pricing .pricing-side-tag {
-  margin:-38px -34px 26px; padding:26px 34px 24px;
-  font-weight:600; letter-spacing:.01em; font-size:clamp(26px,3.3vw,35px);
+  margin:-38px -34px 28px; padding:24px 34px;
+  font-weight:600; letter-spacing:.005em; font-size:clamp(24px,2.9vw,32px);
   color:#fff;
   /* The recruiter label previously used background-clip:text to paint a gradient
      into the glyphs. Both the standard and -webkit properties have to be reset
@@ -605,7 +611,9 @@ button { cursor:pointer; }
 }
 /* The small underline rule was standing in for exactly this; the band replaces it. */
 #pricing .pricing-side-tag::after { display:none; }
-#pricing .pricing-side > header h3 { font-weight:600; letter-spacing:-.021em; }
+/* The band already supplies the space above; its own margin and this one were
+   stacking to a 46px gap that read as a break rather than a heading. */
+#pricing .pricing-side > header h3 { font-weight:600; letter-spacing:-.021em; margin:0 0 8px; }
 #pricing .pricing-side > header p { color:rgba(60,60,67,.68); font-size:15px; line-height:1.55; }
 
 /* Apple system blue for the candidate half. */
@@ -668,7 +676,7 @@ button { cursor:pointer; }
    or it stops reaching the edges and reads as a misaligned block. */
 @media(max-width:560px){
   #pricing .pricing-side { padding:28px 22px; }
-  #pricing .pricing-side-tag { margin:-28px -22px 22px; padding:22px 22px 20px; }
+  #pricing .pricing-side-tag { margin:-28px -22px 22px; padding:18px 22px; }
 }
 
 @media (prefers-color-scheme: dark) {
