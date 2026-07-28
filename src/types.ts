@@ -143,6 +143,17 @@ export interface BillingInfo {
   entitlements?: RecruiterEntitlements;
   plan?: PlanSummary; team?: TeamInfo;
   verification?: RecruiterVerification; trial?: TrialInfo; postings?: PostingsInfo;
+  charge?: ChargeInfo; selectablePlans?: SelectablePlan[];
+}
+/** What the next payment will be, in the recruiter's own currency. */
+export interface ChargeInfo {
+  planKey: string; planDisplay: string; interval: 'monthly' | 'annual'; currency: string;
+  baseAmount: number; extraSeats: number; addonAmount: number; amount: number;
+  seats: number; liveJobSlots: number; monthsCovered: number;
+}
+export interface SelectablePlan {
+  key: string; display: string; seats: number; liveJobSlots: number;
+  monthly: number | null; annual: number | null;
 }
 export interface Referral { id: string; referrerUserId: string; referredUserId: string; referralCode: string; status: string; suspicious?: boolean; qualifiedPaymentId: string | null; qualifiedAt: number | null; createdAt: number }
 export interface BillingEvent { id: string; userId: string | null; eventType: string; entityType: string; entityId: string; metadata: Record<string, unknown>; createdAt: number }

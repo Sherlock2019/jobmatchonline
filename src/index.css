@@ -471,12 +471,8 @@ button { cursor:pointer; }
 .launch-offers-cta { margin-top:18px; }
 @media(max-width:640px){ .launch-offers { padding:20px 18px; } .launch-offer-grid { grid-template-columns:1fr; } }
 
-/* Pitch line above the plan cards — the one-sentence summary of the whole
-   pricing model, so it reads at headline weight rather than as caption text. */
-.pricing-pitch { margin:0 0 26px; text-align:center; font:800 clamp(22px,3vw,34px)/1.25 'Manrope'; letter-spacing:-.02em; }
-.pricing-pitch .pitch-free { color:var(--blue); }
-.pricing-pitch .pitch-value { background:var(--brand-gradient); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-@media(max-width:640px){ .pricing-pitch .pitch-free,.pricing-pitch .pitch-value { display:block; } }
+/* The old single pitch line is gone — its two halves are now the headings of
+   the two coloured panels below, which is what they were describing anyway. */
 .pricing-cards { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
 .pricing-card { border:1px solid var(--line); border-radius:22px; padding:32px 30px; background:#fff; display:flex; flex-direction:column; }
 .pricing-card.featured { border-color:var(--green); box-shadow:0 20px 44px rgba(63,211,112,.14); position:relative; }
@@ -492,12 +488,35 @@ button { cursor:pointer; }
 .pricing-card ul { margin-bottom:0; }
 @media(max-width:760px){ .pricing-cards { grid-template-columns:1fr; } }
 
-/* Candidates get a full-width band rather than a column beside the recruiter
-   tiers: "free forever" is a statement, not one option among several. */
-.pricing-candidate-band { display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap;
-  border:1px solid var(--line); border-radius:22px; padding:24px 30px; background:#fff; margin-bottom:22px; }
-.pricing-candidate-band h3 { font:800 30px 'Manrope'; letter-spacing:-.03em; margin:8px 0 6px; }
-.pricing-candidate-band p { margin:0; font-size:13.5px; color:#3a4550; max-width:60ch; }
+/* Two sides of the marketplace, two colours. Blue is the candidate half and is
+   free; pink is the recruiter half and is what gets paid for. Someone landing
+   mid-page should know which half is theirs without reading a word. */
+.pricing-side { border-radius:26px; padding:34px 32px; margin-bottom:24px; border:1px solid transparent; }
+.pricing-side > header { max-width:70ch; margin-bottom:22px; }
+.pricing-side-tag { display:inline-block; text-transform:uppercase; letter-spacing:.12em; font-size:11px; font-weight:800;
+  padding:6px 12px; border-radius:999px; margin-bottom:12px; }
+.pricing-side > header h3 { font:800 clamp(26px,3.4vw,36px)/1.15 'Manrope'; letter-spacing:-.03em; margin:0 0 10px; }
+.pricing-side > header p { margin:0; font-size:14px; line-height:1.65; color:#3a4550; }
+
+/* Candidates — blue, calm, and short. There is nothing to compare. */
+.pricing-candidates { background:linear-gradient(150deg,#f1f8fd 0%,#eaf4fc 100%); border-color:#cfe4f7; }
+.pricing-candidates .pricing-side-tag { background:var(--blue); color:#fff; }
+.pricing-candidates > header h3 { color:var(--blue); }
+.pricing-side-perks { list-style:none; margin:0 0 24px; padding:0;
+  display:grid; grid-template-columns:repeat(3,1fr); gap:12px 22px; }
+.pricing-side-perks li { display:flex; align-items:flex-start; gap:9px; font-size:14px; font-weight:600; color:#12324e; }
+.pricing-side-perks li svg { flex:none; margin-top:2px; color:var(--blue); }
+.pricing-side-cta { display:inline-flex; align-items:center; gap:9px; border:none; cursor:pointer;
+  background:var(--blue); color:#fff; font:800 14px 'Manrope'; padding:14px 24px; border-radius:999px;
+  box-shadow:0 10px 25px rgba(10,102,194,.25); }
+.pricing-side-cta:hover { background:#08528f; }
+
+/* Recruiters — the brand pink, because this is the half with a price on it. */
+.pricing-recruiters { background:linear-gradient(150deg,#fff5f8 0%,#ffeef4 100%); border-color:#ffd7e5; }
+.pricing-recruiters .pricing-side-tag { background:var(--brand-gradient); color:#fff; }
+.pricing-recruiters > header h3 { background:var(--brand-gradient); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+@media(max-width:900px){ .pricing-side-perks { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:560px){ .pricing-side { padding:26px 20px; } .pricing-side-perks { grid-template-columns:1fr; } }
 
 .plan-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; align-items:stretch; }
 .plan-card { position:relative; display:flex; flex-direction:column; gap:6px; background:#fff;
@@ -775,6 +794,29 @@ img.avatar-mini { object-fit:cover; }
 .billing-card-pay { border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:18px; background:#f7f8f5; }
 .billing-card-pay h3 { margin:0 0 6px !important; }
 .billing-card-pay p { margin:0 0 12px; }
+/* Plan picker. Sits above the payment methods because choosing what you're
+   buying has to come before choosing how to pay for it. */
+.billing-plan-picker { border:1px solid var(--line); border-radius:16px; padding:22px 24px; margin-bottom:24px; background:#fff; }
+.billing-plan-picker h3 { margin:0 0 6px; font:800 16px 'Manrope'; }
+.billing-plan-picker > .muted { margin:0 0 16px; font-size:12.5px; line-height:1.6; }
+.billing-plan-options { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+.billing-plan-option { position:relative; cursor:pointer; text-align:left; background:#fff; font:inherit;
+  border:1.5px solid var(--line); border-radius:14px; padding:14px 13px; display:flex; flex-direction:column; gap:4px; }
+.billing-plan-option:hover:not(:disabled) { border-color:#ffc2d6; }
+.billing-plan-option.chosen { border-color:var(--green); background:var(--lime); }
+.billing-plan-option:disabled { opacity:.6; cursor:default; }
+.billing-plan-option strong { font:800 19px 'Manrope'; letter-spacing:-.02em; }
+.billing-plan-option strong small { font-size:11px; font-weight:700; color:var(--muted); }
+.billing-plan-option em { font-style:normal; font-size:11.5px; color:var(--muted); }
+.billing-plan-chosen { position:absolute; top:-9px; right:10px; background:var(--green); color:#fff;
+  font:800 9px/1 'Manrope'; letter-spacing:.06em; text-transform:uppercase; padding:5px 8px; border-radius:999px; }
+.billing-interval-row { display:flex; gap:9px; margin-top:14px; flex-wrap:wrap; }
+.billing-interval-row button { cursor:pointer; font:700 12.5px 'Manrope'; padding:9px 15px; border-radius:999px;
+  border:1.5px solid var(--line); background:#fff; }
+.billing-interval-row button.active { border-color:var(--green); background:var(--lime); color:var(--green); }
+@media(max-width:900px){ .billing-plan-options { grid-template-columns:repeat(3,1fr); } }
+@media(max-width:560px){ .billing-plan-options { grid-template-columns:repeat(2,1fr); } }
+
 /* Plan + seats, above the payment options: what you have before what it costs. */
 .billing-plan-card { border:1px solid var(--line); border-radius:16px; padding:22px 24px; margin-bottom:24px; background:#fff; }
 .billing-plan-headline { display:flex; gap:24px; justify-content:space-between; flex-wrap:wrap; align-items:flex-start; }

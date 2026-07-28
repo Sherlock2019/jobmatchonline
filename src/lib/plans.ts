@@ -52,9 +52,12 @@ export const PLAN_CARDS: PlanCard[] = [
   },
 ];
 
-/** Rendered on the pricing page. Team and Agency sit behind the expander. */
+/* Rendered on the public pricing page. Agency is deliberately NOT listed here:
+ * it is still a real, buyable plan in the Subscription page, but a 10-seat tier
+ * on a public page mostly serves to anchor everyone else's price upward. Anyone
+ * who needs it is a conversation, not a self-serve checkout. */
 export const HEADLINE_PLANS: PlanKey[] = ['starter', 'solo', 'duo', 'trio'];
-export const MORE_SEAT_PLANS: PlanKey[] = ['team', 'agency'];
+export const MORE_SEAT_PLANS: PlanKey[] = ['team'];
 export const POPULAR_PLAN: PlanKey = 'solo';
 
 export const EXTRA_SEAT = { seats: 1, liveJobSlots: 5, usd: 12, vnd: 290000, availableOn: 'Agency' };

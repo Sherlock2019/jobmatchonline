@@ -15,7 +15,7 @@ import { FeaturesTable, FeedbackSection, JourneyPipeline, LatestShowcase } from 
 import { HeroAlt, HeroDefault, HeroImage } from './components/landing/HeroBanners';
 import { CANDIDATE_OFFERS, LaunchOffers } from './components/LaunchOffers';
 import { PlanCardView } from './components/landing/PlanCards';
-import { ANNUAL_MONTHS_CHARGED, BOOST, EXTRA_SEAT, HEADLINE_PLANS, MORE_SEAT_PLANS, PAY_PER_HIRE, planCard, POSTING_TERM_DAYS, SINGLE_POSTING, usd, vnd } from './lib/plans';
+import { ANNUAL_MONTHS_CHARGED, BOOST, HEADLINE_PLANS, MORE_SEAT_PLANS, PAY_PER_HIRE, planCard, POSTING_TERM_DAYS, SINGLE_POSTING, TRIAL, usd, vnd } from './lib/plans';
 import { CandidateWizard } from './components/profile/CandidateWizard';
 import { CandidateProfilePage } from './components/profile/CandidateProfilePage';
 import { RecruiterWizard } from './components/profile/RecruiterWizard';
@@ -288,48 +288,67 @@ function Landing({ onLogin }: { onLogin: (user: SessionUser) => void }) {
     </div></section>
     <section className="section pricing-section" id="pricing">
       <div className="section-heading centered"><span className="eyebrow"><Sparkles size={14} /> Pricing</span><h2>Hire faster. Pay less than one agency placement.</h2></div>
-      <p className="pricing-pitch"><span className="pitch-free">Always free for candidates,</span> <span className="pitch-value">from USD 20 a month for recruiters</span></p>
-      <div className="pricing-candidate-band">
-        <div>
-          <span className="pricing-kicker">Candidates</span>
+      {/* Two sides of the marketplace, two visually separate panels. A candidate
+          landing here should be able to tell in one glance which half is theirs
+          — blue is free and always will be, pink is what recruiters pay. */}
+      <section className="pricing-side pricing-candidates">
+        <header>
+          <span className="pricing-side-tag">For candidates</span>
           <h3>Free forever</h3>
-          <p>Profile, job matching, messaging and interview scheduling. Nothing here is ever paywalled.</p>
-        </div>
-        <button type="button" className="primary-button" onClick={openRegister}>Get started free</button>
-      </div>
-      <div className="plan-grid">
-        {HEADLINE_PLANS.map((key) => <PlanCardView key={key} plan={planCard(key)} onRegister={openRegister} />)}
-      </div>
-      <details className="plan-more">
-        <summary>Hiring with a bigger team? See Team and Agency seats</summary>
+          <p>Everything below is free, with no paid tier waiting to appear. We are paid by the companies doing the hiring — never by the people looking for work.</p>
+        </header>
+        <ul className="pricing-side-perks">
+          <li><Check size={15} /> Full profile and resume</li>
+          <li><Check size={15} /> Mutual-likes job matching</li>
+          <li><Check size={15} /> Messaging with recruiters</li>
+          <li><Check size={15} /> Interview scheduling</li>
+          <li><Check size={15} /> Salary shown up front</li>
+          <li><Check size={15} /> You control what employers see</li>
+        </ul>
+        <button type="button" className="pricing-side-cta" onClick={openRegister}>Get started free <ArrowRight size={17} /></button>
+      </section>
+
+      <section className="pricing-side pricing-recruiters">
+        <header>
+          <span className="pricing-side-tag">For recruiters</span>
+          <h3>From USD 20 a month</h3>
+          <p>Start with {TRIAL.days} days free. Pick the number of seats and live roles you actually need — every plan below costs less per seat than the one before it.</p>
+        </header>
         <div className="plan-grid">
-          {MORE_SEAT_PLANS.map((key) => <PlanCardView key={key} plan={planCard(key)} onRegister={openRegister} />)}
+          {HEADLINE_PLANS.map((key) => <PlanCardView key={key} plan={planCard(key)} onRegister={openRegister} />)}
         </div>
-        <p className="plan-addon-note">
-          Need more than {planCard('agency').seats} seats? Add extra {EXTRA_SEAT.availableOn} seats at <b>{usd(EXTRA_SEAT.usd)}</b> each per month
-          (<span className="plan-vnd">{vnd(EXTRA_SEAT.vnd)}</span>) — each one adds {EXTRA_SEAT.liveJobSlots} more live jobs.
+        <details className="plan-more">
+          <summary>Hiring with a bigger team? See Team seats</summary>
+          <div className="plan-grid">
+            {MORE_SEAT_PLANS.map((key) => <PlanCardView key={key} plan={planCard(key)} onRegister={openRegister} />)}
+          </div>
+          <p className="plan-addon-note">
+            Need more than {planCard('team').seats} seats? <a href="mailto:support@jobsmatchnow.com?subject=Larger%20recruiter%20plan">Talk to us</a> —
+            we have larger plans, we would just rather work out what you actually need than sell you a tier off a page.
+          </p>
+        </details>
+        <div className="plan-alt-row">
+          <article>
+            <span className="plan-name">One role only</span>
+            <p className="plan-price">{usd(SINGLE_POSTING.usd)}<small> once</small></p>
+            <p className="plan-vnd">{vnd(SINGLE_POSTING.vnd)}</p>
+            <p>A single job posting, live for {SINGLE_POSTING.termDays} days. No subscription.</p>
+          </article>
+          <article>
+            <span className="plan-name">Pay per hire</span>
+            <p className="plan-price">{usd(0)}<small> up front</small></p>
+            <p className="plan-vnd">then {PAY_PER_HIRE.feePercent}% of first-year salary</p>
+            <p>Nothing to pay until someone is actually hired through the platform.</p>
+          </article>
+        </div>
+        <p className="plan-footnote">
+          Every posting runs {POSTING_TERM_DAYS} days and then pauses — renewing is free, one click, as often as you like.
+          Annual billing charges {ANNUAL_MONTHS_CHARGED} months, so two are free. Vietnam accounts are billed in đồng at the prices shown.
+          Boost any job to the top of the deck for {BOOST.hours} hours for {usd(BOOST.usd)}; boosted cards are labelled <b>Promoted</b> and
+          keep the exact match score they earned.
         </p>
-      </details>
-      <div className="plan-alt-row">
-        <article>
-          <span className="plan-name">One role only</span>
-          <p className="plan-price">{usd(SINGLE_POSTING.usd)}<small> once</small></p>
-          <p className="plan-vnd">{vnd(SINGLE_POSTING.vnd)}</p>
-          <p>A single job posting, live for {SINGLE_POSTING.termDays} days. No subscription.</p>
-        </article>
-        <article>
-          <span className="plan-name">Pay per hire</span>
-          <p className="plan-price">{usd(0)}<small> up front</small></p>
-          <p className="plan-vnd">then {PAY_PER_HIRE.feePercent}% of first-year salary</p>
-          <p>Nothing to pay until someone is actually hired through the platform.</p>
-        </article>
-      </div>
-      <p className="plan-footnote">
-        Every posting runs {POSTING_TERM_DAYS} days and then pauses — renewing is free, one click, as often as you like.
-        Annual billing charges {ANNUAL_MONTHS_CHARGED} months, so two are free. Vietnam accounts are billed in đồng at the prices shown.
-        Boost any job to the top of the deck for {BOOST.hours} hours for {usd(BOOST.usd)}; boosted cards are labelled <b>Promoted</b> and
-        keep the exact match score they earned.
-      </p>
+      </section>
+
       <LaunchOffers onRegister={openRegister} />
     </section>
     <LatestShowcase onRegister={openRegister} onLogin={openLogin} />

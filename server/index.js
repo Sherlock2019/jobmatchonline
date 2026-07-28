@@ -37,6 +37,7 @@ import { assertNeverZeroLiveJobs, downgradeToFree, applyLiveJobLimit } from './b
 import { clearSlotLocks, confirmHire, hasVerifiedHire, HIRE_OUTCOMES, POSTING_TERM_DAYS, recordHire, renewPosting, startPostingTerm } from './billing/postings.js';
 import { extendForHireInFlight, TRIAL_DAYS } from './billing/trial.js';
 import { recruiterVerification } from './billing/verification.js';
+import { chargeFor, monthlyRecurringRevenue, selectPlan, SELECTABLE_PLANS } from './billing/charge.js';
 import { attachReferralOnRegister, findReferrerByCode, getOrCreateReferralCode, revokeReferralCreditForPayment } from './billing/referrals.js';
 import { BANK_INSTRUCTION_FIELDS, generateInvoiceNumber, generateTransferReference, MANUAL_METHOD_IDS, paymentInstructions } from './billing/providers/manual.js';
 import { buildPaymentUrl, isVnpayConfigured, isVnpaySuccess, VNPAY_AMOUNT_VND, verifySignature as verifyVnpaySignature } from './billing/providers/vnpay.js';
@@ -279,7 +280,7 @@ app.post('/api/billing/stripe/webhook', express.raw({ type: 'application/json', 
           const now = Date.now();
           payment = {
             id: crypto.randomUUID(), recruiterUserId: subscription.recruiterUserId, subscriptionId: subscription.id,
-            amount: PRICE_AMOUNT, currency: PRICE_CURRENCY, paymentMethod: 'stripe', status: 'pending',
+            ...paymentAmountFields(db, subscription), paymentMethod:'stripe', status: 'pending',
             paymentReference: invoice.subscription, invoiceNumber: `stripe-${invoice.id}`, payerName: null, bankName: null,
             transferDate: null, proofFileUrl: null, adminNote: null, confirmedByAdminId: null, confirmedAt: null,
             createdAt: now, updatedAt: now,
@@ -1958,11 +1959,44 @@ function billingPayload(db, recruiter) {
     // Subscription page already loads rather than a second round trip.
     entitlements: getRecruiterEntitlements(db, recruiter, subscription),
     plan: planSummary(db, recruiter),
+    // What the next payment will actually be, in their own currency — every
+    // payment button on the page renders from this rather than a hardcoded 20.
+    charge: chargeFor(db, recruiter, subscription),
+    selectablePlans: SELECTABLE_PLANS.map((key) => ({
+      key,
+      display: PLANS[key].display,
+      seats: PLANS[key].seats,
+      liveJobSlots: PLANS[key].liveJobSlots,
+      monthly: planPrice(key, currencyForCountry(recruiter.country)),
+      annual: planPrice(key, currencyForCountry(recruiter.country), 'annual'),
+    })),
     team: teamPayload(db, recruiter),
     verification: recruiterVerification(recruiter),
     trial: trialPayload(subscription),
     postings: postingsPayload(db, recruiter),
   };
+}
+
+/**
+ * Amount + currency for a new payment row, derived from the plan the recruiter
+ * actually chose. Every payment-creation path uses this: before the seat ladder
+ * existed a flat PRICE_AMOUNT was correct, and the moment it existed a recruiter
+ * on Agency would have been billed 20 and granted 130-worth of product.
+ * The plan and interval are stamped on the payment too, so an old row still
+ * says what it was for after the catalogue moves on.
+ */
+function paymentAmountFields(db, subscription) {
+  const recruiter = db.users.find((user) => user.id === subscription.recruiterUserId);
+  const charge = chargeFor(db, recruiter, subscription);
+  return { amount: charge.amount, currency: charge.currency, planKey: charge.planKey, billingInterval: charge.interval };
+}
+
+/** VNPay settles in VND and nothing else, so its rail always bills the plan's
+ *  stored VND price — never a converted USD figure. */
+function vnpayAmount(db, subscription) {
+  const recruiter = db.users.find((user) => user.id === subscription.recruiterUserId);
+  const charge = chargeFor(db, recruiter, subscription, { currency: 'VND' });
+  return { amount: charge.amount, currency: 'VND' };
 }
 
 /** Trial terms as the recruiter sees them. */
@@ -2051,6 +2085,29 @@ app.post('/api/billing/start-trial', async (req, res, next) => {
       return billingPayload(db, recruiter);
     });
     res.status(201).json(payload);
+  } catch (error) { next(error); }
+});
+
+/* Choose which plan to pay for. This records an intention only — entitlements
+ * still follow the subscription's real state, so selecting Agency does not hand
+ * out Agency until Agency has actually been paid for. */
+app.post('/api/billing/plan', async (req, res, next) => {
+  try {
+    const recruiterId = resolveActor(req, reqString(req.body, 'userId', { max: 128 }));
+    const planKey = reqString(req.body, 'planKey', { max: 32 });
+    const interval = req.body?.interval ? reqString(req.body, 'interval', { max: 16 }) : null;
+    const payload = await store.transaction((db) => {
+      const recruiter = db.users.find((user) => user.id === recruiterId);
+      if (!recruiter) { const error = new Error('User not found'); error.status = 404; throw error; }
+      assertDemoActor(req, db, recruiterId);
+      if (recruiter.role !== 'employer') { const error = new Error('Only recruiter accounts have a plan'); error.status = 400; throw error; }
+      const subscription = getOrCreateTrialSubscription(db, recruiterId);
+      const result = selectPlan(db, subscription, planKey, interval, recruiterId);
+      if (result.outcome === 'invalid_plan') { const error = new Error(`planKey must be one of ${SELECTABLE_PLANS.join(', ')}`); error.status = 400; throw error; }
+      if (result.outcome === 'invalid_interval') { const error = new Error('interval must be monthly or annual'); error.status = 400; throw error; }
+      return billingPayload(db, recruiter);
+    });
+    res.json(payload);
   } catch (error) { next(error); }
 });
 
@@ -2149,8 +2206,7 @@ app.post('/api/billing/payments', rateLimit({ windowMs: 3600000, max: 20, bucket
         id: crypto.randomUUID(),
         recruiterUserId: recruiterId,
         subscriptionId: subscription.id,
-        amount: PRICE_AMOUNT,
-        currency: PRICE_CURRENCY,
+        ...paymentAmountFields(db, subscription),
         paymentMethod,
         status: 'submitted',
         paymentReference: generateTransferReference(db),
@@ -2253,8 +2309,10 @@ app.post('/api/billing/payments/vnpay/create', rateLimit({ windowMs: 3600000, ma
         id: crypto.randomUUID(),
         recruiterUserId: recruiterId,
         subscriptionId: subscription.id,
-        amount: VNPAY_AMOUNT_VND,
-        currency: 'VND',
+        // VNPay settles in VND only, so the charge is forced to that currency
+        // regardless of where the account says it is.
+        ...paymentAmountFields(db, subscription),
+        ...vnpayAmount(db, subscription),
         paymentMethod: 'vnpay',
         status: 'pending',
         paymentReference: null,
@@ -2356,7 +2414,7 @@ app.post('/api/billing/payments/stripe/create-checkout-session', rateLimit({ win
       const now = Date.now();
       const created = {
         id: crypto.randomUUID(), recruiterUserId: recruiterId, subscriptionId: subscription.id,
-        amount: PRICE_AMOUNT, currency: PRICE_CURRENCY, paymentMethod: 'stripe', status: 'pending',
+        ...paymentAmountFields(db, subscription), paymentMethod:'stripe', status: 'pending',
         paymentReference: null, invoiceNumber: generateInvoiceNumber(db), payerName: null, bankName: null,
         transferDate: null, proofFileUrl: null, adminNote: null, confirmedByAdminId: null, confirmedAt: null,
         createdAt: now, updatedAt: now,
@@ -2391,7 +2449,7 @@ app.post('/api/billing/payments/paypal/create-subscription', rateLimit({ windowM
       const now = Date.now();
       const created = {
         id: crypto.randomUUID(), recruiterUserId: recruiterId, subscriptionId: subscription.id,
-        amount: PRICE_AMOUNT, currency: PRICE_CURRENCY, paymentMethod: 'paypal', status: 'pending',
+        ...paymentAmountFields(db, subscription), paymentMethod:'paypal', status: 'pending',
         paymentReference: null, invoiceNumber: generateInvoiceNumber(db), payerName: null, bankName: null,
         transferDate: null, proofFileUrl: null, adminNote: null, confirmedByAdminId: null, confirmedAt: null,
         createdAt: now, updatedAt: now,
@@ -2439,7 +2497,7 @@ app.post('/api/billing/payments/google-play/verify', rateLimit({ windowMs: 36000
       const now = Date.now();
       const payment = {
         id: crypto.randomUUID(), recruiterUserId: recruiterId, subscriptionId: subscription.id,
-        amount: PRICE_AMOUNT, currency: PRICE_CURRENCY, paymentMethod: 'google_play', status: 'pending',
+        ...paymentAmountFields(db, subscription), paymentMethod:'google_play', status: 'pending',
         paymentReference: purchaseToken, invoiceNumber, payerName: null, bankName: null, transferDate: null,
         proofFileUrl: null, adminNote: null, confirmedByAdminId: null, confirmedAt: null, createdAt: now, updatedAt: now,
       };
@@ -2505,7 +2563,7 @@ app.post('/api/billing/payments/apple/verify', rateLimit({ windowMs: 3600000, ma
       const now = Date.now();
       const payment = {
         id: crypto.randomUUID(), recruiterUserId: recruiterId, subscriptionId: subscription.id,
-        amount: PRICE_AMOUNT, currency: PRICE_CURRENCY, paymentMethod: 'apple_iap', status: 'pending',
+        ...paymentAmountFields(db, subscription), paymentMethod:'apple_iap', status: 'pending',
         paymentReference: verified.originalTransactionId, invoiceNumber, payerName: null, bankName: null, transferDate: null,
         proofFileUrl: null, adminNote: null, confirmedByAdminId: null, confirmedAt: null, createdAt: now, updatedAt: now,
       };
@@ -2544,7 +2602,7 @@ app.post('/api/billing/apple/notifications', async (req, res) => {
       const now = Date.now();
       const payment = {
         id: crypto.randomUUID(), recruiterUserId: priorPayment.recruiterUserId, subscriptionId: priorPayment.subscriptionId,
-        amount: PRICE_AMOUNT, currency: PRICE_CURRENCY, paymentMethod: 'apple_iap', status: 'pending',
+        ...paymentAmountFields(db, subscription), paymentMethod:'apple_iap', status: 'pending',
         paymentReference: transactionInfo.originalTransactionId, invoiceNumber, payerName: null, bankName: null, transferDate: null,
         proofFileUrl: null, adminNote: null, confirmedByAdminId: null, confirmedAt: null, createdAt: now, updatedAt: now,
       };
@@ -2792,14 +2850,16 @@ app.get('/api/admin/analytics/overview', async (req, res, next) => {
     const realJobs = db.jobs.filter((job) => !demoUserIds.has(job.employerId));
     const realMatches = db.matches.filter((match) => !demoUserIds.has(match.employerId) && !demoUserIds.has(match.candidateId));
 
-    // Revenue: MRR is counted as (active subscriptions x the flat USD price),
-    // never by summing payment.amount directly — payments are recorded in
-    // whatever currency the method used (USD for manual, VND for VNPay), so
-    // summing raw amounts across methods would silently mix currencies.
+    // Revenue: MRR sums each subscription's OWN plan price, normalised to USD.
+    // It used to be (count × one flat price), which was right when there was
+    // one plan and quietly wrong the moment the ladder shipped — an Agency
+    // account would have counted as 20 instead of 130. Still never summed from
+    // payment.amount directly: payments are stored in whatever currency the
+    // rail used, so adding those raw would mix USD and VND into one number.
     const realRecruiterIds = new Set(recruiters.map((user) => user.id));
     const realSubscriptions = db.subscriptions.filter((sub) => realRecruiterIds.has(sub.recruiterUserId) && sub.status !== 'cancelled');
     const activeSubscriptions = realSubscriptions.filter((sub) => computeEffectiveStatus(sub, now) === 'active');
-    const mrr = activeSubscriptions.length * PRICE_AMOUNT;
+    const mrr = monthlyRecurringRevenue(db, activeSubscriptions);
     const confirmedPayments = db.payments.filter((payment) => payment.status === 'confirmed' && realRecruiterIds.has(payment.recruiterUserId));
     const recruitersEverPaid = new Set(confirmedPayments.map((payment) => payment.recruiterUserId));
     const trialToPaidConversionPct = realSubscriptions.length ? Math.round((recruitersEverPaid.size / realSubscriptions.length) * 100) : 0;

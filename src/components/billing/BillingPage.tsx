@@ -4,6 +4,7 @@ import { api } from '../../api';
 import { Field, TextInput } from '../profile/fields';
 import { isAndroidNative, isIosNative, purchaseAppleSubscription, purchaseGooglePlaySubscription } from '../../lib/nativeBilling';
 import { LaunchOffers } from '../LaunchOffers';
+import { TRIAL } from '../../lib/plans';
 import type { Bootstrap, Payment, PaymentMethod, TeamInfo } from '../../types';
 
 function money(amount: number, currency: string) {
@@ -39,6 +40,8 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
   const [inviteError, setInviteError] = useState('');
   // Set only after an invite, so the seat list updates without a full reload.
   const [teamOverride, setTeamOverride] = useState<TeamInfo | null>(null);
+  const [planSaving, setPlanSaving] = useState(false);
+  const [planError, setPlanError] = useState('');
 
   useEffect(() => { api.myPayments(viewer.id).then((res) => setPayments(res.payments)).catch(() => undefined); }, [viewer.id]);
   useEffect(() => { api.billingReferral(viewer.id).then(setReferralStats).catch(() => undefined); }, [viewer.id]);
@@ -50,14 +53,25 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
 
   if (!data.billing) {
     return <div className="page"><div className="page-title"><div><span className="overline">Recruiter plan</span><h1>Subscription</h1></div></div>
-      <div className="billing-empty"><p>No subscription yet.</p><button className="primary-button" onClick={startTrial}>Start free 3-month trial</button></div>
+      <div className="billing-empty"><p>No subscription yet.</p><button className="primary-button" onClick={startTrial}>Start your free {TRIAL.days}-day trial</button></div>
     </div>;
   }
 
-  const { subscription, effectiveStatus, credits, referralCode, instructions, vnpayEnabled, vnpayAmountVnd, stripeEnabled, paypalEnabled, googlePlayEnabled, googlePlayProductId, appleEnabled, appleProductId, plan } = data.billing;
+  const { subscription, effectiveStatus, credits, referralCode, instructions, vnpayEnabled, vnpayAmountVnd, stripeEnabled, paypalEnabled, googlePlayEnabled, googlePlayProductId, appleEnabled, appleProductId, plan, charge, selectablePlans, trial } = data.billing;
   const team = teamOverride ?? data.billing.team;
   const accessEndsAt = subscription.currentPeriodEndsAt || subscription.trialEndsAt;
   const referralLink = `${window.location.origin}/ref/${referralCode}`;
+  // Every payment button reads from the same server-computed charge, so no two
+  // of them can ever quote different amounts for the same subscription.
+  const chargeLabel = charge ? money(charge.amount, charge.currency) : 'USD 20';
+  const vndCharge = charge?.currency === 'VND' ? charge.amount.toLocaleString('en-US') : null;
+
+  const choosePlan = async (planKey: string, interval?: 'monthly' | 'annual') => {
+    setPlanSaving(true); setPlanError('');
+    try { setData({ ...data, billing: await api.billingSelectPlan(viewer.id, planKey, interval) }); }
+    catch (e) { setPlanError(e instanceof Error ? e.message : 'Could not change plan'); }
+    finally { setPlanSaving(false); }
+  };
 
   const invite = async () => {
     setInviting(true); setInviteError('');
@@ -135,7 +149,9 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
   };
 
   return <div className="page billing-page">
-    <div className="page-title"><div><span className="overline">Recruiter plan</span><h1>Subscription</h1><p>USD 20/month per seat — your first 3 months are free.</p></div></div>
+    <div className="page-title"><div><span className="overline">Recruiter plan</span><h1>Subscription</h1>
+      <p>{charge ? `${charge.planDisplay} — ${money(charge.amount, charge.currency)} / ${charge.interval === 'annual' ? 'year' : 'month'}` : 'Choose a plan below.'}
+        {trial?.days ? ` · your first ${trial.days} days are free.` : ''}</p></div></div>
 
     {paymentResult && <div className={`billing-result-banner billing-result-${paymentResult}`}>
       {paymentResult === 'success' ? 'Payment confirmed — thanks!' : 'The card payment did not go through. You can try again or use bank transfer / VietQR below.'}
@@ -150,6 +166,38 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
       {effectiveStatus === 'grace_period' && <p className="billing-grace-warning">You're in a 7-day grace period — you can still view existing jobs and messages, but can't publish new jobs or contact new candidates until you renew.</p>}
       {credits.length > 0 && <p className="billing-credit-note">{credits.length} referral credit{credits.length > 1 ? 's' : ''} available — applied automatically before you're asked to pay again.</p>}
     </section>
+
+    {selectablePlans && selectablePlans.length > 0 && <section className="billing-plan-picker">
+      <h3>Choose your plan</h3>
+      <p className="muted">
+        Every plan costs less per seat than the one below it. Picking one here only sets what you'll be charged —
+        nothing changes on your account until a payment goes through.
+      </p>
+      <div className="billing-plan-options">
+        {selectablePlans.map((option) => {
+          const chosen = charge?.planKey === option.key;
+          return <button
+            key={option.key}
+            type="button"
+            className={`billing-plan-option${chosen ? ' chosen' : ''}`}
+            disabled={planSaving}
+            onClick={() => choosePlan(option.key)}
+          >
+            <span className="plan-name">{option.display}</span>
+            <strong>{option.monthly === null ? '—' : money(option.monthly, charge?.currency || 'USD')}<small> / mo</small></strong>
+            <em>{option.seats} seat{option.seats > 1 ? 's' : ''} · {option.liveJobSlots} live jobs</em>
+            {chosen && <span className="billing-plan-chosen">Selected</span>}
+          </button>;
+        })}
+      </div>
+      {charge && <div className="billing-interval-row">
+        <button type="button" className={charge.interval === 'monthly' ? 'active' : ''} disabled={planSaving}
+          onClick={() => choosePlan(charge.planKey, 'monthly')}>Monthly</button>
+        <button type="button" className={charge.interval === 'annual' ? 'active' : ''} disabled={planSaving}
+          onClick={() => choosePlan(charge.planKey, 'annual')}>Annual — two months free</button>
+      </div>}
+      {planError && <p className="billing-seat-error">{planError}</p>}
+    </section>}
 
     {plan && <section className="billing-plan-card">
       <div className="billing-plan-headline">
@@ -197,17 +245,19 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
     <section className="billing-grid">
       <div className="billing-pay-card">
         {vnpayEnabled && <div className="billing-card-pay">
-          <h3>Pay by card — {vnpayAmountVnd?.toLocaleString('vi-VN')} VND</h3>
+          {/* VNPay settles in VND only, so this rail always shows the plan's
+              stored VND price rather than a converted USD figure. */}
+          <h3>Pay by card — {vndCharge ?? vnpayAmountVnd?.toLocaleString('en-US')} ₫</h3>
           <p className="muted">Visa, Mastercard, JCB, or a linked wallet like Google Pay — via VNPay's secure page.</p>
           <button type="button" className="primary-button" onClick={() => payVia('vnpay')} disabled={cardRedirecting}>{cardRedirecting ? <Loader2 size={16} className="spin" /> : 'Pay by card (VNPay)'}</button>
         </div>}
         {stripeEnabled && <div className="billing-card-pay">
-          <h3>Pay by card — USD 20</h3>
+          <h3>Pay by card — {chargeLabel}</h3>
           <p className="muted">Visa, Mastercard, and more — via Stripe's secure checkout.</p>
           <button type="button" className="primary-button" onClick={() => payVia('stripe')} disabled={cardRedirecting}>{cardRedirecting ? <Loader2 size={16} className="spin" /> : 'Pay by card (Stripe)'}</button>
         </div>}
         {paypalEnabled && <div className="billing-card-pay">
-          <h3>Pay with PayPal — USD 20</h3>
+          <h3>Pay with PayPal — {chargeLabel}</h3>
           <p className="muted">Pay via your PayPal balance or a linked card.</p>
           <button type="button" className="primary-button" onClick={() => payVia('paypal')} disabled={cardRedirecting}>{cardRedirecting ? <Loader2 size={16} className="spin" /> : 'Pay with PayPal'}</button>
         </div>}
@@ -221,7 +271,7 @@ export function BillingPage({ data, setData, paymentResult, onDismissResult }: {
           <p className="muted">Billed through your Apple account.</p>
           <button type="button" className="primary-button" onClick={() => purchaseNative('apple_iap')} disabled={cardRedirecting}>{cardRedirecting ? <Loader2 size={16} className="spin" /> : 'Subscribe via App Store'}</button>
         </div>}
-        <h3>{vnpayEnabled || stripeEnabled || paypalEnabled ? 'Or pay by bank transfer — USD 20' : 'Submit a payment — USD 20'}</h3>
+        <h3>{vnpayEnabled || stripeEnabled || paypalEnabled ? `Or pay by bank transfer — ${chargeLabel}` : `Submit a payment — ${chargeLabel}`}</h3>
         <Field label="Payment method">
           <select className="wz-input wz-select" value={method} onChange={(event) => setMethod(event.target.value as PaymentMethod)}>
             <option value="vietqr">VietQR</option>

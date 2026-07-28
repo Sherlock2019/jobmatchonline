@@ -136,6 +136,7 @@ export const api = {
   adminExtendTrial: (id: string, days: number, reason: string) => request<unknown>(`/api/admin/billing/subscriptions/${id}/extend-trial`, { method: 'POST', body: JSON.stringify({ days, reason }) }),
   adminGrantBoost: (kind: 'job' | 'candidate', targetId: string, reason: string) => request<{ outcome: string; boost: BoostRecord }>('/api/admin/billing/boosts', { method: 'POST', body: JSON.stringify({ kind, targetId, reason }) }),
   adminRevokeBoost: (id: string, reason: string) => request<BoostRecord>(`/api/admin/billing/boosts/${id}/revoke`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  billingSelectPlan: (userId: string, planKey: string, interval?: 'monthly' | 'annual') => request<BillingInfo>('/api/billing/plan', { method: 'POST', body: JSON.stringify({ userId, planKey, interval }) }),
   billingTeam: (userId: string) => request<TeamInfo>(`/api/billing/team?userId=${encodeURIComponent(userId)}`),
   billingInviteTeamMember: (userId: string, email: string) => request<TeamInfo>('/api/billing/team/members', { method: 'POST', body: JSON.stringify({ userId, email }) }),
   adminAnalyticsOverview: () => request<AdminAnalyticsOverview>('/api/admin/analytics/overview'),
