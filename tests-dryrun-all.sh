@@ -27,7 +27,7 @@ bash tests-e2e-smoke.sh 2>/dev/null | grep -q "ALL PASS" && ok "cheap tier featu
 
 echo
 echo "════════ 2. EC2 SERVICES ════════"
-SSH="ssh -o BatchMode=yes -o ConnectTimeout=12 ubuntu@13.229.182.186"
+SSH="ssh -o BatchMode=yes -o ConnectTimeout=12 ubuntu@100.53.177.235"
 SVC=$($SSH "systemctl is-active nginx jobsmatchnow-api postgresql certbot.timer 2>/dev/null | tr '\n' ' '")
 chk "nginx api postgres certbot all active" "$(echo $SVC | tr -s ' ')" "active active active active"
 DBROWS=$($SSH "sudo -u postgres psql -d jobsmatchnow -t -c 'select count(*) from app_state'" | tr -d ' \n')

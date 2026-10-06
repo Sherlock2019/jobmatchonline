@@ -5,7 +5,7 @@
 # -- deploy-production.sh only ships the built web app, not this file.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-H=ubuntu@13.229.182.186
+H=ubuntu@100.53.177.235
 STAMP=$(date +%Y%m%d%H%M%S)
 
 echo "== ship config"

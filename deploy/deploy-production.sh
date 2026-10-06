@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Deploy jobsmatchnow.com to EC2 13.229.182.186 as an atomic release.
+# Deploy jobsmatchnow.com to EC2 100.53.177.235 as an atomic release.
 # Assembles: web app at / (root) + APK at /downloads/
 # Usage: ./deploy/deploy-production.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-H=ubuntu@13.229.182.186
+H=ubuntu@100.53.177.235
 DOCROOT=/var/www/jobmatchsnow.work
 STAMP=$(date +%Y%m%d%H%M%S)
 STAGE=/tmp/jobsmatchnow-release-$STAMP

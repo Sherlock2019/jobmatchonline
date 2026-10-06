@@ -13,7 +13,7 @@
 # Run deploy/sync-nginx-config.sh separately for the gzip fix (nginx site
 # config is already tracked + synced by that script).
 set -euo pipefail
-H=ubuntu@13.229.182.186
+H=ubuntu@100.53.177.235
 
 cat > /tmp/optimize-remote.sh <<'REMOTE'
 set -e

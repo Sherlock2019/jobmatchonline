@@ -29,7 +29,7 @@ check_prod() {
     [ "$code" = 200 ] || ok=0
   done
   curl -s -m 15 "$PROD_SITE/api/health" | head -c 120; echo
-  if [ "$ok" = 1 ]; then echo "  PRODUCTION UP"; else echo "  ⚠ production degraded — check EC2 13.229.182.186 (nginx / jobsmatchnow-api service)"; fi
+  if [ "$ok" = 1 ]; then echo "  PRODUCTION UP"; else echo "  ⚠ production degraded — check EC2 100.53.177.235 (nginx / jobsmatchnow-api service)"; fi
   return 0
 }
 

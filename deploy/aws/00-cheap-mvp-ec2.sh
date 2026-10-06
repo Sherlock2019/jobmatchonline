@@ -4,7 +4,7 @@
 # Run from WSL. Idempotent. The production tier (CloudFront/ECS/RDS) is deploy/aws/10-30.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-H=ubuntu@13.229.182.186
+H=ubuntu@100.53.177.235
 SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new $H"
 STAMP=$(date +%Y%m%d%H%M%S)
 REL=/opt/jobsmatchnow-api/releases/$STAMP
